@@ -4,8 +4,8 @@ slug: provider-adapter
 part: foundations
 partTitle: 第一部 · 建立可执行语言
 chapter: "05"
-title: 把真实流式协议挡在边界外
-summary: 分四步把 canonical 消息翻译成请求，再把 OpenAI-compatible SSE 还原成统一模型事件。
+title: 模型调用：在课程协议和 Provider API 之间转换
+summary: 跟随一次模型调用，读懂消息如何写成 HTTP 请求，流式响应又如何变回统一事件。
 minutes: 240
 difficulty: 核心
 artifact: packages/pi-course/src/provider-adapter.ts
@@ -16,71 +16,79 @@ upstream: packages/ai/src/api/openai-completions.ts
 
 ## 你将得到什么
 
-第 04 章的 `ScriptedModel` 已经能稳定生成 `ModelEvent`。真实模型服务却不认识这套
-课程协议。它接收自己的 message 和 tool schema，再通过 SSE 返回文本碎片、工具参数
-碎片、结束原因和 token 用量。
+第 04 章写出的 `ScriptedModel` 接收 `AgentContext`，返回 `ModelEvent`。真实模型也要接到
+这个位置上。不过，它在进程外面：消息要先写成 HTTP 请求，回复则以 SSE 字节流的
+形式回来。
 
-如果 Agent loop 直接读取这些外部字段，每接入一个 provider，都要修改循环、消息和
-错误处理。本章会把外部协议收进一个边界。完成后，`ScriptedModel` 和真实服务都以
-同一个 `Model.stream()` 接口交给上层使用。
+这一章跟随一次完整的模型调用。发送方向从一条课程消息开始，经过 Provider 请求，
+最后进入 `fetch`；返回方向从网络字节开始，经过 SSE 和一组较小的 `ProviderChunk`，
+最后回到前几章已经使用过的 `ModelEvent`。
 
-本章引入的主要复杂性是：**外部数据会分块到达，而且在验证前都不可信。**
-
-你会修改两个文件：
-
-- 在 `types.ts` 中补上工具定义，让模型请求可以携带工具；
-- 在 `provider-adapter.ts` 中实现出站转换、入站状态机和 SSE transport。
-
-本章内容较多，建议分两次完成。第一次做到实践 5.2，先打通纯转换和离线 chunk；
-第二次再处理 SSE、HTTP 与密钥。每个阶段都有独立测试，不需要一次写完全部实现。
-
-重新练习时，运行：
-
-```bash
-npm run practice -w @pi/course -- 05 <新目录>
+```text
+AgentContext → ProviderRequest → HTTP
+ModelEvent   ← ProviderChunk   ← SSE
 ```
 
-练习工具会保留第 04 章的源码，注入第 05 章测试，并额外放入一个学习脚手架。
-脚手架只声明本章公共类型和函数入口。每个尚未实现的入口都会抛出带 Lab 编号的
-错误，因此你可以先让项目通过编译，再逐段替换这些错误。它不是 target 的实现。
+这里会出现两个新名字。**adapter** 负责课程协议与 Provider 语义之间的转换；
+**transport** 负责 HTTP、SSE 和外部 JSON。写完以后，`ScriptedModel` 与真实模型都能
+通过同一个 `Model.stream()` 交给上层使用。
 
-本章不变量是：
-
-> Provider 专属字段只存在于 adapter 与 transport 内部。Agent 的消息、循环和工具
-> 只依赖课程定义的 canonical 类型。
+本章只讨论模型边界的转换。工具参数怎样验证、工具怎样执行，留到第 06 章。实现会
+修改 `packages/pi-course/src/types.ts` 和
+`packages/pi-course/src/provider-adapter.ts`。
 
 ## 先建立全景
 
-先把本章拆成三层：
+先看发送方向。课程内部的一条 user message 是一个带 content block 的对象：
+
+```ts
+{
+  role: "user",
+  content: [{ type: "text", text: "读取 README.md" }],
+  timestamp: 1,
+}
+```
+
+OpenAI-compatible API 接收的同一条消息更扁平：
+
+```ts
+{ role: "user", content: "读取 README.md" }
+```
+
+`toProviderMessages()` 读取前一个对象，写出后一个对象。system prompt、assistant 的
+工具调用和 tool result 也在这里转换。完成转换后，它们和模型名一起组成
+`ProviderRequest`。
+
+返回方向多两层。下面是一条真实 SSE data 的形状：
+
+```text
+data: {"choices":[{"delta":{"content":"正在读取"}}]}
+
+```
+
+transport 先从字节流中取出完整的 `data:`，解析 JSON，并检查课程实际用到的字段。
+上面的 payload 会变成一个较小的对象：
+
+```ts
+{ type: "text", delta: "正在读取" }
+```
+
+这个对象叫 `ProviderChunk`。adapter 不再接触 `choices[0].delta.content` 之类的外部
+字段；它只根据 `ProviderChunk` 累积回复，并发出课程中的 `text_delta`、
+`toolcall_delta`、`done` 或 `error`。
 
 ```text
 AgentContext
-    │
-    ├─ adapter 出站映射
-    │    toProviderMessages() / toProviderTools()
+    │  toProviderMessages()
     ▼
 ProviderRequest
-    │
-    ├─ transport 发出 HTTP 请求
-    │                         raw SSE / unknown JSON
-    │                                  │
-    │                     transport 分帧并验证
-    │                                  ▼
-    │                           ProviderChunk
-    │                                  │
-    └──── ModelEvent ← adapter 入站状态机 ─┘
+    │  transport.stream()
+    ▼
+raw SSE ──→ ProviderChunk ──→ ModelEvent ──→ AssistantMessage
+           transport          adapter
 ```
 
-三层分别回答不同的问题：
-
-| 层 | 输入 | 输出 | 负责什么 |
-|---|---|---|---|
-| 出站转换 | `AgentContext` | wire messages 与 wire tools | 字段和角色映射 |
-| adapter 状态机 | `ProviderChunk` | `ModelEvent` 与最终消息 | 累积 partial、顺序和终态 |
-| transport | URL、密钥、raw SSE | `ProviderChunk` | HTTP、SSE 分帧、外部数据验证 |
-
-这里的 `ProviderChunk` 是课程内部使用的归一化 chunk。它已经去掉 URL、header 和
-OpenAI-compatible JSON 的嵌套结构，但仍保留流式语义：
+`ProviderChunk` 是两段代码之间的接缝：
 
 ```ts
 export type ProviderChunk =
@@ -99,8 +107,7 @@ export type ProviderChunk =
     };
 ```
 
-adapter 只处理这三种 chunk。它不关心数据来自真实网络还是离线数组，所以前半章
-可以完全离线完成：
+真实 transport 和测试使用的 `fixedTransport()` 都实现同一个接口：
 
 ```ts
 export interface ProviderTransport {
@@ -111,44 +118,43 @@ export interface ProviderTransport {
 }
 ```
 
-真实 transport 和 `fixedTransport()` 都实现这个接口。前者读取 SSE，后者按顺序
-产出测试数组。它们可以替换使用，因为 adapter 只看 `ProviderChunk`。
+因此 adapter 可以先在离线数组上写完。网络解析接好以后，它处理的仍是同样三个
+chunk 分支。
 
-:::predict title="运行前先判断"
-一个工具参数分两次到达。第一块是 `{"path":`，第二块是 `"README.md"}`。
-收到第一块时，能否立即调用 `JSON.parse`，解析失败后把这次工具调用标为无效？
+:::predict title="先读一段流"
+下面两个 chunk 属于同一次工具调用：
+
+```ts
+{ type: "tool", index: 0, argumentsDelta: '{"path":' }
+{ type: "tool", index: 0, argumentsDelta: '"README.md"}' }
+```
+
+把两段 `argumentsDelta` 按顺序连起来，最终得到什么字符串？此时
+`JSON.parse()` 会得到什么对象？
 ---answer
-不能。第一块是合法流的中间状态。adapter 要先按工具 index 累积原始字符串。
-只有收到 finish chunk 后，才知道参数是否完整。即使 JSON 完整，第 06 章仍要再按
-工具 schema 验证，才能执行。
+连接后的字符串是 `{"path":"README.md"}`，解析结果是
+`{ path: "README.md" }`。第一段到达时只保存原文；finish 到达后，adapter 才知道
+本次输出是否完整，并决定是否解析。
 :::
 
-:::rebuild title="Checkpoint 05 · 分四步隔离真实 provider"
-**模式：** 重建。从 04 的 target 开始，依次完成类型、出站转换、归一化状态机和
-SSE transport。
+:::rebuild title="Checkpoint 05 · 接入 OpenAI-compatible Provider"
+**模式：** 重建
 
-**起终点：** parent 是本章开始时的起点快照；target 是 11 项聚焦测试通过的终点
-快照。
+**起终点：** `parent` 是第 04 章完成后的起点；`target` 是 11 项聚焦测试通过的终点。
 
-**怎么使用这张卡：** 先把它当作路线图。读完当前实践前面的数据形状和控制流，
-再执行这一段。不要从这张卡直接跳到完整实现。
+**教学文件：**
+- `packages/pi-course/src/types.ts`
+- `packages/pi-course/src/provider-adapter.ts`
 
-**教学文件：** `packages/pi-course/src/types.ts`、
-`packages/pi-course/src/provider-adapter.ts`
+**动手前只需知道：** `ToolDefinition` 描述可以交给模型的工具；`ProviderChunk` 是
+transport 从外部响应中读出的三种流式片段；adapter 在一次 `stream()` 调用内累积
+文本、工具参数和结束原因。
 
-**动手前只需知道：** `ToolDefinition` 描述模型可以请求的工具；
-`ProviderChunk` 是 transport 验证后的流式片段；adapter 在一次 `stream()` 内保存
-文本和工具参数的累计状态；finish chunk 决定最终停止原因。
+**第一次红灯：** build 会先报告 `types.ts` 没有导出 `ToolDefinition`，并且
+`AgentContext` 没有 `tools` 属性。这两处正是发送方向需要的新数据。
 
-**第一次红灯：** 首次 build 会报告 `types.ts` 没有导出 `ToolDefinition`，并且
-`AgentContext` 没有 `tools` 属性。先补这两个类型；不要先写 SSE parser。
-
-**第一步：**
-1. 运行 build，确认红灯只指向 `ToolDefinition` 和 `AgentContext.tools`。
-2. 按实践 5.1 完成类型与出站转换，只运行“出站转换”测试。
-3. 按实践 5.2 完成归一化状态机，只运行“normalized transport”测试。
-4. 按实践 5.3 解析 SSE，只运行名称含“SSE”的测试。
-5. 按实践 5.4 收紧请求和密钥边界，再运行本章全部测试。
+**第一步：** 读完“把消息写成 Provider 请求”，补上这两个类型，再完成纯函数形式的
+出站转换。先不看 target diff；完整实现不属于第一次尝试的输入。
 
 **聚焦测试：** `packages/pi-course/test/05-provider-adapter.test.ts`
 
@@ -156,20 +162,17 @@ SSE transport。
 
 **练习目录：** `npm run practice -w @pi/course -- 05`
 
-**聚焦运行：** `npm run build -w @pi/course`，然后 `node --test packages/pi-course/dist/test/05-*.test.js`
+**聚焦运行：** `npm run build -w @pi/course`，然后运行
+`node --test packages/pi-course/dist/test/05-*.test.js`
 
-**通过证据：** 11 项聚焦测试覆盖本章支持的主要出站映射、normalized chunk 的顺序与
-partial、SSE 分帧与外部数据验证、结束原因、usage、取消和密钥脱敏。
-
-第一次尝试禁止查看完整答案。卡住时，让陪练先判断问题落在三层中的哪一层，再按
-“数据形状 → 当前状态 → 下一个事件”的顺序给提示。
+**通过证据：** 11 项测试分别观察出站消息、normalized chunk 的顺序与 partial、SSE
+分帧、外部数据验证、结束原因、usage、取消和密钥脱敏。
 :::
 
-## 第一步：先把 canonical 消息翻成请求
+## 把消息写成 Provider 请求
 
-### 为 context 补上工具定义
-
-模型需要知道有哪些工具可以调用。先在 `types.ts` 中加入最小描述：
+模型请求还需要知道本轮可以调用哪些工具。`ToolDefinition` 保存工具名称、说明和
+交给模型的 JSON Schema：
 
 ```ts
 export interface ToolDefinition {
@@ -185,51 +188,93 @@ export interface AgentContext {
 }
 ```
 
-`parameters` 保存 JSON Schema。此处只负责把 schema 交给模型；第 06 章才会用它
-验证模型给出的参数。
+这里的 schema 只会进入模型请求。第 06 章会为它配上运行时验证器。
 
-### 逐种角色写映射
+看一份稍完整的 context：
 
-`toProviderMessages()` 是纯函数。输入有四种语义，输出规则如下：
+```ts
+const context: AgentContext = {
+  systemPrompt: "回答要简洁。",
+  messages: [
+    userMessage("读取 README.md"),
+    assistantMessage([
+      {
+        type: "toolCall",
+        id: "call-1",
+        name: "read",
+        arguments: { path: "README.md" },
+        rawArguments: '{"path":"README.md"}',
+      },
+    ], "toolUse"),
+    {
+      role: "toolResult",
+      toolCallId: "call-1",
+      toolName: "read",
+      content: [text("# Project")],
+      isError: false,
+      timestamp: 1,
+    },
+  ],
+};
+```
 
-| canonical 输入 | wire 输出 |
-|---|---|
-| `systemPrompt` | `{ role: "system", content }` |
-| user message | `{ role: "user", content }` |
-| assistant text / tool call | `content` 与 `tool_calls` |
-| tool result | `role: "tool"`，并保留同一个 `tool_call_id` |
+`toProviderMessages(context)` 写出的数组是：
 
-先写一个小 helper，把 content 中所有 text block 取出并用换行连接。然后遍历
-`context.messages`，按 `role` 处理每一种消息。
+```ts
+[
+  { role: "system", content: "回答要简洁。" },
+  { role: "user", content: "读取 README.md" },
+  {
+    role: "assistant",
+    content: null,
+    tool_calls: [{
+      id: "call-1",
+      type: "function",
+      function: {
+        name: "read",
+        arguments: '{"path":"README.md"}',
+      },
+    }],
+  },
+  {
+    role: "tool",
+    tool_call_id: "call-1",
+    name: "read",
+    content: "# Project",
+  },
+]
+```
 
-assistant 的工具参数有一条容易漏掉的规则：
+四种 role 在这个例子里都出现了。system prompt 变成第一条 system message；user 的
+text block 合并成字符串；assistant 的工具调用进入 `tool_calls`；课程中的
+`toolResult` 则写成 Provider 的 `role: "tool"`，并继续使用原来的 call id。
+
+工具参数优先采用 `rawArguments`：
 
 ```ts
 arguments:
   call.rawArguments ?? JSON.stringify(call.arguments ?? {})
 ```
 
-如果 provider 原先给过 `rawArguments`，就原样发回。重新序列化可能改变尚未验证的
-字符串，也可能隐藏截断信息。没有原文时，才序列化 canonical `arguments`。
+`rawArguments` 保存 Provider 原先给出的字符序列。重新序列化一个已经解析过的对象，
+可能改变空格或字段顺序，也无法表示被截断的原文。只有没有原文时，才从
+`arguments` 生成 JSON。
 
-`toProviderTools()` 的工作更直接：把每个 `ToolDefinition` 包进
-`{ type: "function", function: ... }`。没有工具时返回 `undefined`，这样请求体不会
-出现一个没有意义的空数组。
+`toProviderTools()` 做另一项转换，把每个 `ToolDefinition` 包进 Provider 所需的
+`{ type: "function", function: ... }`。没有工具时返回 `undefined`，请求体也就不会
+带一个空数组。这两个转换都是纯函数；传入的 context 在调用后保持原样。
 
 :::lab title="实践 5.1 · 完成类型与出站转换"
-**目标：** 让 canonical context 稳定变成完整 wire payload，且不修改输入。
+**目标：** 让完整的 canonical context 变成 wire messages 和 wire tools。
 
 **文件：** `packages/pi-course/src/types.ts`、
 `packages/pi-course/src/provider-adapter.ts`
 
 **动作：**
-1. 在 `types.ts` 中加入 `ToolDefinition`，再给 `AgentContext` 加可选的 `tools`。
-2. 在 `provider-adapter.ts` 中写 `textValue()`，只读取 text block。
-3. 实现 `toProviderMessages()` 的 system、user、assistant 和 tool result 分支。
-4. assistant tool call 优先使用 `rawArguments`，并保留 id 与 name。
-5. 实现 `toProviderTools()`；没有工具时返回 `undefined`。
-6. 不修改传入的 context。测试会在调用后比较完整输入快照。
-7. 先 build，再只运行本段测试。
+1. 加入 `ToolDefinition` 和 `AgentContext.tools`。
+2. 实现 `toProviderMessages()` 的四种 role 映射。
+3. assistant tool call 优先使用 `rawArguments`，并保留 id 与 name。
+4. 实现 `toProviderTools()`，不改动输入对象。
 
 **运行：**
 
@@ -239,37 +284,39 @@ node --test --test-name-pattern="出站转换" \
   packages/pi-course/dist/test/05-*.test.js
 ```
 
-**预期：** `1/1`。测试会比较完整 messages 和 tools，不只检查 role 名称；输入对象
-在转换后保持不变。
+**预期：** `1/1`。测试比较完整的 messages、tools 和调用前后的 context 快照。
 :::
 
-## 第二步：把 normalized chunk 还原成模型事件
+## 从 ProviderChunk 读回模型回复
 
-实践 5.1 只处理完整对象。入站流不同：文本和工具参数可以交错到达。adapter 必须在
-一次 `stream()` 调用中保存四类状态：
+发送方向处理的是完整对象。返回方向是一段会逐渐长出来的回复。先看只有文本的情况：
 
-| 状态 | 用途 |
-|---|---|
-| `content` | 当前已经出现的 canonical content block |
-| `textContentIndex` | 文本第一次出现时占用的槽位 |
-| `toolBuffers` | 按 provider tool index 累积 id、name 和参数原文 |
-| `finish` | 保存结束原因与 usage |
-
-这些变量必须写在 `stream()` 内。若放在模块级，两个请求会共用 buffer，工具参数
-就可能串到另一个会话里。
-
-### 槽位由首次出现顺序决定
-
-provider 的工具 index 只用来把后续 delta 找回同一个工具。它不等于 canonical
-content index。看下面的到达顺序：
-
-```text
-provider tool index=4  第一次出现
-text                   第一次出现
-provider tool index=2  第一次出现
+```ts
+[
+  { type: "text", delta: "正在" },
+  { type: "text", delta: "读取" },
+  { type: "finish", reason: "stop", usage: { output: 2 } },
+]
 ```
 
-canonical content 的槽位应当是：
+adapter 依次发出 `start`、两个 `text_delta` 和 `done`。第一个 delta 之后，partial 中
+的文本是“正在”；第二个 delta 之后，它变成“正在读取”。每个事件保存的是该时刻
+已经形成的完整 partial，而非最后一个字符串片段。
+
+工具调用也会分段到达，而且文本与多个工具可能交错：
+
+```text
+tool index 4   {"path":
+text           先读
+tool index 2   {"query":
+tool index 4   "README.md"}
+text           ，再查
+tool index 2   "pi"}
+finish         tool_calls
+```
+
+Provider 的 `index` 只负责把后续片段送回同一个工具。canonical content 则按照内容
+第一次出现的先后排列：
 
 ```text
 content[0] = tool index 4
@@ -277,52 +324,42 @@ content[1] = text
 content[2] = tool index 2
 ```
 
-第一次看到某个工具时，记录 `contentIndex: content.length`，并立刻放入一个未完成
-的 tool call block。后续 chunk 只更新这个槽位。不要用 provider index 直接计算
-`contentIndex`。
+第一次遇到工具 4 时，adapter 为它建立一个 `ToolBuffer`，把当时的
+`content.length` 记为 `contentIndex`。以后再收到 index 4，只更新这个 buffer 和
+`content[0]`。工具 2 同样保留自己的 buffer，但它第一次出现得更晚，所以占据
+`content[2]`。
 
-每个 delta 事件都要携带**应用当前 delta 后**的累计 partial。用
-`structuredClone(content)` 保存当时快照，避免后续更新反过来改掉已经发出的事件。
+一次 `stream()` 需要保存这些值：
 
-可以先按下面的控制流搭骨架：
+| 值 | 当前记录 |
+|---|---|
+| `content` | 已经出现的 canonical content block |
+| `textContentIndex` | 文本所在的槽位 |
+| `toolBuffers` | 各工具的 id、name、参数原文和 contentIndex |
+| `finish` | 结束原因与 usage |
 
-```text
-push start
-for await (chunk of transport.stream(...)):
-  text   → 找到或创建文本槽位 → 追加文本 → push text_delta
-  tool   → 找到或创建工具 buffer → 追加原文 → push toolcall_delta
-  finish → 保存结束原因和 usage
+这些值属于一次请求，写在 `stream()` 内。每次 delta 先更新对应槽位，再用
+`structuredClone(content)` 留下事件快照。后来的字符不会反过来改变已经发出的
+partial。
 
-没有 finish → throw
-映射 stop reason
-按 contentIndex 完成每个 tool call → push toolcall_end
-push done
-end(finalMessage)
-```
+finish 决定工具参数怎样收尾。`tool_calls` 表示 Provider 已经完成工具调用，此时
+adapter 解析完整 JSON，并发出 `toolcall_end`。`length` 表示输出被截断；参数原文会
+留下来，stop reason 也保持 `length`，后续 Agent Loop 不会执行它。
 
-工具参数在 delta 阶段仍是字符串。只有 `finish.reason === "tool_calls"` 时才调用
-`JSON.parse`。若 reason 是 `length`，保留原始字符串，并把最终 stop reason 设为
-`length`。后续循环看到这个原因后会拒绝执行工具。
-
-try/catch 要包住整个异步消费过程。transport 抛错时，adapter 用已有 `content`
-构造 error message；取消则使用 `aborted`。两条路径都要发送 `error` 事件，并用
-同一条消息完成 `result()`。
+transport 抛出的异常会沿用当前 `content` 生成 error message。取消对应
+`aborted`，其他异常对应 `error`。终态事件与 `stream.result()` 使用同一条最终消息。
 
 :::lab title="实践 5.2 · 完成 normalized transport 状态机"
-**目标：** 用离线 chunk 证明顺序、累计 partial、工具完成和失败语义。
+**目标：** 用离线 `ProviderChunk` 还原累计文本、工具调用和最终消息。
 
 **文件：** `packages/pi-course/src/provider-adapter.ts`
 
 **动作：**
-1. 实现 `fixedTransport()`，让它按数组顺序 `yield` 每个 chunk。
-2. 在 `createOpenAICompatibleModel()` 的每次 `stream()` 内创建 `content`、
-   `textContentIndex`、`toolBuffers` 和 `finish`。
-3. 先发送 `start`。文本和工具第一次出现时各自占用一个 content 槽位。
-4. 每次 delta 都先更新槽位，再克隆整个 content，最后发送对应事件。
-5. 收到 finish 后映射 `stop`、`length` 和 `toolUse`。
-6. 按 `contentIndex` 完成工具。`toolUse` 才解析 JSON；`length` 保留字符串。
-7. 正常路径发送 `done` 并结束流；异常和取消发送 `error` 并结束流。
-8. 先 build，再运行本段三项测试。
+1. 实现按数组顺序产出 chunk 的 `fixedTransport()`。
+2. 在每次 `stream()` 内保存 content、文本槽位、tool buffers 和 finish。
+3. 第一次看到文本或工具时分配 content 槽位；后续 delta 更新原槽位。
+4. 每次更新后克隆 partial，再发送对应事件。
+5. 根据 finish 完成工具、映射 stop reason，并让终态与 `result()` 汇合。
 
 **运行：**
 
@@ -332,79 +369,69 @@ node --test --test-name-pattern="normalized transport" \
   packages/pi-course/dist/test/05-*.test.js
 ```
 
-**预期：** `3/3`。测试会故意让 provider tool index 以 4、2 的顺序出现，从而证明
-content index 取决于首次出现顺序。它还会检查每个 partial 的完整快照、transport
-异常，以及 `length` 下未完成的参数字符串。
+**预期：** `3/3`。测试使用 4、2 两个 Provider tool index，并检查 content 顺序、每个
+partial、transport 异常和 `length` 下保留的参数原文。
 :::
 
-完成实践 5.2 后可以休息。此时 adapter 的核心语义已经通过离线测试。下一步只把
-raw SSE 安全地转换成相同的 `ProviderChunk`。
+到这里，adapter 已经可以完全离线运行。余下工作是让网络响应产生同样的
+`ProviderChunk`。
 
-## 第三步：把 raw SSE 变成受信任的 ProviderChunk
+## 从 SSE 字节流读出 ProviderChunk
 
-transport 收到的 JSON 类型应当是 `unknown`。从外部来的对象只有经过最小形状验证，
-才能进入 `ProviderChunk` 联合。处理过程分两段：
+`fetch` 返回 `ReadableStream<Uint8Array>`。一次 `reader.read()` 只表示“这次读到了
+一些字节”，它不对应一条 SSE event。下面这条 data 甚至可能从 JSON 字符串中间被
+切成两次网络读取：
 
 ```text
-字节流 ── SSE 分帧 ──→ data 字符串
-data 字符串 ── JSON.parse + 形状验证 ──→ ProviderChunk
+data: {"choices":[{"delta":{"content":"正在
+读取"}}]}
+
 ```
 
-### SSE 分帧只负责找出完整 data
+transport 维护一个字符串 `buffer`。新字节由带 `{ stream: true }` 的
+`TextDecoder` 解码并追加进去；每读到一个换行，才取出一行；空行出现时，此前收集的
+`data:` 行构成一条完整 SSE payload。
 
-一个网络 chunk 可能在任意字节处断开，甚至正好切在一行中间。不要把一次
-`reader.read()` 当成一条 SSE 事件。维护一个字符串 `buffer`：
+```text
+网络字节块            没有协议含义
+    ↓ TextDecoder
+文本行                 识别 data:
+    ↓ 空行结束一组 data
+SSE payload 字符串
+    ↓ JSON.parse + 字段检查
+ProviderChunk
+```
 
-1. 用带 `{ stream: true }` 的 `TextDecoder` 解码新字节；
-2. 追加到 `buffer`；
-3. 每找到一个换行，就取出一行；
-4. 收集以 `data:` 开头的行；
-5. 遇到空行时，把多条 data 行合并成一条完整 payload；
-6. 流结束后，再处理 buffer 和尚未提交的 data。
+JSON.parse 的结果从 `unknown` 开始。课程只读取下列字段：
 
-读取前后都检查 abort signal。`finally` 中取消 reader 并释放 lock，确保正常结束、
-解析失败和取消都不会遗留连接。
+- 顶层 `choices` 数组；
+- `choice.delta.content`；
+- `choice.delta.tool_calls` 及其中的 index、id、name、arguments；
+- `finish_reason`；
+- usage 中的三个 token 数。
 
-### JSON 验证只接受课程用到的最小形状
+每走一层都检查实际类型。tool index 和 token 数还必须是非负安全整数。普通流只接受
+一个 choice；空 `choices` 留给尾随 usage。其他字段即使存在，也不会因此进入课程
+协议。
 
-先写 `isRecord(value)`，排除 `null` 和数组。然后逐层验证：
+`finish_reason` 与 usage 可能来自不同 payload。transport 读到结束原因后先记住它，
+继续等待尾随 usage；遇到 `[DONE]` 或输入结束，再合成唯一的 finish chunk。整个流
+没有出现结束原因时，adapter 会用已经积累的 partial 形成 error 终态。
 
-- 顶层 `choices` 必须是数组；
-- 普通 payload 只接受一个 streamed choice；`choices` 超过一个时立即拒绝，不挑选
-  或合并其中任何一个。尾随 usage payload 可以使用空 `choices`；
-- `choice.delta` 必须是对象；
-- `delta.content` 若存在，必须是字符串；
-- `delta.tool_calls` 若存在，必须是数组；
-- 每个 tool call 的 `index` 必须是非负安全整数；
-- `finish_reason` 只接受 `stop`、`length`、`tool_calls` 或空值；
-- usage token 数必须是非负安全整数。
-
-额外字段可以忽略。关键字段的类型错误要抛出带路径的
-`Invalid provider chunk`。不要用类型断言跳过检查。
-
-raw SSE 中出现 `finish_reason` 时，transport 先记录这个原因，不立即向 adapter
-发出 finish。usage 可能在后面的 payload 中到达，所以 transport 要继续读取。
-遇到 `[DONE]` 或流结束后，再把结束原因和 usage 合成唯一的 finish chunk。若从未
-收到 finish reason，adapter 会把这次流转换成 error 终态。
+读取前后都检查 abort signal。reader 在 `finally` 中取消并释放 lock，所以正常结束、
+解析异常和取消会走过同一个资源清理位置。
 
 :::lab title="实践 5.3 · 解析 SSE，并守住 unknown 边界"
-**目标：** 把任意分块的 OpenAI-compatible SSE 转成经过验证的 `ProviderChunk`。
+**目标：** 从任意分块的 OpenAI-compatible SSE 产出经过检查的 `ProviderChunk`。
 
 **文件：** `packages/pi-course/src/provider-adapter.ts`
 
 **动作：**
-1. 实现 `isRecord()`、可选字符串、token 数、usage、finish reason 和 tool chunk 的
-   最小验证函数。错误信息要指出字段路径。
-2. 实现 SSE 行缓冲。网络 chunk 与 SSE event 不要建立一一对应关系。
-3. 在 `createOpenAICompatibleTransport()` 中使用可注入的 fetch 取得 Response，
-   并逐条读取 data。本段只要求建立最小请求并传递 signal；精确 URL、header、body
-   和通用错误脱敏留到实践 5.4。
-4. `[DONE]` 只结束读取；真正的停止原因来自已经验证的 `finish_reason`。
-5. 合并尾随 usage，再产出一个 finish chunk。
-6. 把 abort signal 同时传给 fetch 和 reader 检查。
-7. 捕获 transport 异常时保留 `AbortError` 语义。其他错误先交给 adapter 形成
-   error 终态；实践 5.4 再补上跨边界前的通用脱敏。
-8. 先 build，再运行名称含“SSE”的五项测试。
+1. 写出 record、字符串、token 数、usage、finish reason 和 tool chunk 的检查函数。
+2. 用 line buffer 读取 SSE，不把网络 chunk 当作 event。
+3. 通过可注入的 fetch 取得 Response，并把 signal 交给 fetch 和 reader。
+4. 记录 finish reason，合并尾随 usage，最后产出一个 finish chunk。
+5. 保留 `AbortError` 的取消语义。
 
 **运行：**
 
@@ -414,14 +441,14 @@ node --test --test-name-pattern="SSE" \
   packages/pi-course/dist/test/05-*.test.js
 ```
 
-**预期：** `5/5`。测试覆盖交错工具参数、尾随 usage、缺少 finish、流中取消、无效
-chunk 和未知 finish reason。所有异步测试都有一秒超时，遗漏终态会立即暴露。
+**预期：** `5/5`。测试观察交错工具参数、尾随 usage、缺少 finish、流中取消、无效
+chunk 和未知 finish reason。
 :::
 
-## 第四步：收紧 HTTP 与密钥边界
+## 发出 HTTP 请求
 
-最后检查 transport 发出的请求。base URL 要先去掉尾部斜杠，再追加
-`/chat/completions`。请求必须明确包含：
+transport 最后需要写出完整的 fetch 选项。base URL 去掉末尾斜杠后，加上
+`/chat/completions`：
 
 ```ts
 {
@@ -440,26 +467,24 @@ chunk 和未知 finish reason。所有异步测试都有一秒超时，遗漏终
 }
 ```
 
-API key 由 transport 配置持有。发请求时，它只能写入 `Authorization` header，
-不得进入 `AgentContext`、请求 body、canonical message、日志或向外返回的错误
-文本。底层 fetch 有时会把 URL 或认证信息放进异常消息，所以 transport 要在异常
-越过边界前，把密钥替换成 `[redacted]`。
+API key 由 transport 配置持有。请求发出时，它进入 `Authorization` header；body、
+`AgentContext` 和 canonical message 中都没有这项数据。底层 fetch 的异常文本可能
+包含认证信息，因此 transport 在错误离开这一层之前，把 key 替换成 `[redacted]`。
+`AbortError` 保持原来的名称，adapter 才能识别取消。
 
-真实 API 不属于本章验收。测试会注入离线 fetch，并检查 URL、header、body、signal
-和错误内容。这样测试不消耗费用，也不依赖远端服务状态。
+课程测试注入离线 fetch，直接记录 URL、header、body 和 signal。它不会调用真实
+Provider，也不需要 API key 或网络费用。
 
 :::lab title="实践 5.4 · 固定请求形状并保护密钥"
-**目标：** 证明 transport 发出的完整请求可控，并让测试覆盖的底层错误在越过边界
-前完成 API key 脱敏。
+**目标：** 写出可观察的 HTTP 请求，并在 transport 内处理测试覆盖的密钥泄露路径。
 
 **文件：** `packages/pi-course/src/provider-adapter.ts`
 
 **动作：**
-1. 用 `new URL()` 验证最终 endpoint 是绝对 URL。
-2. 按上面的结构发送 POST，并把同一个 signal 交给 fetch。
-3. 确认 body 只含 model、messages、可选 tools、stream 和 usage 选项。
-4. 写 `sanitizedTransportError()`；取消保持 `AbortError`，其他错误替换密钥。
-5. 运行“fetch transport”测试，再运行本章全部测试。
+1. 用 `new URL()` 检查最终 endpoint。
+2. 发送 POST，请求体加入 stream 与 usage 选项，并传递同一个 signal。
+3. 写 `sanitizedTransportError()`；取消保持 `AbortError`，其他错误替换 API key。
+4. 先运行 fetch transport 测试，再运行第 05 章全部测试。
 
 **运行：**
 
@@ -470,52 +495,52 @@ node --test --test-name-pattern="fetch transport" \
 node --test packages/pi-course/dist/test/05-*.test.js
 ```
 
-**预期：** 局部测试 `2/2`，完整聚焦测试 `11/11`。测试会精确比较请求 body，
-并让底层错误主动带上测试密钥，确认最终消息只留下 `[redacted]`。
+**预期：** 局部测试 `2/2`，完整聚焦测试 `11/11`。离线 fetch 会精确记录请求，并让
+一条底层错误主动带上测试密钥；最终消息中只留下 `[redacted]`。
 :::
 
-:::mechanism title="三层边界让失败位置可判断"
-出站映射失败，就检查纯函数；事件顺序错误，就检查 adapter 的单次调用状态；SSE
-形状或取消失败，就检查 transport。三层共享 `ProviderChunk` 接口，却不共享内部
-状态。测试因此可以把一次复杂的真实调用拆成三个确定问题。
+:::mechanism title="这段调用现在可以分开阅读"
+出站消息由纯函数转换。adapter 只读取 `ProviderChunk`，它的顺序和 partial 可以在
+离线数组上观察。transport 再单独处理 fetch、SSE 和 unknown JSON。三段代码通过
+明确的数据形状连接，内部状态互不共享。
 :::
 
-:::note title="这 11 项测试没有证明什么"
-本章没有证明所有 OpenAI-compatible 服务都兼容，也没有连接真实 provider。课程会
-拒绝同时出现多个 streamed choice，只接受当前列出的字段。测试还没有覆盖 SSE 多行
-data、CRLF、多字节字符边界、所有无效 chunk、HTTP 非 2xx、空 body、预取消、多个
-并发请求或重试，也没有穷尽所有可能携带密钥的错误来源。工具执行和 transcript
-更新属于其他边界，同样不能根据本章全绿推断出来。
+:::note title="测试覆盖到哪里"
+这 11 项聚焦测试覆盖出站映射、normalized chunk、SSE、取消与脱敏。本章没有证明
+所有 OpenAI-compatible 服务都兼容，也没有连接真实 Provider。测试没有覆盖 SSE
+多行 data、CRLF、多字节字符边界、HTTP 非 2xx、空 body、预取消、多个并发请求或
+重试，也没有穷尽可能携带密钥的错误来源。工具执行与 transcript 更新由后面的章节
+负责。
 :::
 
 :::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/ai/src/api/openai-completions.ts` 也会累积文本与
+固定提交 `8479bd8` 的 `packages/ai/src/api/openai-completions.ts` 同样会累积文本和
 工具参数、映射结束原因、解析 usage，并把捕获的异常转换成流内终态。上游还处理
-reasoning、图片、签名、成本和更多兼容差异。课程保留闭合主链路所需的子集，并用
+reasoning、图片、签名、成本和更多兼容差异。课程保留这条调用链的核心部分，并用
 `ProviderChunk` 把网络解析与 canonical 事件生成分开。
 :::
 
 ## 故意把它弄坏
 
-把工具的 `contentIndex` 临时改成 provider 给出的 `chunk.index`：
+这一节是完成实现后的诊断实验。把工具的 `contentIndex` 临时改成 Provider 给出的
+`chunk.index`：
 
 ```ts
-// 错误：provider index 只负责关联 delta，不表示 canonical content 位置
 contentIndex: chunk.index
 ```
 
-测试中的工具 index 会按 4、2 到达，中间还穿插文本。错误实现会发出不存在的
-content 槽位，第一次偏差出现在第一个 `toolcall_delta.contentIndex`。
+测试数据中的工具 index 按 4、2 到达，中间还有文本。改动以后，第一个
+`toolcall_delta` 会指向 `content[4]`，而当时真正创建的工具槽位是 `content[0]`。
 
-:::failure title="预期失败 · 混淆 provider index 与 content index"
-运行“normalized transport”测试，先记录第一个实际值和期望值。恢复规则：
-工具第一次出现时保存 `content.length`，后续 delta 和 `toolcall_end` 始终复用这个
-槽位。恢复后重跑同一项测试，确认所有累计 partial 也回到正确顺序。
+:::failure title="预期失败 · 混淆两种 index"
+运行“normalized transport”测试，比较第一条 `toolcall_delta` 的实际
+`contentIndex` 与期望值。随后恢复原来的记录方式：工具第一次出现时保存
+`content.length`，后续 delta 与 `toolcall_end` 都使用这个值。
 :::
 
 ## 本章验收
 
-:::checkpoint title="Checkpoint 05 · 真实协议止于 adapter"
+:::checkpoint title="Checkpoint 05 · 完成一次 Provider 调用"
 运行：
 
 ```bash
@@ -523,32 +548,33 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/05-*.test.js
 ```
 
-应得到 `11/11`。你还应能回答：
+结果应为 `11/11`。再沿本章的调用顺序检查五件事：
 
-1. 为什么 provider tool index 不能直接当作 content index？
-2. 为什么 delta 阶段不能解析工具 JSON？
-3. raw SSE 在哪一步从 `unknown` 变成 `ProviderChunk`？
-4. API key 允许进入哪些外部可观察位置，哪些位置必须禁止？
-5. transport、adapter 和 Agent loop 各自负责哪类失败？
+1. 一条 user message 怎样写成 Provider wire message？
+2. Provider tool index 与 canonical content index 分别记录什么？
+3. 一段 SSE 字节在哪一步变成 `ProviderChunk`？
+4. finish reason 和尾随 usage 怎样汇合？
+5. API key 在调用期间出现在哪里？
 
-若答案不确定，回到对应的局部测试，不要靠背完整实现。下一章会接住已经完成的
-tool call，为它加入 schema 验证和执行契约。
+`npm run checkpoint -w @pi/course -- 05` 可以重新定位本章的 parent 与 target；
+`npm run practice -w @pi/course -- 05 <新目录>` 会从同一 parent 创建新的隔离练习目录。
+第 06 章将从已经形成的 tool call 开始，为参数加入 schema 验证和执行结果。
 :::
 
 ## 可选迁移练习
 
-:::transfer title="迁移 · 为另一种事件名写 transport"
-完成本章重建后，再处理一个虚构协议：它使用 `event: token`、`event: action` 和
-`event: end`。只写新的 transport，把三类原始事件转换成现有 `ProviderChunk`。
-复用本章 adapter 测试，禁止修改 `AgentMessage`、`ModelEvent` 和消费代码。若这些
-类型也必须改变，先说明新协议表达了哪一种课程类型无法承载的语义。
+:::transfer title="迁移 · 读取另一种流式事件"
+设想一个小型 Provider 使用 `event: token`、`event: action` 和 `event: end`。为它写一
+个新的 transport，把三类事件转换成现有 `ProviderChunk`。adapter、`AgentMessage`
+和 `ModelEvent` 保持不变。若原协议含有课程类型无法表达的数据，单独记录这项差异。
 :::
 
 ## 小结
 
-本章建立了三道边界。出站转换把 canonical context 变成请求；transport 把 raw SSE
-验证为 `ProviderChunk`；adapter 再把分块输入还原成累计 partial、工具调用和统一
-终态。网络字段与密钥都留在最外层，Agent loop 继续只理解课程协议。
+一次真实模型调用现在可以从头读到尾。`AgentContext` 先变成 Provider 的消息和工具
+定义；transport 发出 HTTP 请求，从 SSE 中读出经过检查的 `ProviderChunk`；adapter
+再把这些 chunk 累积成 `ModelEvent` 与最终 `AssistantMessage`。
 
-到这里，离线脚本和真实 provider 已经共享同一个模型接口。下一步可以在不改模型
-边界的前提下，为工具调用加入参数验证和执行结果。
+第 04 章的离线模型和这一章的真实模型因此共享 `Model.stream()`。上层代码不需要
+读取 Provider 的 URL、header、`choices` 或 SSE。下一章会继续处理模型已经提出的
+工具调用。

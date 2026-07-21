@@ -812,8 +812,8 @@ export const searchIndex: SearchEntry[] = [
     "id": "05",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
-    "title": "把真实流式协议挡在边界外",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
+    "title": "模型调用：在课程协议和 Provider API 之间转换",
     "href": "/learn/provider-adapter",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
@@ -823,13 +823,13 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 分四步把 canonical 消息翻译成请求，再把 OpenAI-compatible SSE 还原成统一模型事件。 第一部 · 建立可执行语言 provider adapter, transport, normalized chunk, incremental JSON, finish reason 你将得到什么 先建立全景 第一步：先把 canonical 消息翻成请求 为 context 补上工具定义 逐种角色写映射 第二步：把 normalized chunk 还原成模型事件 槽位由首次出现顺序决定 第三步：把 raw SSE 变成受信任的 ProviderChunk SSE 分帧只负责找出完整 data JSON 验证只接受课程用到的最小形状 第四步：收紧 HTTP 与密钥边界 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 跟随一次模型调用，读懂消息如何写成 HTTP 请求，流式响应又如何变回统一事件。 第一部 · 建立可执行语言 provider adapter, transport, normalized chunk, incremental JSON, finish reason 你将得到什么 先建立全景 把消息写成 Provider 请求 从 ProviderChunk 读回模型回复 从 SSE 字节流读出 ProviderChunk 发出 HTTP 请求 故意把它弄坏 本章验收 可选迁移练习 小结"
   },
   {
     "id": "05-你将得到什么",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
     "title": "你将得到什么",
     "href": "/learn/provider-adapter#你将得到什么",
     "partTitle": "第一部 · 建立可执行语言",
@@ -840,13 +840,13 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 你将得到什么 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 你将得到什么 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
     "id": "05-先建立全景",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
     "title": "先建立全景",
     "href": "/learn/provider-adapter#先建立全景",
     "partTitle": "第一部 · 建立可执行语言",
@@ -857,15 +857,15 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 先建立全景 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 先建立全景 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
-    "id": "05-第一步先把-canonical-消息翻成请求",
+    "id": "05-把消息写成-provider-请求",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
-    "title": "第一步：先把 canonical 消息翻成请求",
-    "href": "/learn/provider-adapter#第一步先把-canonical-消息翻成请求",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
+    "title": "把消息写成 Provider 请求",
+    "href": "/learn/provider-adapter#把消息写成-provider-请求",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "provider adapter",
@@ -874,15 +874,15 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 第一步：先把 canonical 消息翻成请求 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 把消息写成 Provider 请求 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
-    "id": "05-第二步把-normalized-chunk-还原成模型事件",
+    "id": "05-从-providerchunk-读回模型回复",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
-    "title": "第二步：把 normalized chunk 还原成模型事件",
-    "href": "/learn/provider-adapter#第二步把-normalized-chunk-还原成模型事件",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
+    "title": "从 ProviderChunk 读回模型回复",
+    "href": "/learn/provider-adapter#从-providerchunk-读回模型回复",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "provider adapter",
@@ -891,15 +891,15 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 第二步：把 normalized chunk 还原成模型事件 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 从 ProviderChunk 读回模型回复 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
-    "id": "05-第三步把-raw-sse-变成受信任的-providerchunk",
+    "id": "05-从-sse-字节流读出-providerchunk",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
-    "title": "第三步：把 raw SSE 变成受信任的 ProviderChunk",
-    "href": "/learn/provider-adapter#第三步把-raw-sse-变成受信任的-providerchunk",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
+    "title": "从 SSE 字节流读出 ProviderChunk",
+    "href": "/learn/provider-adapter#从-sse-字节流读出-providerchunk",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "provider adapter",
@@ -908,15 +908,15 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 第三步：把 raw SSE 变成受信任的 ProviderChunk provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 从 SSE 字节流读出 ProviderChunk provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
-    "id": "05-第四步收紧-http-与密钥边界",
+    "id": "05-发出-http-请求",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
-    "title": "第四步：收紧 HTTP 与密钥边界",
-    "href": "/learn/provider-adapter#第四步收紧-http-与密钥边界",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
+    "title": "发出 HTTP 请求",
+    "href": "/learn/provider-adapter#发出-http-请求",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "provider adapter",
@@ -925,13 +925,13 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 第四步：收紧 HTTP 与密钥边界 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 发出 HTTP 请求 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
     "id": "05-故意把它弄坏",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
     "title": "故意把它弄坏",
     "href": "/learn/provider-adapter#故意把它弄坏",
     "partTitle": "第一部 · 建立可执行语言",
@@ -942,13 +942,13 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 故意把它弄坏 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 故意把它弄坏 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
     "id": "05-本章验收",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
     "title": "本章验收",
     "href": "/learn/provider-adapter#本章验收",
     "partTitle": "第一部 · 建立可执行语言",
@@ -959,13 +959,13 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 本章验收 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 本章验收 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
     "id": "05-可选迁移练习",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
     "title": "可选迁移练习",
     "href": "/learn/provider-adapter#可选迁移练习",
     "partTitle": "第一部 · 建立可执行语言",
@@ -976,13 +976,13 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 可选迁移练习 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 可选迁移练习 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
     "id": "05-小结",
     "chapterId": "05",
     "chapterSlug": "provider-adapter",
-    "chapterTitle": "把真实流式协议挡在边界外",
+    "chapterTitle": "模型调用：在课程协议和 Provider API 之间转换",
     "title": "小结",
     "href": "/learn/provider-adapter#小结",
     "partTitle": "第一部 · 建立可执行语言",
@@ -993,7 +993,7 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "把真实流式协议挡在边界外 小结 provider adapter transport normalized chunk incremental JSON finish reason"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 小结 provider adapter transport normalized chunk incremental JSON finish reason"
   },
   {
     "id": "06",
