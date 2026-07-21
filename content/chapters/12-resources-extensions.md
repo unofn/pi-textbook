@@ -112,7 +112,8 @@ Runtime。本章只把“发现”和“执行前后”各自做成可独立验�
 
 ## 建立练习起点
 
-在教学历史仓库中生成隔离练习。不要修改教材目录，也不要在原始 `pi` 仓库施工：
+在教学历史仓库中生成隔离练习。后续修改只发生在新 practice 目录，教材目录和原始
+`pi` 仓库保持不变：
 
 ```bash
 cd <你的工作区>/pi-course
@@ -223,7 +224,7 @@ frontmatter；短文件的正文可能进入临时 buffer，但公开 catalog �
 
 :::lab title="实践 12.1 · 实现 discoverResources"
 只实现 `discoverResources()` 及它直接需要的目录、frontmatter、逻辑身份和排序 helper。
-不要碰后四个 Lab。
+这一段的施工范围到此为止，后四个 Lab 仍保持 starter 状态。
 
 先写下三个预测：调换 roots 后 winner 是否调换；物理目录名与 frontmatter name 不同时
 按哪个排序；`JSON.stringify(catalog)` 是否包含 inactive Skill 正文。
@@ -564,11 +565,11 @@ after throw/timeout → diagnostic → next after → original core fact
 ```
 
 第三，timeout 只让 host 停止等待。`Promise.race()` 不能强制终止一个已经开始且不响应
-取消的 Promise；不要把这层超时描述成代码沙箱。
+取消的 Promise；这层 timeout 是 host 的等待边界，不是代码沙箱。
 
 :::lab title="实践 12.5 · 实现 wrapExecutor"
 实现 timeout helper、paired blocked result、host 的 `before()`、`after()` 与
-`wrapExecutor()`。不要修改 Agent loop，也不要让 hook 直接写 session。
+`wrapExecutor()`。Agent loop 和 session 保持现有实现，hook 只通过 wrapper 观察调用。
 
 逐行守住这些计数：
 
@@ -779,7 +780,7 @@ call id/name 配对。失败时只找 trace 中第一处偏差，不给核心实
 课程 API 不是生产 Pi 的逐行缩写。
 
 **恢复：** 重新生成 Chapter 12 练习即可回到第 11 章 parent 加无答案 starter；只恢复
-`packages/pi-course/src/resources.ts`，不要回退 session、context、tool 或 loop。
+`packages/pi-course/src/resources.ts`，session、context、tool 和 loop 保持当前版本。
 :::
 
 ## 小结
