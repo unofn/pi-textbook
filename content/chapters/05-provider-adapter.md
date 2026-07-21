@@ -20,13 +20,15 @@ upstream: packages/ai/src/api/openai-completions.ts
 这个位置上。不过，它在进程外面：消息要先写成 HTTP 请求，回复则以 SSE 字节流的
 形式回来。
 
-这一章跟随一次完整的模型调用。发送方向从一条课程消息开始，经过 Provider 请求，
-最后进入 `fetch`；返回方向从网络字节开始，经过 SSE 和一组较小的 `ProviderChunk`，
-最后回到前几章已经使用过的 `ModelEvent`。
+这一章只跟随一条固定主线：用户要求“读取 README.md”，Provider 用
+`id: "call-1"`、`index: 0` 提出 `read`，参数分成 `'{"path":'` 与
+`'"README.md"}'` 两段返回。发送方向从课程消息进入 `fetch`；返回方向则沿同一个 id 和
+参数，依次经过 SSE payload、`ProviderChunk`、`ModelEvent`，最后形成 assistant 中的
+tool call。
 
 ```text
-AgentContext → ProviderRequest → HTTP
-ModelEvent   ← ProviderChunk   ← SSE
+AgentContext("读取 README.md") → ProviderRequest → HTTP
+AssistantMessage(call-1) ← ModelEvent ← ProviderChunk(index 0) ← SSE payload
 ```
 
 这里会出现两个新名字。**adapter** 负责课程协议与 Provider 语义之间的转换；
@@ -59,23 +61,31 @@ OpenAI-compatible API 接收的同一条消息更扁平：
 工具调用和 tool result 也在这里转换。完成转换后，它们和模型名一起组成
 `ProviderRequest`。
 
-返回方向多两层。下面是一条真实 SSE data 的形状：
+返回方向多两层。Provider 返回主线参数的第一段时，一条 SSE data 是：
 
 ```text
-data: {"choices":[{"delta":{"content":"正在读取"}}]}
+data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"read","arguments":"{\"path\":"}}]},"finish_reason":null}]}
 
 ```
 
 transport 先从字节流中取出完整的 `data:`，解析 JSON，并检查课程实际用到的字段。
-上面的 payload 会变成一个较小的对象：
+上面的 payload 会变成一个较小的对象，id、index 和参数分片都保持原值：
 
 ```ts
-{ type: "text", delta: "正在读取" }
+{
+  type: "tool",
+  index: 0,
+  id: "call-1",
+  name: "read",
+  argumentsDelta: '{"path":',
+}
 ```
 
-这个对象叫 `ProviderChunk`。adapter 不再接触 `choices[0].delta.content` 之类的外部
-字段；它只根据 `ProviderChunk` 累积回复，并发出课程中的 `text_delta`、
-`toolcall_delta`、`done` 或 `error`。
+下一条 SSE payload 仍指向 `index: 0`，只携带第二段参数 `'"README.md"}'`；transport
+据此产出第二个 tool `ProviderChunk`。adapter 不再接触
+`choices[0].delta.tool_calls` 之类的外部字段。它按 index 找回 `call-1` 的 buffer，
+把两段参数连成 `{"path":"README.md"}`，再发出 `toolcall_delta`、`toolcall_end` 和
+`done`。最终 assistant 中仍是 `id: "call-1"` 的 `read` 调用。
 
 ```text
 AgentContext
@@ -84,8 +94,9 @@ AgentContext
 ProviderRequest
     │  transport.stream()
     ▼
-raw SSE ──→ ProviderChunk ──→ ModelEvent ──→ AssistantMessage
-           transport          adapter
+raw SSE(call-1/index 0) ── transport ──→ ProviderChunk(index 0)
+ProviderChunk(index 0) ── adapter ──→ ModelEvent(contentIndex 0)
+                                      └─→ AssistantMessage(call-1)
 ```
 
 `ProviderChunk` 是两段代码之间的接缝：
@@ -122,10 +133,16 @@ export interface ProviderTransport {
 chunk 分支。
 
 :::predict title="先读一段流"
-下面两个 chunk 属于同一次工具调用：
+下面两个 chunk 就是主线中同一次工具调用：
 
 ```ts
-{ type: "tool", index: 0, argumentsDelta: '{"path":' }
+{
+  type: "tool",
+  index: 0,
+  id: "call-1",
+  name: "read",
+  argumentsDelta: '{"path":',
+}
 { type: "tool", index: 0, argumentsDelta: '"README.md"}' }
 ```
 
@@ -289,7 +306,66 @@ node --test --test-name-pattern="出站转换" \
 
 ## 从 ProviderChunk 读回模型回复
 
-发送方向处理的是完整对象。返回方向是一段会逐渐长出来的回复。先看只有文本的情况：
+发送方向处理的是完整对象。返回方向是一段会逐渐长出来的回复。先把主线的两个参数分片
+直接交给离线 `fixedTransport()`：
+
+```ts
+[
+  {
+    type: "tool",
+    index: 0,
+    id: "call-1",
+    name: "read",
+    argumentsDelta: '{"path":',
+  },
+  { type: "tool", index: 0, argumentsDelta: '"README.md"}' },
+  { type: "finish", reason: "tool_calls", usage: { output: 2 } },
+]
+```
+
+第一个 chunk 让 adapter 建立 `toolBuffers.get(0)`：其中保存 `id: "call-1"`、
+`name: "read"`、`contentIndex: 0` 和参数原文 `'{"path":'`。第二个 chunk 仍用 Provider
+index `0` 找回这个 buffer，并把参数追加成 `'{"path":"README.md"}'`。对应事件是：
+
+```text
+ProviderChunk #1
+  → toolcall_delta(contentIndex 0, delta '{"path":')
+  → partial: toolCall(call-1, rawArguments '{"path":')
+
+ProviderChunk #2
+  → toolcall_delta(contentIndex 0, delta '"README.md"}')
+  → partial: toolCall(call-1, rawArguments '{"path":"README.md"}')
+
+finish(tool_calls)
+  → JSON.parse('{"path":"README.md"}')
+  → toolcall_end(contentIndex 0, call-1)
+  → done(toolUse)
+```
+
+最终 assistant 仍携带从 SSE 开始的同一个 id 和参数：
+
+```ts
+{
+  role: "assistant",
+  content: [{
+    type: "toolCall",
+    id: "call-1",
+    name: "read",
+    arguments: { path: "README.md" },
+    rawArguments: '{"path":"README.md"}',
+  }],
+  stopReason: "toolUse",
+  // provider、model、usage、timestamp 省略
+}
+```
+
+这里 Provider index 与 canonical `contentIndex` 都是 `0`，只是因为主线只有一个 content
+block；两者的含义并不相同。前者把网络中的后续分片送回同一个工具，后者指出 tool call
+位于 assistant content 的哪个槽位。
+
+### 局部 fixture：只看文本 partial
+
+主线闭合以后，可以用一个纯文本 fixture 单独观察 partial 快照：
 
 ```ts
 [
@@ -301,9 +377,12 @@ node --test --test-name-pattern="出站转换" \
 
 adapter 依次发出 `start`、两个 `text_delta` 和 `done`。第一个 delta 之后，partial 中
 的文本是“正在”；第二个 delta 之后，它变成“正在读取”。每个事件保存的是该时刻
-已经形成的完整 partial，而非最后一个字符串片段。
+已经形成的完整 partial，而非最后一个字符串片段。这个 fixture 只隔离文本分支，不替换
+`call-1/index 0` 的章节主线。
 
-工具调用也会分段到达，而且文本与多个工具可能交错：
+### 诊断 fixture：用 index 4/2 分开两种顺序
+
+另一个 fixture 故意让文本与两个工具交错，并使用不连续的 Provider index：
 
 ```text
 tool index 4   {"path":
@@ -315,7 +394,7 @@ tool index 2   "pi"}
 finish         tool_calls
 ```
 
-Provider 的 `index` 只负责把后续片段送回同一个工具。canonical content 则按照内容
+它用于诊断两种 index 是否被混淆，不是新的业务主线。canonical content 仍按照内容
 第一次出现的先后排列：
 
 ```text
@@ -379,18 +458,32 @@ partial、transport 异常和 `length` 下保留的参数原文。
 ## 从 SSE 字节流读出 ProviderChunk
 
 `fetch` 返回 `ReadableStream<Uint8Array>`。一次 `reader.read()` 只表示“这次读到了
-一些字节”，它不对应一条 SSE event。下面这条 data 甚至可能从 JSON 字符串中间被
-切成两次网络读取：
+一些字节”，它不对应一条 SSE event。主线中的第一条 data 可以在 `call-1` 中间被切成
+两个网络 chunk。下面用引号表示每次解码出的字符串；`chunk #1` 末尾没有换行：
 
 ```text
-data: {"choices":[{"delta":{"content":"正在
-读取"}}]}
+chunk #1
+'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-'
 
+chunk #2
+'1","type":"function","function":{"name":"read","arguments":"{\"path\":"}}]},"finish_reason":null}]}\n\n'
 ```
 
-transport 维护一个字符串 `buffer`。新字节由带 `{ stream: true }` 的
-`TextDecoder` 解码并追加进去；每读到一个换行，才取出一行；空行出现时，此前收集的
-`data:` 行构成一条完整 SSE payload。
+网络边界只是 `chunk #1 | chunk #2`，不会在 JSON 数据中加入字符。transport 维护一个
+字符串 `buffer`，新字节由带 `{ stream: true }` 的 `TextDecoder` 解码后依次 append：
+
+```text
+append chunk #1 后
+buffer = 'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-'
+         没有 \n，暂时取不出一行
+
+append chunk #2 后
+buffer = 'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"read","arguments":"{\"path\":"}}]},"finish_reason":null}]}\n\n'
+         第一个 \n 结束 data 行；第二个 \n 形成空行并结束这条 SSE event
+```
+
+这里的 `\n\n` 是 SSE 协议本来就有的“行结束 + 空行”，与两次 `reader.read()` 的切分
+位置无关。空行出现后，此前收集的 `data:` 行才构成一条完整 SSE payload。
 
 ```text
 网络字节块            没有协议含义
@@ -402,17 +495,31 @@ SSE payload 字符串
 ProviderChunk
 ```
 
-JSON.parse 的结果从 `unknown` 开始。课程只读取下列字段：
+`JSON.parse()` 的结果从 `unknown` 开始。主线走的是 `delta.tool_calls`；先用一个
+主线完成后的纯文本 payload，把逐层收窄路径看短一些：
 
-- 顶层 `choices` 数组；
-- `choice.delta.content`；
-- `choice.delta.tool_calls` 及其中的 index、id、name、arguments；
-- `finish_reason`；
-- usage 中的三个 token 数。
+```text
+rawChunk: unknown
+  → isRecord(rawChunk)
+  → Array.isArray(rawChunk.choices)
+  → choices.length === 1
+  → choice = choices[0]，isRecord(choice)
+  → isRecord(choice.delta)
+  → content = choice.delta.content，typeof content === "string"
+  → { type: "text", delta: content } satisfies ProviderChunk
+```
 
-每走一层都检查实际类型。tool index 和 token 数还必须是非负安全整数。普通流只接受
-一个 choice；空 `choices` 留给尾随 usage。其他字段即使存在，也不会因此进入课程
-协议。
+例如 `{"choices":[{"delta":{"content":"正在读取"}}]}` 会沿这条路径得到
+`{ type: "text", delta: "正在读取" }`。若外部数据改成
+`{"choices":[{"delta":{"content":42}}]}`，验证停在 `typeof content === "string"`，
+抛出 `Invalid provider chunk: choices[0].delta.content must be a string`；数字不会进入
+`ProviderChunk`。
+
+其余字段复用同一种模式：`tool_calls` 先检查数组，再逐项检查 record，其中 `index`
+必须是非负安全整数，`id`、`name`、`arguments` 在出现时必须是字符串；
+`finish_reason` 检查 `stop/length/tool_calls` 联合；usage 先检查 record，再检查三个
+非负安全整数。于是主线 payload 通过这些检查后，才成为前文的 `call-1/index 0` tool
+`ProviderChunk`。普通流只接受一个 choice；空 `choices` 专门承载尾随 usage。
 
 `finish_reason` 与 usage 可能来自不同 payload。transport 读到结束原因后先记住它，
 继续等待尾随 usage；遇到 `[DONE]` 或输入结束，再合成唯一的 finish chunk。整个流
@@ -506,11 +613,15 @@ node --test packages/pi-course/dist/test/05-*.test.js
 :::
 
 :::note title="测试覆盖到哪里"
-这 11 项聚焦测试覆盖出站映射、normalized chunk、SSE、取消与脱敏。本章没有证明
-所有 OpenAI-compatible 服务都兼容，也没有连接真实 Provider。测试没有覆盖 SSE
-多行 data、CRLF、多字节字符边界、HTTP 非 2xx、空 body、预取消、多个并发请求或
-重试，也没有穷尽可能携带密钥的错误来源。工具执行与 transcript 更新由后面的章节
-负责。
+这 11 项聚焦测试直接验证 adapter 与 transport 的三段边界：
+
+- canonical context 会稳定映射为 wire messages、tools 与可观察的 fetch 请求；
+- 两次网络读取会重组为 SSE payload，外部 `unknown` 经过字段检查后才产出
+  `ProviderChunk`；transport 还负责汇合结束原因与 usage、传递取消并脱敏测试中的密钥；
+- `ProviderChunk` 的顺序与参数分片会形成对应的 partial `ModelEvent` 和最终
+  `AssistantMessage`。
+
+工具执行与 transcript 更新从第 06、07 章继续。
 :::
 
 :::pi title="与当前上游 Pi 对照"
