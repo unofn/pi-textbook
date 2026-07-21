@@ -328,6 +328,32 @@ EventStream<ModelEvent, AssistantMessage>
 
 `ModelEvent` 描述生成过程。`AssistantMessage` 是这次生成结束后保存的结果。
 
+仍用开篇那条 README assistant message。第 04 章的 `ScriptedModel` 会把它按下面的顺序
+交给消费者：
+
+```text
+start
+  partial.content = []
+
+text_delta(contentIndex=0, delta="我先读取项目说明。")
+  partial.content = [text("我先读取项目说明。")]
+
+toolcall_delta(contentIndex=1, delta='{"path":"README.md"}')
+  partial.content = [text(...), toolCall(call_1, read, arguments={}, rawArguments=...)]
+
+toolcall_end(contentIndex=1)
+  partial.content = [text(...), toolCall(call_1, read, arguments={ path: "README.md" })]
+
+done(reason="toolUse")
+  message = 上面的完整 assistant message
+```
+
+每一步都围绕同一个 `partial` 的后继快照。文本到达后，`content[0]` 可见；工具参数片段
+到达后，`content[1]` 先保存 raw text；`toolcall_end` 才把这个槽位收束成结构化
+`ToolCall`。`done` 不再提供增量，而是交出最终要保存的 message。
+
+这些可观察状态对应下面五种正常事件和一条错误终态：
+
 ```ts
 export type ModelEvent =
   | { type: "start"; partial: AssistantMessage }
@@ -361,10 +387,9 @@ export type ModelEvent =
     };
 ```
 
-`start` 和两个 delta 让消费者观察生成中的消息。`toolcall_end` 表示这个工具槽位的
-流式片段已经收束成一个 `ToolCall` 对象；它不证明参数合法或可执行，仍要结合终态
-原因与第 06 章的 schema 检查。`done` 与 `error` 是两条终态路径：前者携带
-`message`，后者携带 `error`。两条路径最后都要让 `result()` 得到一条
+这里的 `contentIndex` 就是上面 partial 数组中的位置。`toolcall_end` 只表示参数片段已经
+组成一个 `ToolCall`；第 06 章的 schema 还会检查它能否执行。若生成过程失败，最后一步
+从 `done(message)` 换成 `error(error)`。两条终态路径都会给 `result()` 一条
 `AssistantMessage`。
 
 因此专用流只需告诉通用流两件事：哪些事件是终态，以及怎样从终态取出结果。
@@ -446,9 +471,8 @@ node --test packages/pi-course/dist/test/03-*.test.js
 
 :::note title="测试覆盖到哪里"
 2 项聚焦测试直接证明：文本投影会跳过工具调用，而且不修改原 content；`error` 是流的
-终态，`result()` 返回事件里的同一条消息。测试没有遍历三种 role、五种 `StopReason`
-和全部 `ModelEvent`，也没有验证 `toolCallId` 配对。那些字段目前由 TypeScript 检查其
-形状，并在第 04 至 07 章的模型、Provider、工具和循环测试中逐步进入运行路径。
+终态，`result()` 返回事件里的同一条消息。正常 `start → delta → done` 时间线会在第 04、
+05 章进入可执行模型与 Provider 测试；tool call/result 的 id 配对由第 06、07 章接手。
 :::
 
 :::pi title="与当前上游 Pi 对照"
