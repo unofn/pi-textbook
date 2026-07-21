@@ -240,8 +240,10 @@ export function readDelta(value: unknown): DemoEvent {
 }
 ```
 
-前四项确认 `value` 是一条 delta 对象，后四项确认两个数据字段存在且都是字符串。
-返回值是根据可信字段新建的对象，外部值上的其他字段不会顺便进入 Agent 协议。
+这些条件分三层建立证据。`typeof`、null 和数组检查先确认 `value` 是普通对象；`type`
+字段再把它收窄到 `delta` 分支；最后，`requestId` 与 `text` 各自经过存在性和字符串检查。
+到这一步，函数才读取两个数据字段并构造新的 delta。外部值上的其他字段不会顺便进入
+Agent 协议。
 
 用一条合法输入和一条非法输入观察边界：
 
@@ -384,20 +386,25 @@ const pending = formatLater({
   text: "Pi",
 });
 
-console.log(pending instanceof Promise);
-console.log(await pending);
+console.log("1 已拿到 Promise", pending instanceof Promise);
+pending.then((value) => console.log("3 then 收到", value));
+console.log("2 当前同步代码结束");
+console.log("4 await 收到", await pending);
 ```
 
 输出是：
 
 ```text
-true
-delta r1 Pi
+1 已拿到 Promise true
+2 当前同步代码结束
+3 then 收到 delta r1 Pi
+4 await 收到 delta r1 Pi
 ```
 
 调用 `formatLater()` 时，调用者立刻拿到 `Promise<string>`。`await pending` 暂停当前
-async 函数或 ESM 模块的后续语句；Promise 完成后，`await` 表达式得到里面的字符串。
-它没有阻塞整个 Node 进程，也没有改变 `formatEvent()` 的返回值。
+async 函数或 ESM 模块的后续语句；第二行同步日志仍然先出现。当前同步代码退出后，
+Promise 回调与 await continuation 才依次取得字符串。这条顺序直接显示：等待暂停的是
+当前 async 控制流，不是整个 Node 进程；`formatEvent()` 产生的字符串也没有改变。
 
 第 02 章会让 `next()` 返回等待下一条事件的 Promise。第 05 章会用
 `for await...of` 顺序读取网络片段。多个工具何时可以并发、结果按什么顺序写回，会在
@@ -405,9 +412,9 @@ Agent Loop 已经出现后处理；这里不提前引入调度规则。
 
 :::note title="两项测试覆盖到哪里"
 聚焦测试覆盖四种事件的格式和顺序、一条合法 delta，以及数字 `text` 这一项边界反例。
-`never` 对新联合成员的诊断来自 TypeScript 编译器；Promise 示例没有进入聚焦测试。
-测试也没有穷尽所有外部对象、错误信息或异步调度。后续章节会在具体边界上继续增加
-证据。
+`never` 对新联合成员的诊断来自 TypeScript 编译器；上面的 Promise 顺序是运行时观察，
+没有进入这两项聚焦测试。第 02 章会把“稍后完成”放进真正逐条到达的事件流，再给等待
+过程增加可执行证据。
 :::
 
 :::pi title="与当前上游 Pi 对照"
