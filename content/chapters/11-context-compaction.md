@@ -442,23 +442,16 @@ interaction，再核对上一节的四个 id 关系；result 的数组位置、`
 user 分组、call/result 配对、固定成本、完整组裁剪、最新组超限、纯创建、最新摘要恢复、
 二次压缩和公开副本隔离。
 
-它们没有证明：
+这 14 项测试把 compaction 固定在四个范围内：
 
-- 测试估算器等于任一 provider 的 tokenizer；
-- tool schema、图片、缓存和传输协议的额外成本已经计入；
-- 真实模型能生成完整、正确的 summary；
-- `tokensBefore` 已经由函数重新估算并与真实压缩前规模核对；
-- summary 自身超过可用消息预算时应采用哪一种 reason 或保留策略；
-- 有状态或非确定性估算器重复调用时仍得到相同结果；
-- toolResult 的 name 与 call name 一致、result 位于 call 之后，或 interaction 以终态
-  assistant 结束；
-- 单个超大 interaction 应采用哪一种产品策略；
-- compaction 应在什么时刻自动触发；
-- 多个并发摘要任务可以安全写同一条 session；
-- summary 中的业务事实能够无损还原成原消息。
-
-`single_group_overflow` 只报告当前投影无法安全放入窗口。它没有替上层选择截短工具输出、
-生成专用摘要、换模型或停止运行。
+- 预算使用调用者提供的确定性估算器，并扣除本章列出的固定成本。真实 tokenizer、tool
+  schema、图片和缓存成本需要由 Provider 层给出另一套估算。
+- `createCompactionEntry()` 校验七字段 summary 的形状；summary 正文与 `tokensBefore` 由
+  调用者提供，函数不重新判断业务事实是否完整，也不重算压缩前规模。
+- `groupInteractions()` 以 user 边界和四个 call/result id 关系组成不可拆分组。Result
+  位置、toolName 和终态 assistant 不属于这层配对规则。
+- `single_group_overflow` 只报告最新一组无法放入当前窗口。截短工具输出、生成专用摘要、
+  换模型、自动触发时机和并发摘要写入都由上层生命周期选择。
 
 :::pi title="与上游 Pi 的固定提交对照"
 固定提交 `8479bd8` 的 coding-agent 也把 compaction 作为 session entry 追加，记录
