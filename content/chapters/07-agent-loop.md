@@ -547,9 +547,9 @@ node --test packages/pi-course/dist/test/07-*.test.js
 :::note title="9 项测试覆盖到哪里"
 聚焦测试证明 context 不修改、systemPrompt 与 tool definitions 进入请求、单工具执行与
 回填、非执行终态的配对、并发的两种顺序、单项 executor rejection、两处取消检查和
-`maxSteps`。它没有证明墙钟超时，也没有证明忽略 signal 的 provider 或工具会停止。
-测试没有覆盖抛错的 `onEvent` subscriber、重复 call id、executor 返回错误 id、动态工具
-注册、模型流向外抛错、重试或进程级资源清理。
+`maxSteps`。这份 loop 管理一次进程内运行：signal 阻止新的模型请求，并传给已经启动的
+provider 与工具；正在执行的工作何时结束，取决于它们是否响应 signal。跨多次运行的
+subscriber、重试与状态生命周期由第 09 章的 `Agent` 接手。
 :::
 
 :::pi title="与当前上游 Pi 对照"
