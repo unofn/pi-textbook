@@ -14,81 +14,105 @@ terms: resource catalog, skill activation, prompt template, extension host, trus
 upstream: packages/coding-agent/src/core/resource-loader.ts
 ---
 
-## 你将得到什么
+## 同一个工作区里四种会影响运行的对象
 
-第 11 章已经能从活动历史中构造一份有预算的模型上下文。可模型此时只知道聊天记录，
-还不知道当前项目的规则、可用 Skill 和任务模板。你当然可以把这些内容全部塞进 system
-prompt，但这样做很快会碰到两个问题：
+假设用户在项目里发出一句话：
 
-- 没用到的 Skill 正文也会占窗口；
-- 一个看起来像“扩展”的文件，可能在进入上下文之前就已经执行了宿主代码。
+> 用 review 方法检查 `src/parser.ts`，并把结论记到 review note。
 
-这两个问题不能交给同一个万能 loader 解决。文本进入模型，改变的是模型能看到的
-数据；Extension 被 import，获得的是 Node 进程里的执行机会。二者的权限后果完全不同。
-
-本章只建立这两条边界：
+这个任务看起来只有一句话，运行时却会用到四种不同对象。前三种由 roots 发现，
+ExtensionSource 则由组成层明确传入。先固定本章一直使用的目录，不再为每个概念换例子：
 
 ```text
-数据路径
-  resource roots
-    → catalog
-    → 显式 activateSkill
-    → formatResourceContext
-    → Chapter 11 buildContext({ systemPrompt })
+projectRoot/
+  AGENTS.md                         # 项目规则
+  skills/review/SKILL.md            # review 的说明和正文
+  skills/review/references/checklist.md
+  templates/review.md               # Review {{target}} for {{owner}}
+  extensions/review-extension.ts    # 示例路径，不由 discoverResources 扫描
 
-执行路径
-  extension source
-    → isTrusted
-    → importModule
-    → staging factory
-    → commit tools/hooks
-    → wrapExecutor(coreExecutor)
+userRoot/
+  skills/review/SKILL.md            # 同名的用户级 Skill
+  templates/review.md               # 同名的用户级模板
 ```
 
-完成后，你会得到：
-
-- `discoverResources()`：按调用者给出的 root 顺序解决冲突，输出稳定目录；
-- `activateSkill()`：显式取得 Skill 正文和指定附加文件，同时挡住三种路径逃逸；
-- `renderTemplate()`：用唯一的 `{{name}}` 协议生成 canonical user message；
-- `formatResourceContext()`：只生成一个 system prompt 字符串，交给第 11 章统一预算；
-- `loadExtension()`：在 import 之前完成信任判断，并把 factory 注册变成一次原子提交；
-- `createExtensionHost()`：把前置策略、核心工具和后置观察串成有明确失败语义的执行器。
-
-本章的总原则很短：
-
-> 数据权限和执行权限分开授予。需要多少数据，就显式放进多少上下文；准备执行代码，
-> 先完成信任判断。
-
-## 为什么第 12 章放在这里
-
-Resource 不能早于 canonical message。模板最终要生成 `UserMessage`，Skill 最终要影响
-模型输入；没有第 03 章的消息协议，它们只能返回散乱字符串。
-
-它也不能早于第 11 章。项目说明和 Skill 正文会占用上下文窗口。如果每种资源自行把
-文字塞进 messages，预算算法就看不到完整输入，也无法稳定复现一次裁剪。第 11 章已经
-固定唯一入口：`buildContext()` 同时接收活动路径和 `systemPrompt`。本章只负责生成
-那个字符串。
-
-Extension 又依赖第 06 章的 `ToolRegistry` 与 `ToolExecutor`。它可以注册新工具，也
-可以在工具调用前后挂 hook，但不应直接改 Agent loop。第 13 章会负责把这些已经独立
-验证的部件装成 Runtime。
+调用者把 roots 明确写成 `[projectRoot, userRoot]`。因此同名资源由 project 版本胜出。一次
+正常运行依次发生这些事：
 
 ```text
-第 03 章：模板最终落成什么消息
-第 06 章：工具如何注册和执行
-第 11 章：资源文字从哪个入口占用预算
-        ↓
-第 12 章：发现数据、激活知识、受控加载代码
-        ↓
-第 13 章：组装成一个可恢复的 Runtime
+[projectRoot, userRoot]
+  → discoverResources：得到三类文本资源的稳定 catalog，project 的 review 胜出
+  → activateSkill("review")：重新读取 canonical source，返回正文和 checklist
+  → renderTemplate({ target, owner })：得到一条 UserMessage
+  → formatResourceContext：得到一份 systemPrompt
+  → Chapter 11 buildContext：把 systemPrompt 与活动历史一起计入预算
+
+composition
+  → ExtensionSource(review-extension)
+  → isTrusted → import → factory 暂存 review_note 与 hooks → commit
+  → before allow → core tool 执行一次 → after 观察 → 返回结果
 ```
 
-这个顺序能把故障定位在第一次偏差上。Skill 正文缺失，先查资源路径；工具没有运行，
-再查 extension policy；历史恢复或预算出错，仍回到第 10、11 章。
+这条 trace 是本章的地图。后面五个 Lab 只是逐段把它变成代码。
 
-## 开始动手
+四种对象不能装进一个含糊的“插件”概念里：
 
-在教学历史仓库中生成隔离练习。不要在教材目录或原始 `pi` 仓库里改：
+| 对象 | 发现后 catalog 中有什么 | 何时真正使用 | 结果去向 |
+|---|---|---|---|
+| `AGENTS.md` | 正文 | 格式化资源上下文时 | `systemPrompt` |
+| Template | metadata 和正文 | 用户给出模板参数时 | 一条 `UserMessage` |
+| Skill | metadata，不含正文 | 显式 `activateSkill()` 时 | `systemPrompt` |
+| Extension | 不进入资源 catalog | trust 通过并 import 后 | Tool Registry 与 hook 链 |
+
+前三种是数据。它们改变模型能看到什么，但不会仅因“被发现”就执行 Node 代码。
+Extension 是代码；模块顶层在 import 时就可能运行，所以信任判断必须发生在 import 之前。
+
+课程里的 `discoverResources(roots)` 只扫描前三种文本资源。组成层把
+`{ id: "review-extension", path: ... }` 单独交给 `loadExtension()`；真实 Pi 才由更完整的
+ResourceLoader 同时汇总资源路径与 Extension 路径。分开这两个入口，是为了让“发现数据”
+和“准许代码执行”的先后关系可以独立观察。
+
+本章最终得到六个公开函数：
+
+```ts
+discoverResources(roots)
+activateSkill(catalog, name, options)
+renderTemplate(template, args)
+formatResourceContext(catalog, activatedSkills)
+createExtensionHost(registry, options)
+loadExtension(source, options)
+```
+
+先看对象怎样流动，再记术语：catalog 是“已经发现的目录”；activation 是“本轮确定要
+读取的知识”；template render 是“输入参数变成用户消息”；extension host 是“获准代码
+能注册什么、何时介入工具执行”的边界。
+
+## 它接在第 11 章的哪个位置
+
+第 11 章已经确立唯一的上下文构造器 `buildContext()`。本章不会再发明一套 resource
+messages 或另一套 token 裁剪器，只负责准备两个输入：
+
+```text
+renderTemplate(...)        ──→ UserMessage ──→ session 活动历史
+formatResourceContext(...) ──→ systemPrompt ─→ buildContext(...)
+```
+
+模板生成的消息走既有消息与 session 协议；项目规则和 Skill 知识走同一个
+`systemPrompt` 字段。于是第 11 章仍能看到一次模型请求的完整预算。
+
+Extension 接在另一边。它复用第 06 章的 `ToolRegistry` 与 `ToolExecutor`，而不是直接
+侵入 Agent loop：
+
+```text
+ToolCall → extension before hooks → ToolExecutor → extension after hooks → ToolResultMessage
+```
+
+第 13 章会把 catalog 的静态资源上下文、扩展后的执行器、session 和 loop 组装成一个
+Runtime。本章只把“发现”和“执行前后”各自做成可独立验证的部件。
+
+## 建立练习起点
+
+在教学历史仓库中生成隔离练习。不要修改教材目录，也不要在原始 `pi` 仓库施工：
 
 ```bash
 cd <你的工作区>/pi-course
@@ -98,51 +122,29 @@ cd <新目录>
 npm install
 ```
 
-生成器会保留第 11 章的实现，加入本章 12 项公开测试，并把无答案脚手架覆盖到：
+练习保留 Chapter 11 的实现，并用无答案 starter 覆盖唯一教学文件：
 
 ```text
 packages/pi-course/src/resources.ts
 ```
 
-本章只修改这个文件。先确认脚手架能编译：
-
-```bash
-npm run build -w @pi/course
-```
-
-接着只运行 Lab 12.1：
-
-```bash
-node --test --test-name-pattern="Lab 12.1" \
-  packages/pi-course/dist/test/12-*.test.js
-```
-
-正确的起点是 `0/2`，两项失败都应指向：
-
-```text
-Lab 12.1 resource catalog 尚未实现
-```
-
-如果 build 已经失败，或错误来自别的 Lab，先停下来检查练习目录和 starter，不要在
-错误脚手架上补类型。一个能编译、只在当前施工位变红的起点，才有资格继续。
-
-:::rebuild title="Checkpoint 12 · 分五步建立资源与扩展边界"
+:::rebuild title="Checkpoint 12 · 沿一条发现链重建资源与扩展"
 **模式：** 重建。从第 11 章 target 开始，只增加 `resources.ts`。
 
 **起终点：** `parent` `5fb517c2012d8e6227c0e17ee65e530e18ac13e6` 是起点；`target` `03541892bcd533444af599d1813401f79807de3c` 是终点。
 
 **教学文件：** `packages/pi-course/src/resources.ts`
 
-**学习脚手架：** `starters/12-resources.ts` 已固定所有公共类型和六个导出函数。每个
-函数只在所属 Lab 抛出明确异常，没有隐藏的参考算法。
+**学习脚手架：** `starters/12-resources.ts` 已固定 Resource、Extension、hook 的公共类型和
+六个导出函数；函数体只有按 Lab 命名的施工位，没有本章答案。
 
-**动手前只需知道：** Resource 是可发现、可读取的数据；Extension 是导入后会运行的
-代码。前者要守住路径和正文暴露范围，后者要先判断信任，再暂存注册结果。
+**动手前只需知道：** catalog 先回答“工作区里有什么”，activation 再回答“本轮读取哪份
+Skill”；Extension 只有通过 trust gate 后才有机会执行并注册 tool/hook。
 
-**第一步：** 实现资源目录发现。按调用者给出的 root 顺序处理冲突，只读取本章允许的
-资源文件，并先让 Lab 12.1 通过。
+**第一步：** 只实现 `discoverResources()`，让 `[projectRoot, userRoot]` 中 project 的
+同名资源胜出，并让输出只按逻辑身份稳定排序。
 
-**第一次红灯：** starter 可以通过 build；首次只运行 Lab 12.1 时，两项都应显示
+**第一次红灯：** starter 可以 build；只运行 Lab 12.1 时应得到 `0/2`，错误都是
 `Lab 12.1 resource catalog 尚未实现`。
 
 **聚焦测试：** `packages/pi-course/test/12-resources-extensions.test.ts`
@@ -154,149 +156,17 @@ Lab 12.1 resource catalog 尚未实现
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/12-*.test.js`。
 
-**施工顺序：** 资源目录 `2/2` → Skill 激活 `3/3` → 模板与上下文 `2/2` →
-信任和原子注册 `2/2` → hook 故障隔离 `3/3`。
+**施工顺序：** catalog precedence `2/2` → Skill activation `3/3` → template 与 context
+`2/2` → trust 与 staging `2/2` → hook 执行语义 `3/3`。
 
-**陪练方式：** 先让陪练问你的预测，再只讨论当前 Lab。提示顺序固定为：定位函数、
-复述签名、给控制流、最后才对照 target 中这一小段。不要让陪练把整个
-`resources.ts` 抄进练习目录。
+**通过证据：** fresh build 为绿，首红准确，五个 Lab 分别通过，失败注入能被现有测试
+杀死并恢复，最后本章 `12/12`。
 
-**通过证据：** fresh starter build 为绿；首红准确；五段分别通过；故障实验能稳定
-复现并恢复；最后 12 项公开测试全绿。
-
-第一次尝试先不看 target diff。陪练只检查当前 Lab 的签名、控制流和第一处偏差。
+第一次尝试先不看 target diff。禁止让陪练粘贴完整答案；只比较当前 Lab 的输入、输出和
+第一处偏差。
 :::
 
-## 先建立全景
-
-同一个“代码审查”需求，可以拆成四种原语：
-
-| 原语 | 进入系统的形状 | 何时生效 | 它能直接做什么 |
-|---|---|---|---|
-| Instructions | system prompt 文字 | catalog 被格式化时 | 影响模型判断 |
-| Prompt template | `UserMessage` | 用户显式渲染时 | 生成一条用户输入 |
-| Skill | metadata；激活后再加正文与文件 | 调用 `activateSkill()` 时 | 给模型补充做事方法 |
-| Extension | tool 与 hook | 信任、import、factory 成功后 | 在宿主进程中参与执行 |
-
-前三项沿数据路径前进。它们可能影响模型，但不会因为被 catalog 发现就自动执行脚本。
-Extension 沿执行路径前进。Node 模块的顶层代码在 import 时就可能运行，所以“先
-import，再看看是否可信”已经太晚。
-
-Tool 位于二者之间：它的 schema 和描述可以进入模型可见的动作空间；真正的环境动作
-只有在模型发出合法 call、执行器接受后才发生。Extension 可以注册 Tool，却不能因此
-绕开第 06 章的参数验证和结构化结果协议。
-
-调试时先问一句：眼前缺的是数据，还是执行机会？这个判断会决定你应该查 catalog、
-context，还是 trust gate、registry 和 hook。
-
-:::predict title="发现一个 Skill 时，正文该不该马上进入 context"
-目录里有 80 个 Skill，本轮只用到 `review`。Catalog 应该保留哪些信息？另外 79 个
-Skill 的正文应不应该出现在 `formatResourceContext()` 的结果里？
----answer
-Catalog 保留所有 Skill 的 `name`、`description`、canonical `source` 和 `root`，
-让模型和调用者知道有哪些能力。只有显式激活的 Skill 才携带正文和指定附加文件；
-其余 Skill 的正文不出现在 catalog，也不进入 system prompt。
-:::
-
-:::pi title="课程边界 · 这里验证的是可执行契约"
-本章 target 把 Resource 与 Extension 压缩成六个公开函数，目的是让权限顺序可以被
-12 项黑盒测试完整观察。它不是对原始 Pi 生产加载器的逐行复刻。尤其不要把 Skill
-root containment 说成操作系统沙箱，也不要把 hook timeout 说成可以杀死任意扩展
-任务。后面判断课程是否完成，只看这里公开的输入、输出和故障语义。
-:::
-
-## 第一步：目录的冲突规则由调用者决定
-
-`discoverResources(roots)` 接受一串 root。数组顺序本身就是 precedence：
-
-```ts
-await discoverResources([projectRoot, userRoot]);
-```
-
-这里表示项目 root 优先。若两个 root 都声明 `skill:review`，第一个 root 的候选获胜。
-把参数反过来，胜出者也应反过来。绝对路径的字母顺序、目录创建时间和 `readdir()`
-返回顺序都没有决定权。
-
-资源的逻辑身份是：
-
-```text
-kind + name
-```
-
-因此 `skill:review` 和 `template:review` 可以同时存在；两个 `skill:review` 才冲突。
-同一 root 内若出现两个相同身份，调用者没有给出更细的优先级，直接报错比暗中挑一个
-更可靠。不同 root 冲突则按输入顺序取第一次出现的候选。
-
-最终 catalog 还要稳定输出。先按 kind 排 `instructions → skill → template`，同 kind
-再按逻辑 `name` 排序。这个排序只为了让相同输入得到相同结果，不参与胜出者选择：
-
-```text
-逐 root 发现候选
-  → 用 kind+name 选 first winner
-  → 收集 winners
-  → 按 kind、name 稳定排序
-  → 派生 instructions / skills / templates 三个视图
-  → 返回深副本
-```
-
-Skill 的发现有一道容易说错的边界。实现会读取 `SKILL.md` 的 frontmatter 区域以取得
-`name` 和 `description`，然后丢弃正文；公开契约保证正文不保留在 catalog，也不进入
-context。这里不要声称“discovery 连正文的一个字节都不会碰”，因为底层是定长前缀
-读取。真正可验证的权限事实是：inactive Skill 正文不会成为运行时资源数据。
-
-Template 与 instructions 不走这条延迟路径。模板正文要供显式渲染，`AGENTS.md` 要供
-system prompt 使用，所以它们的 body 可以出现在 catalog。
-
-:::lab title="实践 12.1 · 实现 discoverResources"
-
-**只实现：**
-
-- `discoverResources()`；
-- 它直接需要的 frontmatter、目录读取、逻辑身份和稳定排序 helper。
-
-不要碰 `activateSkill()`，也不要提前写 Extension。
-
-**先预测：**
-
-1. `[project, user]` 与 `[user, project]` 的 `skill:review` winner 是否相同？
-2. 物理目录叫 `z-physical-directory`，frontmatter 的 name 是 `alpha`，最终按哪个
-   名字排序？
-3. 对 catalog 做 `JSON.stringify()`，inactive Skill 正文应不应该出现？
-
-**不变量：**
-
-```text
-winner = roots 输入顺序中第一个 kind+name 候选
-stable order = kind order + logical name
-inactive skill body ∉ catalog
-```
-
-**最小控制流：**
-
-```text
-discoverResources(roots)
-  winners = Map()
-  for (root, rootOrder) in roots:
-    canonicalRoot = realpath(root)
-    candidates = discoverRoot(canonicalRoot)
-    拒绝当前 root 内重复 kind+name
-    for candidate in candidates:
-      if winners 没有 key:
-        winners.set(key, candidate)
-
-  resources = sort(winners.values, kind 再 name)
-  return structuredClone({
-    resources,
-    instructions: kind === "instructions",
-    skills: kind === "skill",
-    templates: kind === "template"
-  })
-```
-
-`AGENTS.md` 缺失、`skills/` 缺失和 `templates/` 缺失都表示“这个 root 没有该类
-资源”，不应报错。其他 I/O 错误继续抛出，别把权限错误也吞成空目录。
-
-**运行：**
+先验证起点：
 
 ```bash
 npm run build -w @pi/course
@@ -304,107 +174,149 @@ node --test --test-name-pattern="Lab 12.1" \
   packages/pi-course/dist/test/12-*.test.js
 ```
 
-**通过后记录：**
+看到准确的 `0/2` 后再开始。Build 失败不是预期首红；先检查练习是否从正确 parent 生成。
 
-```text
-project first: instructions:AGENTS, skill:review, template:prompt
-user first:    相同逻辑身份，body/description 来自 user
-inactive marker in JSON catalog: false
-Lab 12.1: 2/2
-```
+## Lab 12.1：roots 顺序决定 catalog winner
 
-**常见误区：**
-
-- 先把所有候选按 `source` 排序，再取第一个。这会让机器路径替调用者决定权限；
-- 用 name 当唯一 key，导致同名 template 把 skill 覆盖；
-- 为了“稳定”把 roots 自己排序，直接破坏 precedence；
-- 把完整 `SKILL.md` 解析结果放进 catalog，再指望下游记得删正文；
-- 捕获所有文件错误并返回空数组，让损坏文件看起来像不存在。
-:::
-
-## 第二步：路径边界要检查两次
-
-激活 Skill 后，调用者可以请求附加文件：
+现在只跟踪一个对象：`skill:review`。
 
 ```ts
-await activateSkill(catalog, "review", {
+const catalog = await discoverResources([projectRoot, userRoot]);
+```
+
+projectRoot 和 userRoot 都声明了 `skill:review`。逻辑身份由 `kind + name` 构成，因此
+`skill:review` 与 `template:review` 可以共存，两个 `skill:review` 才发生冲突。输入数组
+已经表达优先级：先出现的 root 获胜。
+
+发现与排序是两个不同动作：
+
+```text
+发现阶段：按 roots 输入顺序扫描，第一次见到 kind:name 时记为 winner
+排序阶段：winner 已经确定，再按 instructions → skill → template、name 输出
+```
+
+不能先按绝对路径排序再选 winner。那会让临时目录名或机器路径替调用者决定优先级。
+
+对固定示例，catalog 的核心结果应类似：
+
+```ts
+{
+  resources: [
+    { kind: "instructions", name: "AGENTS", body: "PROJECT RULES", ... },
+    { kind: "skill", name: "review", description: "project review", ... },
+    { kind: "template", name: "review", body: "Review {{target}} for {{owner}}", ... },
+  ],
+  instructions: [/* 上面的 instructions */],
+  skills: [/* 上面的 skill */],
+  templates: [/* 上面的 template */],
+}
+```
+
+注意 `skill:review` 没有 `body`。Discovery 会读取 `SKILL.md` 的文件前缀来解析
+frontmatter；短文件的正文可能进入临时 buffer，但公开 catalog 只保留 `name` 和
+`description`，不会让正文进入本轮 context。目录可以告诉运行时“有 review 能力”，
+却没有替本轮请求公开全部方法文本。
+
+同一 root 内若出现两个相同 `kind:name`，roots 顺序无法裁决，直接报错。缺少
+`AGENTS.md`、`skills/` 或 `templates/` 只表示该类资源不存在；其他 I/O 或解析错误不能
+悄悄吞成空目录。
+
+:::lab title="实践 12.1 · 实现 discoverResources"
+只实现 `discoverResources()` 及它直接需要的目录、frontmatter、逻辑身份和排序 helper。
+不要碰后四个 Lab。
+
+先写下三个预测：调换 roots 后 winner 是否调换；物理目录名与 frontmatter name 不同时
+按哪个排序；`JSON.stringify(catalog)` 是否包含 inactive Skill 正文。
+
+可按下面的控制流施工：
+
+```text
+for configuredRoot of roots
+  canonicalRoot = realpath(configuredRoot)
+  candidates = discoverRoot(canonicalRoot)
+  拒绝当前 root 内重复 kind:name
+  对每个 candidate：winners 中没有该 key 才写入
+
+resources = winners 按 kind、logical name 排序
+返回 resources 及三个分类视图的 structuredClone
+```
+
+运行独立聚焦测试：
+
+```bash
+npm run build -w @pi/course
+node --test --test-name-pattern="Lab 12.1" \
+  packages/pi-course/dist/test/12-*.test.js
+```
+
+通过证据是 `2/2`：调换 roots 会调换 winner；重复运行结果一致；排序看 logical name；
+inactive Skill 的 marker 不出现在序列化 catalog 中。
+
+常见的第一处偏差是把 roots 自己排序、只用 name 作为 key，或把完整 Skill 解析结果直接
+塞进 catalog。
+:::
+
+## Lab 12.2：activation 才把 Skill 正文交给本轮
+
+Catalog 现在已经选定 project 的 `skill:review`，但对象里仍只有 metadata。本轮明确需要
+review 时才激活：
+
+```ts
+const review = await activateSkill(catalog, "review", {
   resources: ["references/checklist.md"],
 });
 ```
 
-这个字符串同时面对两类逃逸。
+成功后，当前对象才扩展为：
 
-第一类是词法逃逸。`../../outside.md` 或绝对路径在解析字符串时就已经跑出 Skill
-root。第二类是文件系统逃逸：`references/escape.md` 看起来还在 root 内，实际可能是
-指向外部文件的 symlink。
+```ts
+{
+  kind: "skill",
+  name: "review",
+  description: "project review",
+  source: "/canonical/.../skills/review/SKILL.md",
+  root: "/canonical/.../skills/review",
+  body: "Read the diff first.",
+  resources: [{
+    request: "references/checklist.md",
+    source: "/canonical/.../skills/review/references/checklist.md",
+    content: "tests\nsecurity\n",
+  }],
+}
+```
 
-所以 containment 必须检查两次：
+`request` 保留调用者写下的逻辑路径，`source` 记录文件系统解析后的 canonical 路径，
+`content` 才是要进入后续上下文的文字。相同 request 出现两次时按 request 去重。
+
+路径边界需要回答两个问题。第一，字符串解析后是否仍在 Skill root 内；第二，跟随
+symlink 后的真实文件是否仍在 root 内：
 
 ```text
-request
+references/checklist.md
   → 拒绝空串和绝对路径
   → path.resolve(skillRoot, request)
-  → 检查 lexical candidate 位于 root 内
+  → lexical containment
   → realpath(candidate)
-  → 再检查 canonical source 位于 root 内
+  → canonical containment
+  → readFile
 ```
 
-判断“位于 root 内”不能只写 `candidate.startsWith(root)`。`/work/skill-old` 也以
-`/work/skill` 开头。用 `path.relative(root, candidate)`，只接受空相对路径或不以
-`..` 开始、且不是绝对路径的结果。
+只检查 `..` 会漏过 symlink；只检查字符串前缀也会把 `/work/review-old` 错认成
+`/work/review` 的子路径。用 `path.relative(root, candidate)` 判断 containment：结果不能
+是绝对路径，也不能以 `..` 开始。
 
-`activateSkill()` 还要守住目录与激活之间的身份变化。它重新读取完整 `SKILL.md` 后，
-frontmatter 的 name 必须仍等于 catalog 中的 name。成功结果返回 canonical
-`source`、canonical `root`、正文和每个附加文件的 `request/source/content`，而且
-不修改输入 catalog。
+激活还会重新读取完整 `SKILL.md`。若 frontmatter name 已经不等于 catalog 中的 name，
+就拒绝这次激活。成功结果必须是副本；修改 `review.body` 不能反向改变 catalog。
 
 :::lab title="实践 12.2 · 实现 activateSkill"
+只实现 `activateSkill()`、`resolveInsideSkill()` 和 containment helper，保留 Lab 12.1 的
+结果。
 
-**只实现：**
+核心顺序是：按 name 找 catalog Skill → `realpath()` 并确认 SKILL.md 位于 canonical
+root 内 → 解析完整正文并复核 name → 对去重后的 resource requests 做 lexical 与
+canonical 两次 containment → 返回深副本。
 
-- `activateSkill()`；
-- `resolveInsideSkill()` 和 containment helper。
-
-保留 Lab 12.1 已通过的实现，不改测试 fixture。
-
-**先预测：**
-
-1. 同一个附加文件请求两次，结果应读出两份还是按 request 去重？
-2. `path.resolve()` 后仍在 root 内的 symlink，为什么还要 `realpath()`？
-3. 修改返回的 `activated.body`，原 catalog 是否允许一起变化？
-
-**不变量：**
-
-```text
-activation 明确指定 Skill 名称
-lexical candidate ⊆ canonical skill root
-realpath(candidate) ⊆ canonical skill root
-activated result 与 catalog 不共享可变引用
-```
-
-**最小控制流：**
-
-```text
-activateSkill(catalog, name, options)
-  skill = catalog.skills.find(name)
-  找不到则失败
-
-  source = realpath(skill.source)
-  检查 source 在 skill.root 内
-  parsed = 读取并解析完整 SKILL.md
-  检查 parsed.name 仍等于 skill.name
-
-  resources = []
-  seenRequests = Set()
-  for request in options.resources:
-    重复 request 跳过
-    resourceSource = resolveInsideSkill(skill.root, request)
-    resources.push({ request, source: resourceSource, content: readFile(...) })
-
-  return structuredClone({ ...skill, source, body, resources })
-```
-
-**运行：**
+运行：
 
 ```bash
 npm run build -w @pi/course
@@ -412,119 +324,79 @@ node --test --test-name-pattern="Lab 12.2" \
   packages/pi-course/dist/test/12-*.test.js
 ```
 
-**通过后记录：**
+`3/3` 证明三组事实：正文只在激活结果中出现且 catalog 不变；安全附加文件返回自己的
+canonical source；traversal、绝对路径和指向 root 外的 symlink 都被拒绝。
 
-```text
-canonical SKILL.md source: <实际路径>
-safe reference: accepted
-../../outside.md: rejected
-absolute path: rejected
-symlink outside root: rejected
-Lab 12.2: 3/3
-```
-
-**常见误区：**
-
-- 只检查 `..` 字符串；symlink 完全不需要 `..`；
-- 只做 `realpath()`，没有先拒绝绝对路径和词法逃逸；
-- 用字符串前缀判断 containment；
-- 激活时相信旧 metadata，不检查 Skill name 是否变化；
-- 直接在 catalog 的 Skill 对象上补 `body`，使 inactive/active 边界永久消失。
+这层 containment 只约束 Resource loader 读取哪些 Skill 文件，不是操作系统沙箱，也
+不能限制后面获准执行的 Extension 自己访问文件。
 :::
 
-这道边界只限制 Resource loader 能读取哪些 Skill 文件。它不构成操作系统沙箱，也不能
-限制一个已获准运行的 Tool 或 Extension 自己访问文件。
+## Lab 12.3：模板与 Skill 从两个入口汇入一次模型请求
 
-## 第三步：资源只从一个入口进入模型上下文
-
-模板协议刻意只保留一条规则：
+固定模板正文是：
 
 ```text
-{{name}}
+Review {{target}}; then test {{target}} for {{owner}}.
 ```
 
-`name` 由字母或下划线开头，后面可以有字母、数字和下划线。相同模板变量出现多次时，
-每处都替换；缺少参数立即报错；多余参数被忽略。渲染结果会包装成一条 canonical
-`UserMessage`：
+唯一占位协议是 `{{name}}`：name 以字母或下划线开头，后面可跟字母、数字或下划线。
+同一变量出现两次就替换两次；缺少参数立即报错；多余参数不参与输出。只有符合这个
+外形的片段参与替换；`{{ name }}`、`{{1x}}` 等花括号文本按字面保留。
+
+```ts
+const message = renderTemplate(template, {
+  target: "src/parser.ts",
+  owner: "runtime",
+  ignored: "extra",
+});
+```
+
+结果不是裸字符串，而是第 03 章定义的 canonical `UserMessage`：
 
 ```ts
 {
   role: "user",
-  content: [text(rendered)],
-  timestamp: Date.now()
+  content: [{ type: "text", text: "Review src/parser.ts; then test src/parser.ts for runtime." }],
+  timestamp: /* 当前时间 */,
 }
 ```
 
-模板不读取文件、不调用 Agent，也不自己写 session。它只完成“参数 → 用户消息”。
+模板到这里就结束。它不直接调用模型，也不自行写 session。
 
-`formatResourceContext()` 走另一条路。它生成唯一的 system prompt 字符串，内容包括：
-
-- instructions 正文；
-- 所有可用 Skill 的 name 与 description；
-- 已激活 Skill 的正文；
-- 已显式读取的 Skill 附加文件。
-
-Inactive Skill 的 metadata 会出现，正文不会出现。函数还要拒绝重复激活，以及不属于
-当前 catalog 的 ActivatedSkill。最后把字符串交给第 11 章：
+另一条输入来自已经发现和激活的资源：
 
 ```ts
-const systemPrompt = formatResourceContext(catalog, activatedSkills);
+const systemPrompt = formatResourceContext(catalog, [review]);
+```
+
+这份字符串包含 instructions 正文、所有 Skill 的 name/description、已激活 Skill 的正文
+与显式附加文件。未激活 Skill 的 description 可见，正文不可见。函数还要拒绝重复激活
+同名 Skill，以及不属于当前 catalog 的 ActivatedSkill。
+
+现在把两条路径接回第 11 章：先把 `message` 追加为 session 事实，再把
+`systemPrompt` 作为已有入口交给 `buildContext()`。
+
+```ts
 const projection = buildContext(activePath, {
-  maxTokens,
+  maxTokens: 20,
   systemPrompt,
-  reservedOutput,
-  safetyMargin,
-  estimateTokens,
+  reservedOutput: 2,
+  safetyMargin: 1,
+  estimateTokens: () => 1,
 });
 ```
 
-这里没有第二套预算器，也没有“resources messages”旁路。第 11 章负责把 system prompt
-计入本次总预算。
+`formatResourceContext()` 不裁剪 token，也不调用 `buildContext()`。它只返回一个字符串；
+预算与历史投影仍只有一个负责人。
 
-:::lab title="实践 12.3 · 实现模板与资源上下文"
+:::lab title="实践 12.3 · 实现 renderTemplate 与 formatResourceContext"
+实现两个函数和必要的字符串 helper。先用固定模板手算完整输出，再写 replace 回调。
 
-**只实现：**
+资源上下文按这个顺序构造：加入 instructions → 加入全部 Skill metadata → 验证 activated
+集合 → 按 name 稳定排列 active Skills → 加入 active body 和 resource files →
+`lines.join("\n\n")`。
 
-- `renderTemplate()`；
-- `formatResourceContext()`；
-- 两者直接需要的字符串格式 helper。
-
-**先预测：**
-
-1. `Review {{target}} and {{target}}` 只给一个 `target` 时，两处是否都替换？
-2. 参数里多一个 `ignored`，应报错还是忽略？
-3. `inactive` 的 description 与 body，哪一个进入 system prompt？
-4. `formatResourceContext()` 应该直接调用 `buildContext()` 吗？
-
-**不变量：**
-
-```text
-template output = one canonical user message
-resource output = one system prompt string
-inactive body ∉ system prompt
-buildContext 是唯一预算入口
-```
-
-**最小控制流：**
-
-```text
-renderTemplate(template, args)
-  rendered = template.body.replace(PLACEHOLDER, key => {
-    args 没有 own property key 时失败
-    return args[key]
-  })
-  return user message
-
-formatResourceContext(catalog, activatedSkills)
-  lines 加入 instructions
-  lines 加入全部 skill metadata
-  验证 activatedSkills 不重复且属于 catalog
-  按 name 稳定排列 activated skills
-  lines 加入 active body 与显式资源文件
-  return lines.join("\n\n")
-```
-
-**运行：**
+运行：
 
 ```bash
 npm run build -w @pi/course
@@ -532,41 +404,56 @@ node --test --test-name-pattern="Lab 12.3" \
   packages/pi-course/dist/test/12-*.test.js
 ```
 
-**通过后记录：**
+`2/2` 要同时证明：重复占位符都被替换，缺少 `owner` 报错，结果 role 为 `user`；
+systemPrompt 有 instructions、active/inactive metadata 和 active body，没有 inactive body，
+并原样进入 `buildContext().systemPrompt`。
 
-```text
-rendered role: user
-missing owner: rejected
-active marker in systemPrompt: true
-inactive description in systemPrompt: true
-inactive body in systemPrompt: false
-projection.systemPrompt === resource systemPrompt: true
-Lab 12.3: 2/2
-```
-
-**常见误区：**
-
-- 支持第二种模板变量语法，结果同一模板出现两套缺参规则；
-- 返回字符串后让调用者自行伪造 user message；
-- 把 Skill metadata 也藏到激活之后，模型根本不知道有哪些能力；
-- 把所有 Skill 正文一起拼进去；
-- 在 `formatResourceContext()` 里再次裁剪 token，和第 11 章产生两套事实。
+若你在这里创建第二套 resource messages 或第二个 token budget，说明职责边界已经偏离。
 :::
 
-## 第四步：Extension 的原子性从 staging 开始
+## Lab 12.4：Extension 先获准，再一次性注册
 
-受限的 `ExtensionContext` 只有两个入口：
+现在模型已经看见 review 方法，但还没有 `review_note` 工具。固定 Extension 的 factory
+只做三件事：注册一个 tool、注册一个 before hook、注册一个 after hook。
 
 ```ts
-interface ExtensionContext {
-  registerTool(tool): void;
-  on("beforeToolCall" | "afterToolResult", listener): void;
+export default function reviewExtension(context: ExtensionContext) {
+  context.registerTool(reviewNoteTool);
+  context.on("beforeToolCall", () => ({ decision: "allow" }));
+  context.on("afterToolResult", () => {
+    observed += 1;
+  });
 }
 ```
 
-公开的 `ExtensionHost` 也只有 `wrapExecutor()`。`stage()` 是 loader 与 host
-实现之间的内部通道，不能为了方便直接加进公共接口。课程 target 用一个私有实现类把
-这条通道接起来：
+`loadExtension()` 的正常顺序必须能从外部观察：
+
+```text
+source { id, path }
+  → isTrusted(frozen source)        true
+  → importModule(frozen source)     得到 default factory
+  → factory(stagingContext)         暂存 review_note 和 hooks
+  → commit                          三项一起变为可见
+  → { id, status: "active" }
+```
+
+为什么不是 factory 一调用 `registerTool()` 就写真实 Registry？因为下一行仍可能抛错。
+如果 tool 已写入而 hook 没写入，宿主会留下一个不存在于任何完整 Extension 状态中的半成品。
+
+Staging context 的 `registerTool()` 和 `on()` 只写局部数组。Factory 正常返回后，
+`commit()` 先检查 extension id、暂存区内部 tool 重名、与 Registry 现有 tool 重名；所有
+检查通过后才写入真实 Registry、hook 列表和 committed extension ids。
+
+公开 `ExtensionHost` 只有：
+
+```ts
+interface ExtensionHost {
+  wrapExecutor(coreExecutor: ToolExecutor): ToolExecutor;
+}
+```
+
+`stage()` 是 `loadExtension()` 与 host 实现之间的私有通道，不能为了少写一个 helper 就
+暴露给 Extension 作者。课程 target 用私有 `ExtensionHostImpl` 和模块内类型收窄连接：
 
 ```ts
 interface StagedRegistration {
@@ -575,279 +462,32 @@ interface StagedRegistration {
 }
 
 class ExtensionHostImpl implements ExtensionHost {
-  stage(extensionId: string): StagedRegistration {
-    // 这里只创建局部 tool/hook 数组，暂不修改真实 Registry。
-  }
-
-  wrapExecutor(core: ToolExecutor): ToolExecutor {
-    // Lab 12.4 先做无 hook 时的透传；Lab 12.5 再补完整策略。
-  }
+  stage(extensionId: string): StagedRegistration { /* 只写局部暂存区 */ }
+  wrapExecutor(core: ToolExecutor): ToolExecutor { /* 公共能力 */ }
 }
 
 function hostImplementation(host: ExtensionHost): ExtensionHostImpl {
-  if (!(host instanceof ExtensionHostImpl)) {
-    throw new Error("host 不是 createExtensionHost 的结果");
-  }
+  if (!(host instanceof ExtensionHostImpl)) throw new Error("host 类型不匹配");
   return host;
 }
 ```
 
-于是 `createExtensionHost()` 对外仍返回窄接口，`loadExtension()` 则可以在模块内部调用
-`hostImplementation(options.host).stage(source.id)`。你也可以用私有 `WeakMap` 保存
-这条联系。这里真正要守住的是权限：Extension 作者不能调用 `stage()`。
+私有 `WeakMap` 也可以。黑盒测试不要求 helper 同名，只要求 Extension 拿不到 staging
+权限，而 loader 能在 factory 成功后 commit。
 
-这个窄接口降低了耦合，却不能把 Node 模块变成安全沙箱。模块一旦 import，顶层代码就
-已经拥有宿主进程可以提供的权限。`loadExtension()` 必须按这个顺序运行：
+:::lab title="实践 12.4 · 实现 trust gate 与 staging registration"
+实现 `createExtensionHost()` 的暂存/提交部分、`loadExtension()` 和 default factory 的运行
+时检查。Lab 12.5 尚未实现时，`wrapExecutor(core)` 至少要在无已提交 hook 时调用 core
+一次并透传结果；第二项测试会用它确认失败 factory 没有泄漏 hook。
 
-```text
-校验 source id/path
-  → isTrusted(frozen source)
-  → false: 返回 skipped_untrusted，到此结束
-  → true: importModule(frozen source)
-  → 校验 default factory
-  → host.stage(extensionId)
-  → await factory(stagingContext)
-  → staged.commit()
-  → 返回 active
-```
-
-信任检查挡住未授权代码。Staging 解决的是另一类问题：factory 运行到一半可能抛错。
-如果 `registerTool()` 立刻改真实 Registry，下面这段会留下一半状态：
-
-```ts
-context.registerTool(firstTool);
-throw new Error("factory exploded");
-```
-
-Staging context 先把 tool 和 hook 放在私有数组里。Factory 成功返回后，`commit()` 先
-检查 extension id 和全部工具名；确认没有冲突，再一起写入真实 host。Factory 抛错、
-工具重名或 extension id 重复时，Registry 和 hook 列表都保持原样。
-
-这里的“原子”针对本章公开的注册冲突与 factory 失败：观察者看见全部注册项，或一个
-也看不见。它没有提供跨进程事务，也没有卸载与回滚协议。
-
-:::lab title="实践 12.4 · 实现信任门与 staging registration"
-
-**只实现：**
-
-- `createExtensionHost()` 中创建 host 和 staging registration 的部分；
-- `loadExtension()`；
-- default factory 的运行时检查。
-
-Lab 12.4 的第二项测试会调用一次 `host.wrapExecutor(core)`，确认失败的 factory 没有
-留下 hook。因此这一阶段还要提供最小透传实现：没有已提交 hook 时，它只调用一次
-`core` 并返回结果。完整的 deny、timeout、diagnostic 和副本隔离留到 Lab 12.5。先把
-“能否进入 host”做完，不要提前实现策略状态机。
-
-**先预测：**
-
-1. `isTrusted()` 返回 false 时，`importModule()` 的调用次数应该是多少？
-2. Factory 注册 tool 和 hook 后抛错，哪一项可以留下？
-3. Factory 成功，但 tool 与 Registry 现有名称冲突，先前暂存的 hook 能否生效？
-
-**不变量：**
+先保持这四条不变量：
 
 ```text
-untrusted ⇒ import count = 0
-factory failure ⇒ committed tools/hooks = 0
-registration conflict ⇒ committed tools/hooks = 0
-active ⇒ factory 全部注册项一次可见
+untrusted          ⇒ import count = 0
+factory throws     ⇒ committed tools/hooks = 0
+tool name conflict ⇒ committed tools/hooks = 0
+active             ⇒ 全部注册项一次可见
 ```
-
-**最小控制流：**
-
-```text
-loadExtension(source, options)
-  验证 id/path 非空
-  if !(await isTrusted(frozenClone(source))):
-    return skipped_untrusted
-  imported = await importModule(frozenClone(source))
-  验证 imported.default 是函数
-  implementation = hostImplementation(options.host)
-  staged = implementation.stage(source.id)
-  await imported.default(staged.context)
-  staged.commit()
-  return active
-
-stage(extensionId)
-  创建局部 tools、beforeHooks、afterHooks
-  context.registerTool/on 只写局部数组
-  commit:
-    先检查 extension id 和所有 tool 名称
-    再写 registry、hook 列表和 extensionIds
-```
-
-**运行：**
-
-```bash
-npm run build -w @pi/course
-node --test --test-name-pattern="Lab 12.4" \
-  packages/pi-course/dist/test/12-*.test.js
-```
-
-**通过后记录：**
-
-```text
-untrusted order: trust
-trusted order: trust → import
-factory throws: registry unchanged
-duplicate tool: registry unchanged, staged hook calls = 0
-Lab 12.4: 2/2
-```
-
-**常见误区：**
-
-- import 后才询问信任；
-- Factory 每调用一次 `registerTool()` 就写真实 Registry；
-- 只暂存 tool，不暂存 hook；
-- 一边检查工具名一边提交，后一个重名时前一个已经留下；
-- Factory 抛错后仍在 `finally` 里 commit。
-:::
-
-## 第五步：策略失败时，前置关闭；观察失败时，事实保留
-
-Extension host 最终包住核心执行器：
-
-```text
-ToolCall
-  → beforeToolCall hooks
-  → coreExecutor
-  → afterToolResult hooks
-  → ToolResultMessage
-```
-
-前置 hook 是策略门。它的输出可能是 `allow`、`deny` 或 `void`。`deny` 要阻止 core，
-并生成一条与原 call 的 `id/name` 配对的错误结果。若策略抛错或超时，host 不知道这次
-动作是否安全，也按 fail-closed 处理：
-
-```text
-before deny / throw / timeout
-  → core 不运行
-  → 返回 paired isError toolResult
-  → throw / timeout 另写 diagnostic
-```
-
-`deny` 是策略做出的正常决定，不需要 diagnostic；reason 已在结果 details 中。Throw
-和 timeout 是扩展故障，既要生成错误结果，也要报告
-`extensionId/hook/kind/message`。
-
-后置 hook 只观察已经发生的事实。Core 成功或返回错误结果后，每个已注册
-`afterToolResult` 恰好运行一次。某个观察者抛错或超时，只产生 diagnostic，不能把
-core result 改成另一条结果，也不能让 core 重跑。
-
-```text
-after throw / timeout
-  → diagnostic
-  → 继续后面的 after hooks
-  → 返回 core result 的深副本
-```
-
-Hook 收到的是冻结深副本，调用者拿到的结果也不与 core 原对象共享可变内容。这样，
-Extension 不能通过修改 `call.arguments` 或 `result.details` 暗中改写工具事实。
-
-Timeout 只终止 host 的等待。JavaScript 无法靠 `Promise.race()` 强制杀死一个已经开始
-执行、又忽略取消的异步任务。这个限制必须写进诊断和运维判断里。
-
-:::lab title="实践 12.5 · 实现 wrapExecutor"
-
-**只实现：**
-
-- hook timeout helper；
-- paired blocked result；
-- host 的 `before()`、`after()` 与 `wrapExecutor()`。
-
-不要改 Agent loop，也不要让 hook 直接追加 session message。
-
-**先预测：**
-
-1. `before` 抛错后，core 还能不能运行？
-2. `before` 超时返回的错误结果，`toolCallId` 应该取什么？
-3. 第一个 `after` 抛错，第二个 `after` 还要不要运行？
-4. `after` 失败后，返回值应变成 extension error，还是保留 core 的结果？
-
-**不变量：**
-
-```text
-before unsafe ⇒ zero core calls + paired error result
-core runs ⇒ exactly one core result
-each after ⇒ at most once per core result
-after failure ⇒ diagnostic only
-hooks cannot mutate source call/result
-```
-
-**最小控制流：**
-
-```text
-wrapped(sourceCall, context)
-  call = structuredClone(sourceCall)
-  blocked = await before(call)
-  if blocked:
-    return structuredClone(blocked)
-
-  coreResult = structuredClone(
-    await coreExecutor(structuredClone(call), context)
-  )
-  await after(coreResult)
-  return structuredClone(coreResult)
-
-before(call)
-  按注册顺序遍历
-  用 timeout 包住 listener(frozenClone(call))
-  deny: 返回 paired blockedResult
-  throw/timeout: diagnostic + paired blockedResult
-  全部 allow/void: 返回 undefined
-
-after(result)
-  按注册顺序遍历
-  每个 listener 只调用一次
-  throw/timeout: diagnostic，继续下一项
-```
-
-**运行：**
-
-```bash
-npm run build -w @pi/course
-node --test --test-name-pattern="Lab 12.5" \
-  packages/pi-course/dist/test/12-*.test.js
-```
-
-**通过后记录：**
-
-```text
-deny: coreCalls=0, same callId, isError=true
-before throw: coreCalls=0, diagnostic kind=error
-before timeout: coreCalls=0, diagnostic kind=timeout
-after success/error/timeout: coreCalls=1, successful after=1
-returned result deep-equals core fact
-Lab 12.5: 3/3
-```
-
-**常见误区：**
-
-- 把 `before` throw 当成 allow，策略挂了却继续执行高风险动作；
-- 返回普通 `Error`，丢掉第 07 章要求的 tool call/result 配对；
-- `after` 失败后重新执行 core；
-- 第一个 `after` 失败就停止后续观察者；
-- 把 coreResult 原对象直接交给 hook 和调用者；
-- 以为 timeout 已经杀死扩展内部的 Promise。
-:::
-
-## 故意把它弄坏
-
-五段通过后，做一个很小的故障实验。它只检查执行权限的第一道门，不增加新功能。
-
-:::failure title="失败注入 · 让未信任模块偷偷 import"
-
-在 `loadExtension()` 的 untrusted 分支里，临时加一行：
-
-```ts
-if (!trusted) {
-  await options.importModule(source); // 故意制造错误
-  return { id: source.id, status: "skipped_untrusted" };
-}
-```
-
-先预测：返回状态看起来仍是 `skipped_untrusted`，哪条外部事实已经变了？
 
 运行：
 
@@ -857,62 +497,200 @@ node --test --test-name-pattern="Lab 12.4" \
   packages/pi-course/dist/test/12-*.test.js
 ```
 
-第一项应失败。测试记录的顺序会从：
+`2/2` 的正常证据是 `trust → import → factory → commit`，`review_note` 可从 Registry 取得。
+边界证据是 untrusted 只留下 `trust`，以及 factory 抛错或工具重名时 Registry 不变、暂存
+hook 调用数为零。
+
+“原子”只指本章的注册可见性：全部 tool/hook 一起出现，或一个也不出现；它不是跨进程
+事务，也没有实现 Extension 卸载协议。
+:::
+
+## Lab 12.5：一次工具调用怎样穿过 hooks
+
+先只看正常结果，不讨论故障。`review-extension` 已经 commit，core 收到一条
+`review_note` 调用：
 
 ```text
-["trust"]
+call { id: "note-1", name: "review_note", arguments: { text: "parser is stable" } }
+  → before hook 返回 allow
+  → coreExecutor 执行一次
+  → result { toolCallId: "note-1", toolName: "review_note", isError: false }
+  → after hook 观察一次
+  → 调用者得到与 core result 等值的深副本
 ```
 
-变成包含 `import`。返回值没有暴露这个漏洞，import spy 暴露了。第一次偏差发生在
-Extension 模块执行之前的顺序约束。
+`wrapExecutor()` 的主干因此很短：
 
-删掉刚加的那一行，再运行 Lab 12.4 和本章全量：
+```text
+复制 sourceCall
+  → before(call)
+  → 若没有 blocked result，调用一次 core
+  → 复制 core result
+  → after(result)
+  → 再返回一份副本
+```
+
+Hook 收到冻结的深副本。它不能修改 `call.arguments` 或 `result.details`，调用者修改返回
+对象也不能反向改写 core 保存的原结果。
+
+理解正常主干后，再给三个边界规定语义。
+
+第一，`before` 是策略门。显式 deny 会阻止 core，并返回一条与原 call 的 id/name 配对的
+`isError: true` 工具结果。策略抛错或超时表示 host 无法确认动作可继续，也 fail-closed：
+
+```text
+before deny          → core 0 次 → paired error result
+before throw/timeout → diagnostic → core 0 次 → paired error result
+```
+
+Deny 是正常策略决定，reason 已写入 result details，不需要 diagnostic。Throw/timeout 是
+Extension 故障，diagnostic 记录 `extensionId/hook/kind/message`。
+
+多个 before 按注册顺序运行，并在第一条阻断结果处短路：
+
+```text
+before 1 allow → before 2 deny → 返回 paired blocked result
+                  before 3 / core / after 都不再运行
+```
+
+Blocked result 是 host 产生的策略结果，不是 core result，因此不会触发 after。只有所有
+before 都 allow，core 才执行一次；core 返回以后，after 再按注册顺序逐个观察。
+
+第二，`after` 观察的是已经发生的 core 事实。一个 after 抛错或超时，只写 diagnostic，
+然后继续后面的 after；它不能让 core 重跑，也不能替换结果：
+
+```text
+after throw/timeout → diagnostic → next after → original core fact
+```
+
+第三，timeout 只让 host 停止等待。`Promise.race()` 不能强制终止一个已经开始且不响应
+取消的 Promise；不要把这层超时描述成代码沙箱。
+
+:::lab title="实践 12.5 · 实现 wrapExecutor"
+实现 timeout helper、paired blocked result、host 的 `before()`、`after()` 与
+`wrapExecutor()`。不要修改 Agent loop，也不要让 hook 直接写 session。
+
+逐行守住这些计数：
+
+```text
+before unsafe ⇒ coreCalls = 0
+core 获准     ⇒ coreCalls = 1
+每个 after    ⇒ 每个 core result 至多一次
+after failure ⇒ 只增加 diagnostic
+```
+
+运行：
 
 ```bash
+npm run build -w @pi/course
+node --test --test-name-pattern="Lab 12.5" \
+  packages/pi-course/dist/test/12-*.test.js
+```
+
+`3/3` 要看到：deny 保留 call id/name 且 core 为零；before throw/timeout 都 fail-closed 并
+产生对应 diagnostic；after success/error/timeout 的组合中 core 仍只执行一次，成功
+observer 执行一次，返回值与 core fact 深度相等但不是同一引用。
+
+常见错误是把 before throw 当成 allow、返回普通 `Error` 而丢失 call/result 配对、第一个
+after 失败后停止后续 observer，或把 core 原对象直接交给 Extension。
+:::
+
+## 把正常链与边界链放在一起
+
+现在可以完整解释开头那次请求：
+
+```text
+1. [projectRoot, userRoot] 让 project 的 skill:review、template:review 胜出
+2. catalog 公开 review metadata，不公开 Skill 正文
+3. activateSkill("review") 读取 project SKILL.md 与 checklist
+4. renderTemplate 生成检查 src/parser.ts 的 UserMessage
+5. formatResourceContext 生成 systemPrompt，Chapter 11 统一预算
+6. review-extension 先 trust，后 import，factory 注册项一次 commit
+7. review_note 调用通过 before，core 一次，after 一次，返回配对结果
+```
+
+只有在这条正常链已经清楚后，边界才容易定位：
+
+| 输入变化 | 第一处拒绝或降级 | 不应发生的外部事实 |
+|---|---|---|
+| `../../outside.md`、绝对路径 | lexical containment | 读取 root 外文件 |
+| root 内 symlink 指向外部 | canonical containment | 读取 symlink 目标 |
+| `isTrusted()` 返回 false | trust gate | import 模块 |
+| factory 抛错或 tool 重名 | staging/commit | 留下部分 tool/hook |
+| before deny/throw/timeout | before policy | core 执行 |
+| after throw/timeout | diagnostic 后继续 | 重跑 core 或替换结果 |
+
+这里的信任策略属于调用者注入的 `isTrusted()`。`loadExtension()` 的测试只证明它返回
+`false` 时 import 次数为零；测试没有证明策略本身判断正确、source path 已 canonicalize，
+也没有排除 trust 判断之后文件内容又发生变化。
+
+这张表把“安全”拆成可观察事实。测试不是证明系统绝对安全，而是证明每条边界上的顺序与
+结果符合本章契约。
+
+## 故意破坏 trust 与 import 的顺序
+
+:::failure title="失败注入 · 让未信任模块发生 import"
+五个 Lab 全绿后，在 `loadExtension()` 的 untrusted 分支临时加入：
+
+```ts
+if (!trusted) {
+  await options.importModule(source); // 故意错误
+  return { id: source.id, status: "skipped_untrusted" };
+}
+```
+
+返回值仍写着 `skipped_untrusted`，但 import spy 已经观察到副作用。运行：
+
+```bash
+npm run build -w @pi/course
+node --test --test-name-pattern="Lab 12.4" \
+  packages/pi-course/dist/test/12-*.test.js
+```
+
+第一项应失败，调用顺序从 `['trust']` 变成包含 `import`。删掉错误行，再运行 Lab 12.4
+与本章全量：
+
+```bash
+npm run build -w @pi/course
 node --test --test-name-pattern="Lab 12.4" \
   packages/pi-course/dist/test/12-*.test.js
 node --test packages/pi-course/dist/test/12-*.test.js
 ```
 
-只有恢复到 `2/2` 和 `12/12`，这个实验才算结束。不要保留“仅用于演示”的错误分支。
+恢复到 `2/2` 与 `12/12` 才结束。不要保留演示用错误分支。
 :::
 
-## 读测试时，先找观察量
+## 测试证据与验收
 
-本章是黑盒测试。测试只通过公开函数和临时文件观察行为，不要求你的私有 helper 与
-target 同名。卡住时按这张表找第一次偏差：
+本章 12 项测试按五个 Lab 分组：
 
-| 失败现象 | 先看哪个观察量 | 先回到哪条不变量 |
-|---|---|---|
-| 同名资源选错 | roots 数组与 winner body | precedence 来自输入顺序 |
-| 顺序不稳定 | `kind:name` 列表 | 最终只按逻辑身份排序 |
-| inactive 正文泄漏 | `JSON.stringify(catalog)` 或 system prompt | 未激活正文不进入运行时数据 |
-| `..` 被拒绝、symlink 却通过 | canonical source | lexical 与 realpath 都要 containment |
-| 模板测试失败 | message role 与 `textOf(message)` | 模板只生成 `UserMessage` |
-| untrusted 仍有副作用 | import spy | trust 先于 import |
-| factory 失败仍有 tool/hook | Registry 和 hook 调用数 | 成功后一次 commit |
-| before 故障仍执行 core | `coreCalls` | 策略失败时 fail-closed |
-| after 故障改变结果 | core result 与 returned result | 观察失败不能改写事实 |
+| Lab | 数量 | 公开观察量 |
+|---|---:|---|
+| 12.1 | 2 | roots precedence、逻辑身份排序、inactive body 不在 catalog |
+| 12.2 | 3 | activation 公开正文、附加文件来源、traversal/absolute/symlink escape |
+| 12.3 | 2 | 唯一占位协议、canonical UserMessage、唯一 `buildContext` 接缝 |
+| 12.4 | 2 | trust 先于 import、factory/重名失败零残留 |
+| 12.5 | 3 | before fail-closed、paired result、after 失败保留 core 事实 |
 
-如果陪练 Agent 直接给出一大段实现，让它停下来，只回答两件事：当前测试观察了哪个
-公开事实，现有输出第一次偏离在哪里。拿到这两个答案，你再写下一小段控制流。
+这些测试没有证明操作系统级隔离、任意 Node 模块可被强制终止、Extension 可卸载、并发
+factory 的事务隔离，也没有覆盖所有 frontmatter 语法或信任策略的正确性。它们同样没有
+证明 source path 已 canonicalize，或文件在 trust 判断之后保持不变。不要从 `12/12`
+推导出这些结论。
 
-## 本章验收
-
-先跑本章 12 项：
+本章全量命令是：
 
 ```bash
 npm run build -w @pi/course
 node --test packages/pi-course/dist/test/12-*.test.js
 ```
 
-再跑到当前章节为止的所有课程测试：
+再验证没有破坏前十二章：
 
 ```bash
 node --test packages/pi-course/dist/test/{00,01,02,03,04,05,06,07,08,09,10,11,12}-*.test.js
 ```
 
-最终记录至少包含：
+验收记录至少包含：
 
 ```text
 fresh build: pass
@@ -922,77 +700,91 @@ Lab 12.2: 3/3
 Lab 12.3: 2/2
 Lab 12.4: 2/2
 Lab 12.5: 3/3
-fault injected: Lab 12.4 fails at trust/import order
+fault injected: Lab 12.4 detects trust/import order
 fault restored: Lab 12.4 2/2
 chapter total: 12/12
 through Chapter 12: all pass
 ```
 
-测试结果需要判断，不能只抄一行 `pass`：
+## 课程模型怎样迁移到真实 Pi
 
-- Build 绿，说明 starter 和公共类型可编译，不证明权限语义正确；
-- 每个 Lab 的计数正确，说明当前公开行为闭合；
-- 故障实验能被原测试杀死，说明 trust gate 测试确实保护根不变量；
-- through-12 全绿，说明 Resource/Extension 没有破坏既有消息、工具、历史和预算协议。
+:::pi title="Pi 对照 · 课程压缩的是顺序，不是生产接口"
+课程用 `discoverResources()`、`activateSkill()`、`formatResourceContext()` 和一个小型
+Extension host，把最重要的输入输出压成 12 项黑盒测试。真实 Pi 的对象更丰富，不能按
+函数名逐行映射。
 
-:::checkpoint title="Checkpoint 12 · 数据有准入，代码有信任门"
-**完成状态：** Resource roots 按输入顺序解决 `kind+name` 冲突；inactive Skill 只暴露
-metadata；显式激活受 lexical 与 canonical containment 约束；模板生成 canonical
-user message；资源文字只从 `buildContext.systemPrompt` 进入预算。
+在固定上游提交 `8479bd8` 中，`DefaultResourceLoader` 统一暴露
+`getExtensions()`、`getSkills()`、`getPrompts()`、`getAgentsFiles()` 与 system prompt
+相关读取，并在 `reload()` 中解析启用的资源路径。项目 trust 采用预加载流程：先把项目
+设置视为未信任；此时排除 project-local extension，只加载 user/global 与临时 CLI 来源；
+随后解析项目是否 trusted，并按最终 trust 状态重载设置与资源。这个实现比课程的单个
+`isTrusted(source)` 更完整。
 
-**执行边界：** Untrusted Extension 不触发 import；factory 注册先 staging、成功后
-commit；`before` 拒绝或故障时 core 不运行；`after` 故障只留下 diagnostic。
+真实 Extension API 也远不止两个 hook：factory 可以 `registerTool()`，并用 `on()` 订阅
+`tool_call`、`tool_result`、`resources_discover` 等事件。课程的
+`beforeToolCall/afterToolResult` 只保留了最适合练习“策略先于动作、观察晚于事实”的一小
+段执行语义。
 
-**公开证据：** `2/2 → 3/3 → 2/2 → 2/2 → 3/3`，共 12 项。
-
-**恢复：** 重新生成 Chapter 12 练习即可回到第 11 章 parent 加无答案 starter 的状态。
-只恢复 `packages/pi-course/src/resources.ts`；不要回退 session、context、tool 或 loop。
+迁移时保留三条不变量，不复制课程内部 helper：数据资源与可执行代码分开；项目代码在
+信任决策前不能被意外加载；扩展故障的处理取决于它发生在动作之前还是事实之后。
 :::
 
-## 可选迁移练习
+## 用固定示例做一次组合迁移
 
-这次迁移不要求你从空白文件设计新系统。仍在 Chapter 12 练习目录里，用现成公开 API
-增加一个最小场景：项目 root 和用户 root 都提供 `template:review`，项目 root 优先；
-只激活项目里的 `skill:review`；再加载一个会拒绝读取 `.env` 的 extension。
+:::transfer title="迁移练习 · 让 review 请求走完整条链"
+在 Chapter 12 的练习目录新增
+`packages/pi-course/test/12-transfer.test.ts`，复用公开测试里的临时目录 helper，不修改
+`resources.ts` API。
 
-:::transfer title="迁移练习 · 用同一条任务穿过数据路径和执行路径"
-先复制本章测试中的 `writeSkill()`、`writeTemplate()` 和临时目录写法，创建一份新的
-测试文件 `packages/pi-course/test/12-transfer.test.ts`。不要新写 loader。
+仍使用开头的 `[projectRoot, userRoot]`、同名 `skill:review`、`template:review`、
+checklist 和 `review-extension`：
 
-按下面四步施工：
+1. 断言 project 的 template 与 Skill metadata 胜出；
+2. 激活 review，渲染 `src/parser.ts/runtime`，再断言 systemPrompt 只有 project 的
+   active body；
+3. 加载一个注册 `review_note` 的 trusted Extension，before 只拒绝 text 中含
+   `SECRET` 的调用；
+4. 执行普通 note 与 secret note，记录 `coreCalls`、结果 id/name 和 `isError`。
 
-1. 调用 `discoverResources([project, user])`，断言模板正文来自 project；
-2. 调用 `activateSkill(catalog, "review")`，断言 system prompt 有 active body，
-   没有 user root 中落败 Skill 的 body；
-3. 用 `loadExtension()` 注册一个 `beforeToolCall`，只在
-   `call.name === "read"` 且 path 为 `.env` 时返回 deny；
-4. 用 `host.wrapExecutor(core)` 分别执行 `read README.md` 和 `read .env`，记录
-   `coreCalls`、两个结果的 `toolCallId` 与 `isError`。
-
-先预测完整 trace：
+先写预期 trace：
 
 ```text
-catalog winner
-  → activate project skill
-  → trust
-  → import
-  → factory commit
-  → README call: before allow → core → after
-  → .env call: before deny → paired error result
+project winners
+  → activate project review + checklist
+  → render UserMessage + format systemPrompt
+  → trust → import → factory → commit review_note
+  → ordinary note: before allow → core → after
+  → secret note: before deny → paired error result
 ```
 
-验收只有三条：项目模板胜出；`coreCalls === 1`；`.env` 的错误结果仍与原 call id
-配对。若失败，按 trace 找第一处偏差，不给 `resources.ts` 再加新分支。这个练习只把
-五个 Lab 组合起来，不扩大本章 API。
+验收条件是普通 note 让 `coreCalls === 1`，secret note 不再增加 coreCalls，并仍与自己的
+call id/name 配对。失败时只找 trace 中第一处偏差，不给核心实现添加 transfer 专用分支。
+:::
+
+:::checkpoint title="Checkpoint 12 · 同一个工作区有一条可解释的发现链"
+**完成状态：** Roots 输入顺序决定 `kind+name` winner；inactive Skill 只公开 metadata；
+显式 activation 才返回正文与 root 内附加文件；template 生成 canonical UserMessage；资源
+文字从唯一 `systemPrompt` 接口进入 Chapter 11 的预算。
+
+**执行状态：** Trusted Extension 按 `trust → import → factory → commit` 生效；staging
+失败零残留；before 决定 core 能否运行；after 故障只产生 diagnostic，不改写 core 事实。
+
+**公开证据：** `2/2 → 3/3 → 2/2 → 2/2 → 3/3`，本章共 `12/12`。
+
+**准确边界：** Realpath containment 不是 OS sandbox；hook timeout 不会杀死后台 Promise；
+课程 API 不是生产 Pi 的逐行缩写。
+
+**恢复：** 重新生成 Chapter 12 练习即可回到第 11 章 parent 加无答案 starter；只恢复
+`packages/pi-course/src/resources.ts`，不要回退 session、context、tool 或 loop。
 :::
 
 ## 小结
 
-- Resource catalog 管数据准入，Extension loader 管代码执行准入。
-- Roots 的输入顺序决定 winner；稳定输出只按 `kind+name`，不拿 source path 偷换权限。
-- Inactive Skill 的 metadata 可见，正文和附加文件要显式激活。
-- 路径安全要同时检查词法结果和 `realpath()` 结果。
-- Template 只生成 `UserMessage`；资源上下文只生成 system prompt，并交给第 11 章预算。
-- Extension 必须先 trust、再 import；factory 注册要先 staging、后 commit。
-- `before` 是策略门，失败时关闭；`after` 是观察者，失败时保留 core 已发生的事实。
-- Hook timeout 只停止等待，不会强制终止扩展内部仍在运行的异步任务。
+- Catalog 先回答“有什么”，activation 再回答“本轮读什么”。
+- Roots 顺序选择 winner；最终排序只稳定输出，不能反过来决定权限。
+- Template 生成 `UserMessage`，资源文字生成 `systemPrompt`，两者都回到既有上下文链。
+- Extension 是代码：先 trust，再 import；factory 注册先 staging，检查完成后一次 commit。
+- Before hook 位于动作之前，拒绝或故障时 fail-closed；after hook 位于事实之后，故障不能
+  重写结果。
+- 第 13 章会接入 catalog 的静态 metadata 与 ExtensionHost；Skill activation 和 template
+  rendering 仍由调用者显式完成。
