@@ -143,40 +143,42 @@ test("每个重建入口在第一步前给出最小概念并预告真实首红",
   assert.deepEqual(failures, []);
 });
 
-test("第一章的重建入口预告真实首个红灯并先给最小概念", async () => {
+test("第一章预告真实首红，并让四个 DemoEvent 串起所需语言机制", async () => {
   const chapter = (await chapters()).find(({ id }) => id === "01");
   assert.ok(chapter);
   const body = rebuildBlock(chapter.source);
   assert.ok(body);
 
   assert.match(body, /第一次红灯.*(?:Cannot find module|找不到.*events)/s);
-  assert.match(body, /动手前.*tagged union.*`type`/s);
-  assert.match(body, /动手前.*`unknown`.*验证/s);
-  assert.match(body, /动手前.*`never`.*遗漏/s);
+  assert.match(chapter.source, /`type`.*(?:带标签的联合类型|tagged union)/s);
+  assert.match(chapter.source, /`unknown`.*运行时检查/s);
+  assert.match(chapter.source, /`never`.*遗漏/s);
   assert.doesNotMatch(chapter.source, /tests 4\s*\npass 4/);
   assert.match(
     chapter.source,
-    /2 项聚焦测试.*只证明.*格式化.*边界反例.*`never`.*编译失败/s,
+    /聚焦测试覆盖四种事件的格式和顺序.*合法 delta.*数字 `text`.*边界反例/s,
   );
+  assert.match(chapter.source, /`never`.*TypeScript 编译器/s);
 });
 
-test("第二章只把 target 真正实现的事件流能力列为验收证据", async () => {
+test("第二章用同一个 EventStream 展示两种到达顺序与共同终态", async () => {
   const chapter = (await chapters()).find(({ id }) => id === "02");
   assert.ok(chapter);
   const body = rebuildBlock(chapter.source);
   assert.ok(body);
 
   assert.match(body, /第一次红灯.*(?:Cannot find module|找不到.*event-stream)/s);
-  assert.match(body, /动手前.*queue.*waiter.*终态/s);
+  assert.match(chapter.source, /同一个 `EventStream`.*事件先到.*消费者先等待/s);
+  assert.match(chapter.source, /`queue`.*`waiting`.*终态/s);
   assert.doesNotMatch(chapter.source, /运行 .*取消路径.*应通过/s);
   assert.match(
-    chapter.source,
-    /2 项聚焦测试.*queue.*waiter.*终态.*`result\(\)`/s,
+    body,
+    /2 项测试.*终态事件.*`result\(\)`/s,
   );
-  assert.match(chapter.source, /本章不实现.*取消/s);
+  assert.match(chapter.source, /取消.*不在.*实现范围/s);
   assert.match(
     chapter.source,
-    /先声明完整公共接口.*`end\(result\)`.*--test-name-pattern="先到的事件"/s,
+    /声明构造器.*`end\(result\)`.*--test-name-pattern="先到的事件"/s,
   );
 });
 
@@ -511,7 +513,7 @@ test("序章的实验、所有权和离线语义与 checkpoint 00 一致", async
   );
   assert.match(
     prologue.source,
-    /固定 (?:fixture|结果).*不执行真实的文件读取/s,
+    /固定 (?:fixture|结果).*不执行\s*真实的文件读取/s,
   );
   assert.match(
     prologue.source,

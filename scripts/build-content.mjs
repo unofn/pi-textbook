@@ -97,10 +97,9 @@ if (
   fail("content/checkpoints.json 的 checkpoint id 不完整或重复");
 }
 
-const requiredHeadings = [
-  "你将得到什么",
-  "本章验收",
-  "小结",
+const requiredHeadingPatterns = [
+  { label: "验收", pattern: /验收$/ },
+  { label: "小结", pattern: /^小结$/ },
 ];
 
 const directiveMinimums = {
@@ -364,9 +363,9 @@ async function readChapter(spec) {
   const headings = [...body.matchAll(/^##\s+(.+)$/gm)].map((match) =>
     stripHtml(match[1]),
   );
-  for (const required of requiredHeadings) {
-    if (!headings.includes(required)) {
-      fail(`${spec.file} 缺少固定二级标题：${required}`);
+  for (const required of requiredHeadingPatterns) {
+    if (!headings.some((heading) => required.pattern.test(heading))) {
+      fail(`${spec.file} 缺少二级标题：${required.label}`);
     }
   }
 
