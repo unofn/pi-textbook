@@ -4,125 +4,112 @@ slug: agent-loop
 part: core
 partTitle: 第二部 · 闭合 Agent 核心
 chapter: "07"
-title: 把 Agent Loop 写成可验证的状态迁移
-summary: 让模型调用、工具执行和结果回填形成一条有明确终点的反馈回路。
+title: Agent Loop：一次 README 往返怎样调用模型两次
+summary: 跟随同一条 read 调用，看模型消息、工具结果和最终回答怎样依次进入 transcript。
 minutes: 210
 difficulty: 核心
 artifact: packages/pi-course/src/agent-loop.ts
 prerequisites: 04,06
-terms: agent loop, state transition, stop reason, transcript order, terminal state
+terms: agent loop, transcript, stop reason, tool result, terminal state
 upstream: packages/agent/src/agent-loop.ts
 ---
 
-## 你将得到什么
+## 一次请求为什么需要两次模型调用
 
-第 04 章的 `ScriptedModel` 能稳定产生模型消息，第 06 章的 executor 能把一次
-tool call 变成配对的 `ToolResultMessage`。现在还缺一个控制器，把这两个能力接起来：
-
-```text
-模型提出动作
-    → 执行工具
-    → 把结果加入消息列表
-    → 再次调用模型
-```
-
-这个控制器就是 Agent Loop。本章只修改：
+用户提出一个需要环境事实的问题：
 
 ```text
-packages/pi-course/src/agent-loop.ts
+请读取 README.md，并告诉我项目名。
 ```
 
-练习时运行：
+模型第一次还不知道文件内容。它先返回一条 `toolUse` 消息，请求调用 `read`：
 
-```bash
-npm run practice -w @pi/course -- 07 <新目录>
+```ts
+const readCall: ToolCall = {
+  type: "toolCall",
+  id: "call-1",
+  name: "read",
+  arguments: { path: "README.md" },
+};
+
+const firstAnswer = assistantMessage([
+  text("我先读取项目说明。"),
+  readCall,
+], "toolUse");
 ```
 
-练习目录会保留第 06 章的源码，注入第 07 章测试，并放入一份只用于学习的代码骨架。
-骨架已经声明 `LoopEvent`、`AgentRunResult`、`AgentLoopOptions` 和
-`runAgentLoop()` 的公共表面。五段状态迁移中的分支算法仍留给你完成。
+工具随后返回 README 内容：
 
-需要重来时，请创建另一个练习目录。隔离目录没有 Git 历史，不要修改注入测试，也
-不要运行恢复 commit 的命令。
+```ts
+const readResult: ToolResultMessage = {
+  role: "toolResult",
+  toolCallId: "call-1",
+  toolName: "read",
+  content: [text("# tiny-pi\nA small agent runtime.")],
+  isError: false,
+  timestamp: 3,
+};
+```
 
-本章要守住三个不变量：
+`readResult.toolCallId` 与 `readCall.id` 都是 `call-1`。第二次模型调用看到这个配对结果，
+才返回最终回答：
 
-1. 每轮模型流最终产生的 `AssistantMessage` 只加入消息列表一次；
-2. 下一次模型请求发出前，每个 tool call 都恰好有一条同 id 的 tool result；
-3. 一次运行只发出一个 `turn_end`。
+```ts
+const finalAnswer = assistantMessage([
+  text("项目名是 tiny-pi。"),
+], "stop");
+```
 
-`transcript` 在本章指本次运行内部维护的消息列表。模型请求、最终返回值和后续重放
-都以这份列表为准。
+这次运行结束时，消息列表按发生顺序保存四条事实：
 
-## 先建立全景
+```text
+user          请读取 README.md，并告诉我项目名。
+assistant     我先读取项目说明。 + read(call-1, README.md)
+toolResult    call-1 → # tiny-pi ...
+assistant     项目名是 tiny-pi。
+```
 
-### 把循环写成决策表
+这份有顺序的消息列表就是本次运行的 transcript。它不只保存最终一句话，也保存模型为何
+需要工具、环境返回了什么，以及最终回答依据哪项事实形成。
 
-不要先写 `while`。先列出模型消息可能带来的状态迁移：
+把这四条消息连起来的控制器叫 Agent Loop。它发起第一次 `model.stream()`，执行
+`call-1`，把结果追加进消息列表，然后用更新后的列表发起第二次 `model.stream()`。
 
-| `stopReason` 与 calls | 工具是否执行 | 下一步 |
-|---|---:|---|
-| `stop`，没有 call | 否 | 以 `stop` 结束 |
-| `toolUse`，至少一个 call | 是 | 回填全部结果，再请求模型 |
-| `toolUse`，没有 call | 否 | 以 `error` 结束 |
-| `length`，有或没有 call | 否 | 给已有 call 配对错误结果，以 `length` 结束 |
-| `error`，有或没有 call | 否 | 给已有 call 配对错误结果，以 `error` 结束 |
-| `aborted`，有或没有 call | 否 | 给已有 call 配对错误结果，以 `aborted` 结束 |
-| `stop`，却带有 call | 否 | 给 call 配对错误结果，以 `error` 结束 |
+```text
+request 1: [user]
+    ↓ model.stream()
+assistant(toolUse, call-1)
+    ↓ read(README.md)
+toolResult(call-1, "# tiny-pi ...")
+    ↓ append to messages
+request 2: [user, assistant, toolResult]
+    ↓ model.stream()
+assistant(stop, "项目名是 tiny-pi。")
+```
 
-`stop` 中出现 tool call 属于协议矛盾，调用不得执行。`toolUse` 却没有任何 call 也
-无法继续，loop 要以 `error` 结束。明确这两行之后，代码就不需要猜模型“可能想
-表达什么”。
+正文假设调用者已经注册了一个返回固定 README 内容的内存 `read`。它让控制顺序可以
+离线复现，并不读取真实文件；Checkpoint 07 本身只实现 loop，聚焦测试用 `probe`
+观察同一条执行路径。第 08 章才会实现访问 workspace 的 read 工具。
 
-循环里还有三种顺序：
+:::rebuild title="Checkpoint 07 · 闭合一次 README 工具往返"
+**模式：** 重建。
 
-| 顺序 | 由谁决定 | 谁使用 |
-|---|---|---|
-| 调用声明顺序 | assistant content | 下一次模型请求与重放 |
-| 工具完成顺序 | 实际完成先后 | 进度 UI 与诊断事件 |
-| 结果写入顺序 | loop 按调用声明顺序恢复 | transcript |
-
-两个工具可以并发执行。`fast` 可以先发出 `tool_end`，但结果仍要按 assistant 中
-`slow, fast` 的顺序写入消息列表。call id 标识结果回答哪次调用；数组位置规定消息
-发送顺序；实际完成先后只决定事件何时出现。
-
-:::predict title="预测一个最小工具往返"
-第一轮模型返回 `toolUse`，其中包含 `echo(call-1)`；第二轮返回文本 `done` 和
-`stop`。输入消息列表里已经有一条 user message。请先写出模型调用次数、工具执行
-次数和最终 role 顺序。
----answer
-模型调用 2 次，工具执行 1 次。最终顺序是
-`user → assistant(toolCall) → toolResult(call-1) → assistant(text)`。
-只检查最后的 `done` 会漏掉最重要的 call/result 配对。
-:::
-
-:::rebuild title="Checkpoint 07 · 分五步闭合反馈回路"
-**模式：** 重建。从 06 的 target 开始，只实现循环控制；model 和工具执行器保持
-不变。
-
-**起终点：** parent 是本章开始时的起点快照；target 是 9 项聚焦测试通过的终点
-快照。
+**起终点：** `parent` 是第 06 章完成后的起点；`target` 是 9 项聚焦测试通过的终点。
 
 **教学文件：** `packages/pi-course/src/agent-loop.ts`
 
-**学习脚手架：** 练习目录中的 `agent-loop.ts` 已经固定公共类型和函数入口。五类
-分支算法都留给你实现，骨架不包含跳过结果、并发归一化或取消处理的答案。
+**学习脚手架：** practice 目录已经声明 `LoopEvent`、`AgentRunResult`、
+`AgentLoopOptions` 和 `runAgentLoop()` 的公共表面。五段 Lab 对应的分支算法仍留给读者
+实现。
 
-**动手前只需知道：** 每一轮都按
-`request model → append assistant → inspect stopReason → execute or end`
-前进。只有 `toolUse + calls` 会执行工具。
+**动手前只需知道：** 一轮模型调用会追加一条完整 assistant；只有
+`toolUse + calls` 会进入 executor，配对结果写回 messages 后，loop 才能请求下一轮。
 
-**第一次红灯：** build 会通过。只运行“纯文本 stop”测试时，会得到
-`Lab 7.1 收集模型终态 尚未实现`。先完成一次没有工具的模型请求，不要同时处理
-并发和取消。
+**第一次红灯：** starter 可以通过 build。运行“纯文本 stop”测试后，第一条运行时错误
+是 `Lab 7.1 收集模型终态 尚未实现`。
 
-**第一步：**
-1. build，确认公共表面已经完整；
-2. 完成纯文本 `stop`，取得 `1/1`；
-3. 闭合单工具往返，取得另一个 `1/1`；
-4. 处理不会执行工具的终态，取得 `2/2`；
-5. 处理并发与单项 rejection，取得 `2/2`；
-6. 加入取消检查和 `maxSteps`，取得 `3/3`，最后运行全部 `9/9`。
+**第一步：** 先不看 target diff。完成一轮纯文本模型请求，再加入单次工具往返；正常
+路径通过以后，继续实现非执行终态、并发和控制器边界。
 
 **聚焦测试：** `packages/pi-course/test/07-agent-loop.test.ts`
 
@@ -130,59 +117,99 @@ npm run practice -w @pi/course -- 07 <新目录>
 
 **练习目录：** `npm run practice -w @pi/course -- 07`
 
-**聚焦运行：** `npm run build -w @pi/course`，然后
+**聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/07-*.test.js`
 
-**通过证据：** 9 项测试覆盖输入所有权与请求内容、单工具回填、非执行终态、并发
-顺序、注入 executor 的 rejection、预取消、工具后的取消和回合上限。
-
-第一次尝试禁止查看完整答案。若卡住，陪练按“当前 `stopReason` → 这一分支是否执行
-工具 → 追加哪条消息 → 继续还是结束”的顺序给提示。
+**通过证据：** 9 项测试观察输入所有权、两次模型请求、单工具回填、非执行终态、并发
+顺序、注入 executor 的 rejection、预取消、工具后的取消与回合上限。
 :::
 
-## 第一步：完成一次纯文本 stop
+## 第一次 model.stream() 追加 assistant 消息
 
-一次模型请求包含三部分：
+`runAgentLoop()` 收到的 `context.messages` 属于调用者。运行开始时，它创建一份深拷贝：
+
+```ts
+const messages = structuredClone(options.context.messages);
+```
+
+假设输入只有开头那条 user message，此时有两个独立数组：
+
+```text
+options.context.messages  [user]
+messages                  [user]
+```
+
+后续 assistant 和 tool result 只进入局部 `messages`。调用结束后，调用者传入的数组仍然
+只有原来的 user message。
+
+第一次请求使用这份局部消息，同时带上 system prompt 和本次 Registry 生成的工具定义：
+
+```ts
+const stream = options.model.stream(
+  {
+    systemPrompt: options.context.systemPrompt,
+    messages,
+    tools: options.tools.definitions(),
+  },
+  { signal: options.signal },
+);
+```
+
+`context.tools` 中可能有旧值，loop 不会转发它。当前请求允许模型调用什么，以
+`options.tools.definitions()` 为准；同一个 Registry 也会在本地找到真正的执行函数。
+
+模型流中的事件先交给观察者，最终消息再从 `result()` 取得：
+
+```ts
+for await (const event of stream) {
+  emit(options, { type: "model_event", event });
+}
+const assistant = await stream.result();
+messages.push(assistant);
+emit(options, { type: "assistant_message", message: assistant });
+```
+
+第一轮使用开头的 `firstAnswer` 时，`ScriptedModel` 产生的模型事件依次是：
+
+```text
+start
+text_delta       "我先读取项目说明。"
+toolcall_delta   '{"path":"README.md"}'
+toolcall_end     call-1
+done             toolUse
+```
+
+loop 把每一项包成 `model_event` 发出。流结束后，它只把完整的 `firstAnswer` 追加一次。
+delta 负责显示生成过程，不会成为 transcript 中的独立消息。
+
+### 没有工具的 stop 直接结束
+
+先把模型脚本简化成一条纯文本 `stop`。局部消息从 `[user]` 变成
+`[user, assistant]`，模型调用次数和 `steps` 都是 `1`。loop 随后发出
+`turn_end(reason="stop")`，并返回：
 
 ```ts
 {
-  systemPrompt: options.context.systemPrompt,
-  messages,
-  tools: options.tools.definitions(),
+  reason: "stop",
+  messages: [user, assistant],
+  steps: 1,
 }
 ```
 
-`messages` 不能直接指向调用者的数组。运行开始时先克隆
-`options.context.messages`，之后只修改这份局部副本。`systemPrompt` 和
-tool definitions 也要传给模型；即使当前脚本不调用工具，模型也应看到本次运行
-允许的完整动作空间。
-
-模型返回的是 `EventStream`。loop 先转发流中的 `model_event`，再通过
-`stream.result()` 取得唯一的最终 `AssistantMessage`：
-
-```text
-model.stream()
-    → for await (model events)
-    → stream.result()
-    → messages.push(assistant)
-    → emit assistant_message
-```
-
-最终消息为 `stop` 且没有 call 时，发出 `turn_end(stop)` 并返回。不要把流式中间
-片段写入消息列表；它们只是过程事件，最终 assistant 才是可以重放的事实。
+`turn_end` 是整次运行的结束事件。模型自己的 `done` 仍包在 `model_event` 中；两者所属
+层级不同。
 
 :::lab title="实践 7.1 · 完成纯文本 stop"
-**目标：** 完成一轮无工具模型请求，并保持调用者对输入 context 的所有权。
+**目标：** 收集一轮模型流，保存唯一的最终 assistant，同时保持输入 context 不变。
 
 **文件：** `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 克隆输入 messages，设置默认 `maxSteps` 和 executor。
-2. 调用 model 时传入 `systemPrompt`、局部 messages 和 Registry definitions。
-3. 转发 model events，再取得最终 assistant。
-4. 把最终 assistant 加入局部消息列表并发出 `assistant_message`。
-5. 对 `stop + no calls` 发出唯一的 `turn_end`，返回 `reason`、messages 和 steps。
-6. 删除 Lab 7.1 的显式异常，只运行本段测试。
+1. 完成 `collectModelTurn()`：构造完整模型请求，转发事件，再读取 `stream.result()`。
+2. 把最终 assistant 追加到局部 messages，并发出 `assistant_message`。
+3. 为 `stop + no calls` 返回 `reason: "stop"`、当前 messages 与 steps。
+4. 用一个 `finish()` 位置发出 `turn_end`，避免不同分支重复结束。
+5. 删除 Lab 7.1 的两个临时错误，只运行本段测试。
 
 **运行：**
 
@@ -192,13 +219,13 @@ node --test --test-name-pattern="纯文本 stop" \
   packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** `1/1`。测试会证明 loop 不修改调用者的 context；模型请求保留
-`systemPrompt`、messages 与 tool definitions；运行只发出唯一一个 `turn_end`。
+**预期：** `1/1`。测试确认 context 不修改；模型请求包含 `systemPrompt`、局部 messages
+和 Registry 的 tool definitions；运行只发出一个 `turn_end`。
 :::
 
-## 第二步：把一个工具结果送回模型
+## call-1 的结果进入第二次模型请求
 
-先从最终 assistant 中取出 `ToolCall`：
+第一轮的 `stopReason` 是 `toolUse`。loop 从 assistant content 中取出所有工具调用：
 
 ```ts
 const calls = assistant.content.filter(
@@ -206,41 +233,63 @@ const calls = assistant.content.filter(
 );
 ```
 
-只有 `stopReason === "toolUse"` 且 `calls.length > 0` 时才进入执行阶段。单个调用
-按下面的顺序处理：
+当前数组只有 `readCall`。loop 先发出 `tool_start`，再把 call、signal 和进度回调交给
+executor：
 
-```text
-emit tool_start
-    → executor(call, { signal, reportProgress })
-    → emit tool_end
-    → messages.push(result)
-    → 下一轮 model request
+```ts
+const result = await executeToolCall(readCall, {
+  signal: options.signal,
+  reportProgress: (content) => {
+    emit(options, {
+      type: "tool_progress",
+      callId: readCall.id,
+      content,
+    });
+  },
+});
+emit(options, { type: "tool_end", result });
 ```
 
-`reportProgress` 要转成带 call id 的 `tool_progress`，这样 UI 才知道进度属于哪个
-动作。signal 也要原样交给 executor。第 06 章已经保证内置 executor 的正常返回值
-会保留 call id、name 和错误状态；本章负责把这条结果放回正确的位置。
+内存 `read` 返回开头的 `readResult`。如果工具报告进度，loop 会补上
+`callId: "call-1"`；UI 因而能把进度放到正确的工具项下。工具结束后，`tool_end` 携带
+完整结果。
 
-第二次模型请求应该看到完整的三段因果链：
+执行结果随后进入局部 messages：
 
 ```text
-user
-assistant(toolCall id=call-1)
-toolResult(toolCallId=call-1)
+追加前  [user, assistant(call-1)]
+追加后  [user, assistant(call-1), toolResult(call-1)]
 ```
+
+循环继续，第二次 `model.stream()` 读取追加后的三条消息。它还会再次收到同一个
+system prompt 和 Registry definitions。模型现在能从 README 内容得出项目名，于是
+返回 `finalAnswer`。
+
+第二轮结束后，运行结果可以直接观察到：
+
+```text
+model requests  2
+tool executions 1
+steps           2
+reason          stop
+roles           user → assistant → toolResult → assistant
+```
+
+这条 `user → assistant → toolResult → assistant` 就是完整反馈回路。第一次 assistant
+提出动作，tool result 补入环境事实，第二次 assistant 才完成回答。
 
 :::lab title="实践 7.2 · 闭合单工具往返"
-**目标：** 让测试中的 `probe` 调用执行、回填，并触发第二次模型请求。
+**目标：** 执行一个 tool call，把配对结果放进第二次模型请求，最后以纯文本 stop 结束。
 
 **文件：** `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 提取 assistant 中的 calls。
-2. 当 `toolUse` 中只有一个 call 时，先发出 `tool_start`。
-3. 调用 executor，并传入 signal 与绑定 call id 的 progress callback。
-4. 发出 `tool_end`，再把 result 追加到 messages。
-5. 继续循环，直到下一轮纯文本 `stop`。
-6. 删除 Lab 7.2 的显式异常，只运行本段测试。
+1. 从最终 assistant 中提取 calls，只让 `toolUse + calls` 进入执行阶段。
+2. 为 call 发出 `tool_start`，把 signal 与绑定 call id 的 progress callback 交给
+   executor。
+3. executor 返回后发出 `tool_end`，再把 result 追加到 messages。
+4. 继续循环，让第二次模型请求看到 user、assistant 与 toolResult。
+5. 删除 Lab 7.2 的临时错误，只运行本段测试。
 
 **运行：**
 
@@ -250,52 +299,86 @@ node --test --test-name-pattern="单工具往返" \
   packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** `1/1`。测试会比较第二次请求的消息角色和工具定义，并检查
-call/result id、signal、progress、三类工具事件的相对顺序，以及最终 `stop`。
+**预期：** `1/1`。聚焦测试用 `probe` 代替内存 `read`，从而额外观察 signal 和 progress；
+控制顺序相同。第二次请求的 roles 是 `user → assistant → toolResult`，最终 transcript
+再增加一条 assistant。
 :::
 
-## 第三步：给不会执行的调用也配对
+## LoopEvent 展示过程，messages 保存事实
 
-模型消息已经成为 transcript 中的事实，所以不能简单丢弃其中的 call。即使安全规则
-禁止执行，也要给每个 call 写入一条错误结果。可以用一个 `skippedCall()` 统一创建：
+README 往返会发出两组模型事件和一组工具事件：
 
-```json
+```text
+model_event(start)
+model_event(text_delta)
+model_event(toolcall_delta)
+model_event(toolcall_end)
+model_event(done: toolUse)
+assistant_message(toolUse)
+tool_start(call-1)
+tool_end(call-1)
+model_event(start)
+model_event(text_delta)
+model_event(done: stop)
+assistant_message(stop)
+turn_end(stop)
+```
+
+这些值统称 `LoopEvent`。`model_event` 保留模型生成过程；`tool_start`、
+`tool_progress` 与 `tool_end` 让调用者显示工具状态；`assistant_message` 表示完整模型消息
+已经进入 transcript；`turn_end` 只出现一次。
+
+最终 `messages` 只有四条 canonical message。事件数量可以更多，因为同一条消息会经历
+多个可观察阶段。恢复会话时使用 messages；实时 UI 和诊断使用 events。
+
+## 其余 stopReason 决定执行还是结束
+
+正常路径已经说明 `toolUse + calls` 怎样继续，以及 `stop + no calls` 怎样完成。其余组合
+可以沿相同对象判断：
+
+| assistant 的结果 | 是否执行 call | 写入什么 | 运行结果 |
+|---|---:|---|---|
+| `toolUse + calls` | 是 | 每个执行结果 | 继续下一轮 |
+| `stop + no calls` | 否 | 无 | `stop` |
+| `length`，有或没有 calls | 否 | 为已有 calls 写 skipped results | `length` |
+| `error/aborted`，有或没有 calls | 否 | 为已有 calls 写 skipped results | 原 reason |
+| `stop + calls` | 否 | `unexpected-stop` results | `error` |
+| `toolUse + no calls` | 否 | 无 | `error` |
+
+`stop` 消息夹带 tool call 时，call 不得执行；`toolUse` 没有任何 call 时，loop 以
+`error` 结束。二者都说明模型消息内部的结束原因与内容不一致。
+
+`length` 下的工具参数可能被截断。即使残留文本恰好能解析或通过 schema，loop 也不会
+启动工具。它为 `call-1` 生成下面的结果：
+
+```ts
 {
-  "role": "toolResult",
-  "toolCallId": "cut",
-  "toolName": "echo",
-  "content": [{
-    "type": "text",
-    "text": "Tool call was not executed because the model response was truncated."
-  }],
-  "details": {"skipped": true, "reason": "length"},
-  "isError": true
+  role: "toolResult",
+  toolCallId: "call-1",
+  toolName: "read",
+  content: [text(
+    "Tool call was not executed because the model response was truncated.",
+  )],
+  details: { skipped: true, reason: "length" },
+  isError: true,
 }
 ```
 
-`length` 最需要这条防线。被截断的 arguments 可能碰巧仍是合法 JSON，也可能通过
-schema；一旦执行 write、edit 或 bash，就会改变文件或启动进程。因此，`length`
-中的所有调用都不得执行。
-
-`error` 和 `aborted` 中的 call 同样不得执行。`stop + calls` 是协议矛盾：为调用
-生成 `unexpected-stop` 错误结果，再以 `error` 结束。`toolUse + no calls` 没有
-需要配对的调用，直接以 `error` 结束。
-
-每条终态分支都要发一次 `turn_end`。不要在终态分支里发一次，又在函数末尾补发
-第二次。
+这条结果说明 call 已被看见但没有执行。它与原 call 配对，transcript 中不会留下一个
+无人回答的工具请求。`error`、`aborted` 和意外的 `stop` 使用同一个外壳，只替换原因与
+说明文字。每条跳过结果都会发出 `tool_skipped`。
 
 :::lab title="实践 7.3 · 处理所有非执行终态"
-**目标：** 在不产生副作用的前提下，保持 call/result 配对并返回准确终态。
+**目标：** 不启动 executor，同时让已经出现的 calls 都得到配对结果。
 
 **文件：** `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 实现 `skippedCall()`，保留 call id 和 name，写明跳过原因。
-2. 对 `length`、`error`、`aborted` 中的每个 call 追加错误结果。
-3. 对 `stop + calls` 追加 `unexpected-stop` 结果，并返回 `error`。
-4. 对 `toolUse + no calls` 返回 `error`。
-5. 确认这些分支都不调用 executor，且各自只发一个 `turn_end`。
-6. 删除 Lab 7.3 的显式异常，只运行本段测试。
+1. 实现 `skippedCall()`，保留 call id 与 name，并记录没有执行的原因。
+2. `length`、`error`、`aborted` 中的每个 call 都追加 skipped result。
+3. `stop + calls` 追加 `unexpected-stop` result，并以 `error` 结束。
+4. `toolUse + no calls` 直接以 `error` 结束。
+5. 所有分支都通过 `finish()` 发出唯一 `turn_end`。
 
 **运行：**
 
@@ -305,44 +388,55 @@ node --test --test-name-pattern="非执行终态" \
   packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** `2/2`。一项覆盖 `length/error/aborted`，另一项覆盖矛盾的 `stop` 和空的
-`toolUse`。测试会比较执行次数、配对结果、终止 reason 和 `turn_end` 数量。
+**预期：** `2/2`。测试比较 executor 调用次数、每个 call 的配对结果、终止 reason、
+`tool_skipped` 和唯一 `turn_end`。
 :::
 
-## 第四步：同时执行，按调用顺序写回
+## 多个工具同时运行，结果仍按 call 顺序追加
 
-一批 calls 可以同时启动。`Promise.all()` 的返回数组会保留输入 Promise 的顺序，
-即使它们完成的先后不同：
+一条 assistant message 可以依次声明 `slow` 与 `fast` 两个 calls。loop 会先为两者发出
+`tool_start`，再用 `Promise.all()` 同时等待两个 executor Promise：
 
-```text
-调用声明顺序：slow → fast
-完成事件顺序：fast → slow
-消息写入顺序：result(slow) → result(fast)
+```ts
+const results = await Promise.all(
+  calls.map(async (call) => {
+    const result = await executeOne(call);
+    emit(options, { type: "tool_end", result });
+    return result;
+  }),
+);
 ```
 
-每个工具 Promise 完成时立即发出 `tool_end`；等整批结束后，再按 `Promise.all()`
-的结果顺序追加消息。测试使用可控 Promise gate，先手动放行 fast，再放行 slow。
-这样顺序来自明确动作，不依赖 `25ms` 和 `1ms` 的定时碰运气。
+`fast` 可以先完成，所以 `tool_end` 反映实际完成顺序：
 
-注入的 executor 还可能 reject。若直接把这些 Promise 交给 `Promise.all()`，一个
-rejection 会让 loop 提前退出，其他工具虽然还在运行，却没有机会写入结果。每个调用
-都要单独捕获 rejection，把它转换成同 id/name 的错误 `ToolResultMessage`。等所有
-调用都有结果后，再进入下一轮。
+```text
+tool_end(fast-call) → tool_end(slow-call)
+```
 
-这里不把 stack 写进结果。错误消息仍可能包含调用方自己写入的敏感文本，通用脱敏
-不属于本章。
+`Promise.all()` 返回的数组仍按输入 Promise 排列。整批结束后，loop 按这个数组追加
+messages：
+
+```text
+toolResult(slow-call) → toolResult(fast-call)
+```
+
+完成事件服务实时观察，transcript 顺序服务下一次模型请求。后者保持 assistant content
+中原有的 call 顺序，模型就能稳定重放同一批动作。
+
+注入的 executor 可能 reject。每个 call 的异步函数分别用 `try/catch` 把 rejection
+转换成同 id/name 的错误结果；一个失败不会让同批其他 Promise 提前丢失。错误结果保留
+`error.message`，不写入 stack。
 
 :::lab title="实践 7.4 · 隔离并发完成与单项失败"
-**目标：** 让完成事件反映实际完成顺序，让 transcript 保持调用声明顺序。
+**目标：** 让事件反映完成顺序，让 transcript 保持声明顺序，并为每个 call 留下结果。
 
 **文件：** `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 同时启动所有 calls，不要逐个 await。
-2. 每个调用完成时立即发出 `tool_end`。
-3. 每个调用单独捕获 rejection，并转换成配对错误结果。
-4. 等整批调用结束，再按 calls 顺序追加结果。
-5. 删除 Lab 7.4 的显式异常，只运行本段测试。
+1. 为整批 calls 发出 `tool_start`，再同时启动执行。
+2. 每个调用完成时立即发出自己的 `tool_end`。
+3. 单独捕获每个 executor rejection，用 `failedExecution()` 生成配对结果。
+4. 等整批完成后，按 `Promise.all()` 的结果顺序追加 messages。
 
 **运行：**
 
@@ -352,40 +446,54 @@ node --test --test-name-pattern="并发工具" \
   packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** `2/2`。一项使用 gate 证明完成事件可以是 fast、slow，而消息顺序仍是
-slow、fast；另一项证明一个 injected executor rejection 不会吞掉同批其他结果。
+**预期：** `2/2`。可控 gate 让 fast 先结束、slow 后结束，transcript 仍按 slow、fast
+排列；另一个测试让 injected executor reject，并确认同批正常结果仍被保留。
 :::
 
-## 第五步：让控制器有明确边界
+## 取消与 maxSteps 阻止新的模型请求
 
-loop 在两个位置检查外部 signal：
+loop 在发起模型请求前检查 signal：
 
-1. 发起模型请求前；
-2. 一批工具完成、结果已经写入 messages 后。
+```ts
+if (options.signal?.aborted) {
+  return finish("aborted", steps - 1);
+}
+```
 
-运行开始前 signal 已 aborted 时，不调用模型，返回 `steps: 0`。若工具执行期间
-发生 abort，已经提交的执行最终返回后，loop 会先保留它们的配对结果，再以
-`aborted` 结束，不再请求模型。
+运行开始前已经取消时，模型调用次数是 `0`，返回 `steps: 0`。输入 user message 仍留在
+结果中。
 
-`maxSteps` 限制模型回合数。每次循环最多消费一次模型请求。最后一个允许的
-`toolUse` 回合仍要写完工具结果，然后以 `maxSteps` 结束；不要伪造一条模型从未
-生成的 `stop` 消息。
+第二个检查点位于一批工具全部结束、结果已经追加之后。若 `read` 执行期间发生取消，
+loop 会等待当前 executor 返回，保留 `readResult`，然后以 `aborted` 结束。第二次
+`model.stream()` 不会开始。
 
-这两个边界都不能提供墙钟超时。provider 或工具若忽略 signal，loop 仍可能一直
-等待。强制终止进程、清理外部资源和超时策略属于更外层的运行时责任。
+这两个检查点只阻止新工作启动。signal 已经交给 provider 与工具，但它们需要主动观察
+signal 才会及时停止；loop 没有提供墙钟超时。
+
+`maxSteps` 计算已经发起的模型请求。默认上限是 `32`。若设置 `maxSteps: 1`，第一轮
+模型仍可提出 `readCall`，工具也会执行并产生 `readResult`。循环随后没有第二次模型调用
+额度，于是返回：
+
+```text
+reason          maxSteps
+steps           1
+model requests  1
+messages        user → assistant(call-1) → toolResult(call-1)
+```
+
+结果中不会凭空增加一条 `stop` assistant，因为模型从未生成它。
 
 :::lab title="实践 7.5 · 处理取消与回合上限"
-**目标：** 阻止新的工作启动，并让已有协议事实保持完整。
+**目标：** 阻止边界之外的新模型请求，同时保留已经形成的消息和工具结果。
 
 **文件：** `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 模型请求前检查 signal；预取消时返回 `aborted` 和 `steps: 0`。
-2. 工具批次结束后再次检查 signal；若已取消，不再发起下一轮模型请求。
-3. 循环用 `maxSteps` 控制模型请求次数。
-4. 达到上限时保留最后一批工具结果，以 `maxSteps` 结束。
-5. 所有路径都只发一个 `turn_end`。
-6. 删除 Lab 7.5 的显式异常，先运行本段测试，再运行本章全部测试。
+1. 模型请求前检查 signal；预取消返回 `aborted` 与 `steps: 0`。
+2. 工具批次结束并追加结果后，再检查一次 signal。
+3. 用 `maxSteps` 限制模型请求次数；最后一批工具结果仍要保留。
+4. 让每条返回路径都经过 `finish()`，只发一个 `turn_end`。
+5. 先运行本段测试，再运行全部聚焦测试。
 
 **运行：**
 
@@ -396,53 +504,54 @@ node --test --test-name-pattern="取消与上限" \
 node --test packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** 局部 `3/3`，完整 `9/9`。三项测试分别检查预取消、工具后的取消和
-`maxSteps`，同时比较模型调用数、工具结果、steps、终止 reason 和唯一 `turn_end`。
+**预期：** 局部测试 `3/3`，完整聚焦测试 `9/9`。三项分别观察预取消、工具后的取消和
+`maxSteps`，并比较模型调用数、messages、steps、reason 与唯一 `turn_end`。
 :::
 
-:::mechanism title="为什么这条循环可以逐步验证"
-第一次模型请求前，局部 messages 是输入 context 的副本。每一轮先加入一个最终
-assistant。若分支结束，已有 call 会先得到配对结果；若分支继续，整批结果也会在
-下一次模型请求前按 call 顺序加入。因此，每次重新进入 model request 状态时，
-消息列表都满足同一个配对不变量。
+:::mechanism title="每次重新请求模型前，call 都已经有结果"
+局部 messages 最初是输入 context 的副本。每轮结束后，完整 assistant 只追加一次。
+当它提出工具调用时，整批 tool results 会在下一次 `model.stream()` 前按 call 顺序追加。
+因此模型不会看到悬空的已执行 call。
 
-`maxSteps` 为循环提供有限的模型回合预算。它只约束控制器还能发起几次请求，不能
-替 provider 或工具提供墙钟终止保证。
+非执行终态不会再次请求模型，但其中已经出现的 calls 也会得到 skipped results。
+`finish()` 集中产生 `turn_end`，让一次运行只有一个控制器终态。
 :::
 
-:::note title="这 9 项测试没有证明什么"
-本章没有证明墙钟超时，也没有证明忽略 signal 的 provider 或工具会停止。测试没有
-覆盖抛错的 `onEvent` subscriber、重复 call id、动态工具注册、重试或进程级清理。
-它只证明课程内列出的状态迁移、配对规则、两种顺序，以及预取消和工具后取消的外部
-行为。
+:::note title="9 项测试覆盖到哪里"
+聚焦测试证明 context 不修改、systemPrompt 与 tool definitions 进入请求、单工具执行与
+回填、非执行终态的配对、并发的两种顺序、单项 executor rejection、两处取消检查和
+`maxSteps`。它没有证明墙钟超时，也没有证明忽略 signal 的 provider 或工具会停止。
+测试没有覆盖抛错的 `onEvent` subscriber、重复 call id、executor 返回错误 id、动态工具
+注册、模型流向外抛错、重试或进程级资源清理。
 :::
 
 :::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/agent/src/agent-loop.ts` 也会拒绝执行 `length`
-消息中的 calls，并为它们生成配对错误结果。工具可以并发执行，完成事件按实际完成顺序
-发出，result message 再按 assistant 中的声明顺序交给模型。上游还处理 hooks、
-steering、follow-up、动态模型切换和更复杂的队列；本章先固定最小控制器的状态边界。
+固定提交 `8479bd8` 的 `packages/agent/src/agent-loop.ts` 同样不会执行 `length` 消息中的
+tool calls，并会为它们生成配对错误结果。上游工具可以并发完成；完成事件反映实际顺序，
+结果消息再按 assistant 中的声明顺序交给模型。
+
+上游还处理 hooks、steering、follow-up、动态模型切换和更多队列状态。课程在 Chapter 07
+只保留 README 往返所需的循环，并加入 `maxSteps` 作为教学保护；这项上限不是上游 Pi
+核心的同名保证。
 :::
 
-## 故意把它弄坏
+## 完成正常实现后检查 length 分支
 
-临时把 `length` 分支改成普通 `toolUse` 执行路径。测试里的 fake 工具只增加计数，
-不会写真实文件：
+把 `length + calls` 临时送入普通 `toolUse` 执行路径。聚焦测试中的两条 calls 都会启动：
 
 ```text
-正确：length + calls → executionCount 0 → skipped results
-错误：length + calls → executionCount 2 → 两个副作用都已经开始
+正确  executionCount = 0，产生两条 tool_skipped
+错误  executionCount = 2，两个工具都已经开始执行
 ```
 
-:::failure title="预期失败 · 让截断调用进入执行器"
-只改分支选择，不改测试。运行“非执行终态”测试，应立即看到执行次数从 0 变成 2。
-恢复 `length` 跳过分支后，重跑同一命令得到 `2/2`。这个实验观察副作用是否启动，
-不依赖最终文本。
+:::failure title="诊断 · 截断的调用进入了 executor"
+只改变 `length` 的分支选择，运行名称含“非执行终态”的测试。第一处差异出现在 executor
+调用次数。恢复 skipped results 后，同一组测试回到 `2/2`。
 :::
 
 ## 本章验收
 
-:::checkpoint title="Checkpoint 07 · 反馈回路闭合"
+:::checkpoint title="Checkpoint 07 · README 反馈回路已经闭合"
 运行：
 
 ```bash
@@ -450,43 +559,27 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/07-*.test.js
 ```
 
-应得到 `9/9`。然后为下面六个输入各写一行结果：
+结果应为 `9/9`。再沿开头的四条消息检查：
 
-| 输入 | 模型是否再调用 | 工具是否执行 | 最终 reason |
-|---|---:|---:|---|
-| 纯文本 `stop` | 否 | 否 | stop |
-| `toolUse + echo` | 是 | 是 | 取决于下一轮 |
-| `length + call` | 否 | 否 | length |
-| `stop + call` | 否 | 否 | error |
-| 预取消 | 否 | 否 | aborted |
-| 最后一轮仍请求工具 | 否 | 是，并保留结果 | maxSteps |
+1. 第一次 `model.stream()` 收到哪些 messages？
+2. `assistant(call-1)` 在什么时候追加，为什么只追加一次？
+3. `readResult` 在什么时候进入 transcript？
+4. 第二次 `model.stream()` 为什么能回答 `tiny-pi`？
+5. `model_event(done)` 与 `turn_end(stop)` 分别结束哪一层？
+6. `maxSteps: 1` 时，为什么结果停在 toolResult，而没有最终 assistant？
 
-最后解释：为什么工具完成事件可以乱序，结果消息却要按 call 顺序写入？为什么
-`maxSteps` 不能保证一个忽略 signal 的工具及时停止？为什么终态中的 call 即使不
-执行也必须得到配对结果？
-
-若要重做，请创建新的 practice 目录。下一章会把 `echo` 换成 read、write、edit 和
-bash，Agent Loop 的公共接口保持不变。
+`npm run checkpoint -w @pi/course -- 07` 可以重新定位 parent 与 target；
+`npm run practice -w @pi/course -- 07 <新目录>` 会从同一 parent 创建新的隔离练习目录。
+第 08 章会把内存 `read` 换成真正访问 workspace 的 read、write、edit 和 bash，
+`runAgentLoop()` 的公共接口保持不变。
 :::
-
-## 可选迁移练习
-
-:::transfer title="迁移 · 同批混合三种结果"
-让同一个 assistant turn 产生三个 calls：第一个 schema 失败，第二个等待 gate 后
-成功，第三个 executor reject。先写出预期的 `tool_end` 顺序和
-`ToolResultMessage` 写入顺序，再写测试。要求三个 call 都恰好有一个同 id 的结果，
-下一次模型请求仍按 1、2、3 排列。
-:::
-
-额外挑战：让模型在同一条 assistant 中重复使用 call id。先决定由消息验证层拒绝，
-还是由 loop 生成错误结果；无论选择哪一层，都要写测试固定责任边界，不要执行两次。
 
 ## 小结
 
-Agent Loop 每轮只做三件事：取得最终 `AssistantMessage`，根据 `stopReason` 决定
-执行工具还是结束，再把结果按 call 顺序加入消息列表。`length` 会阻止任何工具
-执行；executor rejection 会变成配对结果；工具完成事件可以乱序，消息写入顺序必须
-稳定。
+一条 README 请求让同一个 loop 调用模型两次。第一次 assistant 提出 `read(call-1)`；
+工具结果使用同一个 id 进入 transcript；第二次模型请求读到这项环境事实，回答项目名是
+`tiny-pi`。
 
-第 08 章会实现 read、write、edit 和 bash。动作内容会改变，这条反馈回路不需要
-重写。
+`LoopEvent` 展示生成和执行过程，messages 保存可重放事实。正常工具批次按 call 顺序
+写回，非执行终态也为已有 calls 生成配对结果。取消与 `maxSteps` 只阻止新的模型请求，
+不会删除已经形成的 assistant 或 tool result。
