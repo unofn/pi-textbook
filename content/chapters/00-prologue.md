@@ -4,8 +4,8 @@ slug: prologue
 part: orientation
 partTitle: 序章 · 先看见完整系统
 chapter: "00"
-title: 先观察一次完整的 Agent 运行
-summary: 先读懂一条从用户目标到工具结果再到最终回答的完整轨迹，为全书建立地图。
+title: 一次 README 读取请求怎样走完 Agent 闭环
+summary: 跟随七个可见里程碑，观察用户消息、模型请求、工具结果和最终回答怎样连成一次完整运行。
 minutes: 35
 difficulty: 入门
 artifact: packages/pi-course/src/demo/prologue.ts
@@ -14,43 +14,33 @@ terms: agent, model, tool call, tool result, transcript
 upstream: packages/coding-agent/src/main.ts
 ---
 
-## 你将得到什么
+## 你将看到什么
 
-进入本章时，你还没有 Agent，也不需要先理解所有 TypeScript。我们先观察最终成品的一次离线运行：用户要求读取项目说明，模型请求工具，环境返回结果，模型再给出回答。你将得到一张能贯穿全书的地图，并学会用事件轨迹判断系统是否真的闭环。
+用户说：“读取 `README.md`，用一句话告诉我这个项目做什么。”这句话进入系统后，模型
+不会立刻给出最终回答。它先请求 `read` 工具，等读取结果回来，再根据这项新事实回答
+用户。
 
-本章只增加一种复杂性：**把“Agent 会思考”改写成可观察的数据流**。我们暂时不实现模型和工具。完成后你会观察 `packages/pi-course/src/demo/prologue.ts` 中的教学 checkpoint；页面随附的 `workshop/src/demo/prologue.ts` 是全书最终参考实现，不是第一次练习要从空白复刻的答案。你将能解释一条固定轨迹中的每个所有者，并指出一条不能破坏的不变量：
+这一章跟随这次请求经过的七个可见里程碑。我们暂时不实现模型和工具，也不要求你先
+理解 TypeScript。读完以后，你应该能说明每个里程碑记录了什么、这条事实来自谁，以及
+为什么工具请求和工具结果要使用同一个 `toolCallId`。
 
-> 每一个已经作为 assistant content 进入 transcript 的 tool call，最终都必须有一个相同 `toolCallId` 的 tool result。
+```text
+用户消息
+  → 第一次模型调用
+  → 模型提出 read 工具调用
+  → 循环开始调度 read
+  → read 返回 README 内容
+  → 第二次模型调用
+  → 模型给出最终回答
+```
 
-若想恢复本章起点，不需要回滚代码；重新运行固定脚本即可。它不访问网络，也不修改工作区。
+这条路径有一项始终成立的约束：一旦 assistant message 中出现 tool call，transcript
+里最终就要出现一条使用相同 `toolCallId` 的 tool result。请求说明“模型想做什么”，
+结果才说明“环境实际返回了什么”。
 
-:::rebuild title="Checkpoint 00 · 先观察，不从空白重写"
-**模式：** 观察。本章 target 同时建立课程包和固定演示；你不负责在学 TypeScript 前重写这 201 行。
+## 七个里程碑
 
-**起终点：** parent 是本章开始时的起点快照；target 是聚焦测试通过的终点快照。
-
-**教学文件：** `packages/pi-course/src/demo/prologue.ts`
-
-**第一步：** 先不看 target diff 和实现，写下七步轨迹的 owner 预测；随后让陪练打开 target 快照，只比较预测、运行测试并做受控破坏。
-
-**聚焦测试：** `packages/pi-course/test/00-prologue.test.ts`
-
-**定位命令：** `npm run checkpoint -w @pi/course -- 00`
-
-**练习目录：** `npm run practice -w @pi/course -- 00`
-
-**聚焦运行：** `npm run build -w @pi/course`，然后 `node --test packages/pi-course/dist/test/00-*.test.js`
-
-**通过证据：** 聚焦测试 2/2 通过；你能区分事件的 owner、发起者和环境动作执行者，并说明为什么本章没有要求你重建实现。
-
-第一次学习禁止让 Agent 粘贴完整答案；00 章只在预测之后查看 target，01 章才从 parent 开始重建。
-
-这里的 `packages/pi-course/` 是你和陪练使用的引导重建历史；`workshop/` 是教材自身经过全量测试的最终参考实现。第一次学习不要在两棵目录之间来回复制代码。
-:::
-
-## 先建立全景
-
-假设用户说：“读取 `README.md`，用一句话告诉我这个项目做什么。”离线演示产生下面的稳定轨迹：
+课程中的离线演示固定产生下面七行：
 
 ```text
 01 user_message       "读取 README.md，并概括项目"
@@ -64,70 +54,105 @@ upstream: packages/coding-agent/src/main.ts
    text               "这是一个用于学习 Agent 内核的 TypeScript 项目。"
 ```
 
-`model_start` 与 `tool_start` 是为了观察运行过程而记录的运行轨迹事件，不是稍后会持久化的 `AgentMessage`。Canonical `AgentMessage` 只保存 user、完成的 assistant 和 tool result 这些对下一轮仍有意义的事实。现在不需要理解 `AgentContext`、`EventStream`、provider 或 `Usage` 的实现；它们只是地图上的站名，会在后续章节各自出现一次。
+### 01 · 用户消息确定本次目标
 
-这里没有神秘的“自主性”。Agent 只是反复回答三个问题：当前事实是什么、模型下一步请求什么、这个请求应当由谁执行。模型拥有生成内容的责任，却不拥有文件系统；工具拥有环境副作用，却不能决定下一轮提示；循环拥有顺序和终止责任，却不应理解 `read` 的业务细节。序章播放的是固定 fixture：`tool_result` 的内容已经写在轨迹里，不执行真实的文件读取，也不会改动你的工作区。
+`user_message` 保存用户给出的目标：“读取 README，并概括项目。”此时系统只有请求，
+还没有 README 的内容，也没有最终答案。
 
-阅读轨迹时要区分“系统已经观察到的事实”和“我们根据最终答案做出的猜测”。第 03 行只能证明模型请求读取；第 04 行只能证明执行开始；直到第 05 行出现，读取结果才成为可供下一轮使用的环境事实。若只看第 07 行，我们甚至无法排除模型凭训练记忆猜中答案。后续测试因此不会只断言最后一句字符串，还会检查中间消息、配对键和 stop reason。这种检查方式会贯穿全书：先找首次偏差，再讨论最终表现。
+### 02 · 第一次模型调用开始
 
-:::predict title="运行前先判断"
-如果删掉第 05 行，但仍把第 03 行的 tool call 和第 07 行的最终文本保存下来，下一轮模型能否可靠知道文件读取成功？
+`model_start` 表示模型开始处理当前消息。它是运行过程中的一个可见信号。这里还没有
+assistant message，也没有环境动作发生。
+
+### 03 · 模型提出 read 工具调用
+
+第一条 `assistant_message` 的 `stopReason` 是 `toolUse`。模型没有把这轮当作最终回答，
+而是在 content 中提出一项请求：调用 `read`，参数是 `{ "path": "README.md" }`。
+
+工具调用的 id 是 `call_1`。这个 id 会跟着请求进入后面的调度和结果，让系统知道哪条
+结果回答了哪次调用。到这一步为止，模型只表达了读取意图；它还没有接触文件系统。
+
+### 04 · 循环开始调度 read
+
+`tool_start` 记录循环已经开始处理 `call_1`。模型提出动作，Agent loop 决定执行顺序，
+真正的环境访问则属于工具。把这三项责任分开后，“提出请求”和“开始执行”就不会被
+误写成同一件事。
+
+### 05 · 工具结果成为新的环境事实
+
+`tool_result` 继续使用 `call_1`，并带回 README 的内容。`isError=false` 表示这次读取
+成功。只有这条结果出现以后，后续模型调用才有依据使用文件内容。
+
+这一章播放的是固定 fixture。README 的结果已经写在演示数据中，固定 fixture 不执行
+真实的文件读取，也不会修改你的工作区。真实系统到了同一位置时，`read` 工具才会访问
+文件。
+
+### 06 · 第二次模型调用看到新增结果
+
+第二个 `model_start` 表示循环再次调用模型。这次输入中已经包含原来的用户目标、模型
+提出的 `call_1`，以及与它配对的 tool result。模型因此可以根据读取结果继续回答。
+
+### 07 · 最终回答结束这次运行
+
+最后一条 `assistant_message` 的 `stopReason` 是 `stop`。它不再请求工具，而是给出一句
+概括：“这是一个用于学习 Agent 内核的 TypeScript 项目。”七个里程碑到这里闭合。
+
+:::predict title="工具请求和工具结果分别证明什么"
+如果轨迹保留第 03 行的 tool call 和第 07 行的最终文本，却没有第 05 行的 tool result，
+系统能否确认 README 已经读取成功？
 ---answer
-不能。tool call 只是动作请求，不是环境事实。缺少配对的 tool result 后，模型既不知道动作是否执行，也不知道得到什么；“最终文本看起来合理”不能修补这段断裂的因果链。
+不能。tool call 只证明模型提出了读取请求；tool result 才记录读取是否执行以及返回了
+什么。最终文本即使看起来正确，也不能代替缺失的环境事实。
 :::
 
-## 用消息而不是界面描述事实
+## 谁产生了这些记录
 
-终端会把事件渲染成几行文字，但界面不是事实源。后续章节会建立统一消息语言；现在先看它的最小形状：
+每条演示事件都有一个 `owner`。`owner` 表示这条事件记录所代表的事实属于谁，不等于
+外层函数调用的发起者。
 
-```ts
-type AgentMessage =
-  | { role: "user"; content: TextContent[]; timestamp: number }
-  | {
-      role: "assistant";
-      content: (TextContent | ToolCall)[];
-      provider: string;
-      model: string;
-      usage: Usage;
-      stopReason: "stop" | "length" | "toolUse" | "error" | "aborted";
-      errorMessage?: string;
-      timestamp: number;
-    }
-  | {
-      role: "toolResult";
-      toolCallId: string;
-      toolName: string;
-      content: TextContent[];
-      details?: unknown;
-      isError: boolean;
-      timestamp: number;
-    };
+| 里程碑 | owner | 这条记录表示什么 |
+|---|---|---|
+| `user_message` | `user` | 用户给出了目标 |
+| 两个 `model_start` | `model` | 一次模型生命周期开始 |
+| 两个 `assistant_message` | `model` | 模型产生了工具请求或最终文本 |
+| `tool_start` | `loop` | 循环开始调度工具调用 |
+| `tool_result` | `tool` | 工具返回了环境观察结果 |
+
+例如，loop 发起一次模型调用，但 `model_start` 仍记录模型生命周期；模型提出 `read`，
+但 `tool_start` 记录的是 loop 的调度动作；`tool_result` 才属于工具返回的观察结果。
+
+`model_start` 和 `tool_start` 都是运行轨迹事件，不是之后会保存进 transcript 的
+`AgentMessage`。它们适合显示进度，却不会成为下一轮模型必须读取的长期事实。
+
+## Transcript 保存下一轮仍需要的事实
+
+七个里程碑中，进入 canonical transcript 的是 user message、完成的 assistant message
+和 tool result。把它们按顺序放在一起，可以看到第二次模型调用所依据的内容：
+
+```text
+user
+  content: "读取 README.md，并概括项目"
+
+assistant
+  stopReason: toolUse
+  toolCall: { id: "call_1", name: "read", arguments: { path: "README.md" } }
+
+toolResult
+  toolCallId: "call_1"
+  toolName: "read"
+  isError: false
+  content: "# tiny-pi ..."
+
+assistant
+  stopReason: stop
+  text: "这是一个用于学习 Agent 内核的 TypeScript 项目。"
 ```
 
-同一份 `AgentMessage[]` 可以被终端打印、写入 JSONL、变成下一次模型请求，或在网页中折叠显示。若反过来把彩色终端字符串当历史，颜色、换行和日志前缀就会混入语义，恢复会话时也无法可靠找到 tool call。
+同一份 `AgentMessage[]` 可以显示在终端、写入 JSONL，或变成下一次模型请求。界面颜色、
+日志前缀和折叠状态不属于消息语义，所以 transcript 保存结构化消息，不保存终端渲染
+后的字符串。
 
-:::mechanism title="三个所有者"
-这里的 `owner` 表示“谁产生这条事件记录所代表的事实”，不等于“谁发起外层函数调用”。例如 loop 发起一次模型调用，但 `model_start` 仍属于模型生命周期；模型提出 read，但 `tool_start` 是 loop 的调度记录；真正的观察结果才属于 tool。Agent loop 还负责把这些事实按协议追加进 transcript。把责任分开后，任何错误都能先定位到“生成、执行、编排”中的一层。
-:::
-
-:::lab title="实践 0.1 · 给轨迹标注所有者"
-**目标：** 把“智能行为”拆成可检查的责任。
-
-**文件：** `packages/pi-course/src/demo/prologue.ts`
-
-**动作：**
-1. 先不看实现，为七行轨迹分别标记 `user / model / loop / tool`。
-2. 运行演示，比较你的标注与事件的 `owner` 字段。
-3. 指出真实运行中哪一步会造成环境副作用，再确认固定 fixture 为什么没有真的执行它。
-
-**运行：** `npm test -w @pi/course`
-
-**预期：** 测试验证固定的七步轨迹；真实系统中 read 工具接触环境，但本章 fixture 只回放结果，模型和演示都没有读文件。
-:::
-
-## 从终点倒推我们要造的部件
-
-完整运行可以压缩成一条重复路径：
+后续章节会逐步实现这些消息以及运送它们的部件。现在只需记住这条重复路径：
 
 ```text
 用户目标
@@ -141,59 +166,97 @@ type AgentMessage =
   → stop
 ```
 
-第一部会造 `AgentContext`、消息 IR、`EventStream`、`ScriptedModel` 和真实 provider 边界；第二部才闭合工具与循环；第三部让运行可取消、可保存、可恢复；第四部再处理扩展、产品入口和系统评测。这个顺序不是仓库导览，而是每次只让一个未知量进入系统。
+第 01–05 章会建立消息、事件流、离线模型和 Provider 边界；第 06–08 章接入工具与 Agent
+loop；第 09–11 章让运行可取消、可保存、可恢复，并按预算重建 context；第 12–14 章
+再加入资源、产品入口和系统评测。每一部分都会回到这条主链，只把其中一个位置换成你
+亲手写出的实现。
 
-注意这条主链会重复出现，而不是一章讲完就被丢弃。第一次它只是固定 trace；加入 EventStream 后能观察时间；加入消息 IR 后能保存语义；加入工具后才真正接触环境；加入 session 后可以恢复与分支。每一次重走同一条路，旧部件都要在新约束下再次证明自己。你最终记住的应当是稳定因果关系，而不是某个版本的文件树。
+:::rebuild title="Checkpoint 00 · 观察固定离线轨迹"
+**模式：** 观察
 
-:::lab title="实践 0.2 · 用缺失结果暴露断裂"
-**目标：** 证明你检查的是 call/result 因果关系，而不是最后一句回答。
+**起终点：** `parent` 是课程包出现前的起点；`target` 是固定演示和 2 项聚焦测试通过的终点。
+
+**教学文件：** `packages/pi-course/src/demo/prologue.ts`
+
+**第一步：** 先不看 target diff，为七个里程碑写下 owner；随后创建 Chapter 00 的练习目录，比较固定轨迹并运行聚焦测试。
+
+**聚焦测试：** `packages/pi-course/test/00-prologue.test.ts`
+
+**定位命令：** `npm run checkpoint -w @pi/course -- 00`
+
+**练习目录：** `npm run practice -w @pi/course -- 00`
+
+**聚焦运行：** `npm run build -w @pi/course`，然后运行 `node --test packages/pi-course/dist/test/00-*.test.js`
+
+**通过证据：** 聚焦测试 `2/2`；七条事件的 owner 依次是 `user / model / model / loop / tool / model / model`，删除配对结果后验证器报告“缺少配对结果”。
+
+Chapter 00 的 practice 会导出 target 供你观察，不要求从空白重写实现。`packages/pi-course/`
+保存你和陪练使用的引导重建历史；`workshop/` 保存教材自身经过全量测试的最终参考实现。
+第一次学习只使用当前练习目录，不在两棵目录之间复制代码。
+:::
+
+:::lab title="实践 0.1 · 为七个里程碑标注 owner"
+**目标：** 区分用户目标、模型生命周期、循环调度和工具结果。
+
+**文件：** `packages/pi-course/src/demo/prologue.ts`
+
+**动作：**
+1. 在纸上写出 01–07，并分别标记 `user / model / loop / tool`。
+2. 打开固定 `trace`，逐项比较 `owner` 字段。
+3. 找出真实运行中会访问文件的位置，再说明固定结果为什么没有执行它。
+
+**运行：** `npm run build -w @pi/course`，然后运行
+`node --test --test-name-pattern="离线轨迹" packages/pi-course/dist/test/00-*.test.js`
+
+**预期：** 局部测试 `1/1`。轨迹恰好有七项，owner 顺序与上表一致，格式化输出包含
+`07 assistant_message`。
+:::
+
+:::lab title="实践 0.2 · 检查 call/result 配对"
+**目标：** 观察验证器怎样在最终文本之前检查环境事实。
 
 **文件：** `packages/pi-course/test/00-prologue.test.ts`
 
 **动作：**
-1. 先读第二个测试：它删除 `tool_result`，随后按新数组位置重新编号。
-2. 运行前预测验证器会先报“步骤号”还是“缺少配对结果”。
-3. 测试通过后，只在纸上把 result 移到 call 前并重新编号；预测它会变成哪一种配对前置错误，不需要在尚未学习 TypeScript 时另写测试。
+1. 读第二项测试。它删除 `tool_result`，并按照新的数组位置重新编号。
+2. 运行测试，确认测试构造的轨迹由 `assertValidPrologueTrace()` 判断为“缺少配对结果”。
+3. 在纸上把 result 移到 call 前面，说明这时应报告“结果先于调用”；真实聚焦测试不包含这项变体。
 
-**运行：** `npm test -w @pi/course`
+**运行：** `npm run build -w @pi/course`，然后运行
+`node --test --test-name-pattern="悬空 tool call" packages/pi-course/dist/test/00-*.test.js`
 
-**预期：** 仓库测试稳定构造“缺少配对结果”；纸面提前 result 应被判断为“结果先于调用”。两者都先于最终文本断言。
+**预期：** 局部测试 `1/1`。测试证明验证器会拒绝缺少 `call_1` 结果的轨迹。
+:::
+
+:::note title="这两项测试观察到什么"
+第一项测试检查七个里程碑、owner 顺序和最终格式化输出。第二项测试删除配对结果，确认
+验证器先报告悬空 tool call。它们没有调用真实模型，也没有读取真实 README；网络、工具
+执行和消息持久化会在后续 checkpoint 中分别加入。
 :::
 
 :::pi title="与当前上游 Pi 对照"
-固定参考提交为 `8479bd8`。真实入口还要加载配置、模型和扩展，但进入核心后仍沿着“消息 → 模型流 → 工具结果 → 下一轮”推进。序章刻意省略网络、并发和会话树，只保留不会随界面变化的主链路；这属于课程简化，不代表上游只有七个事件。
-:::
-
-## 故意把它弄坏
-
-把工具错误伪装成成功文本，是最危险的“看起来还能跑”。例如读取不存在的文件时，下面这条消息保留了配对关系，也保留了失败事实：
-
-```json
-{
-  "role": "toolResult",
-  "toolCallId": "call_1",
-  "toolName": "read",
-  "content": [{ "type": "text", "text": "ENOENT: README.md" }],
-  "isError": true
-}
-```
-
-:::failure title="预期失败 · 删除配对结果"
-删除 `tool_result` 后重新编号，再运行测试。首次偏差应是 `call_1` 没有结果，而不是步骤号或“回答文字不同”。若测试只检查最后一句话，它会错误放行一条断裂轨迹；先修验收证据，再恢复事件。
+固定参考提交为 `8479bd8`。真实入口还会加载配置、模型和扩展，但进入核心后仍沿着
+“消息 → 模型流 → 工具结果 → 下一轮”推进。课程序章省略网络、并发和会话树，只留下
+七个便于观察的里程碑；真实 Pi 的运行事件不止这七种。
 :::
 
 ## 本章验收
 
-:::checkpoint title="Checkpoint 00 · 能画出闭环"
-你应能不看正文画出 `user → model → tool call → tool result → model → stop`，并分别回答每一步的 owner、发起者与环境动作执行者。在 `practice 00` 创建的目录中先 build，再运行 `node --test packages/pi-course/dist/test/00-*.test.js`，应有 2 个测试通过。恢复方法是重新创建 target 快照，不设置 API key，也不编辑相邻目录。下一章才从 parent 开始动手补齐 TypeScript 生存集。
-:::
+:::checkpoint title="Checkpoint 00 · 画出 README 请求的完整闭环"
+运行 `npm run build -w @pi/course`，再运行
+`node --test packages/pi-course/dist/test/00-*.test.js`，结果应为 `2/2`。
 
-## 可选迁移练习
-
-:::transfer title="迁移 · 换成失败的 Bash"
-不修改主轨迹代码，另写一条五到七步的纸面轨迹：模型请求 `bash`，命令退出码为 2，模型据此解释失败。标出 call/result 配对和 `isError`。不要写“模型执行命令”；若能保持所有权与失败事实，你已把不变量迁移到另一个工具。
+合上正文后，画出 `user → model → tool call → tool result → model → stop`。为每一步标出
+owner，并分别指出谁提出 `read`、谁调度 `read`、谁提供 README 内容。最后说明
+`call_1` 怎样把工具请求和工具结果连在一起。做到这些，你就已经拥有后续十四章会反复
+扩展的系统地图。
 :::
 
 ## 小结
 
-Agent 的最小本质不是聊天界面，而是由类型化事实连接起来的反馈回路。消息保存语义，模型提出下一步，工具接触环境，循环维护顺序。序章只让你看见终点；从下一章开始，我们会逐件造出它，并让每个部件都能被测试、破坏和恢复。
+一次 README 读取请求经过了七个可见里程碑。用户消息给出目标；模型先提出带
+`call_1` 的 `read` 请求；循环开始调度；工具结果把 README 内容变成环境事实；第二次
+模型调用据此给出最终回答。
+
+运行轨迹显示过程，canonical transcript 保存下一轮仍需要的事实。接下来的章节会从
+这条固定轨迹出发，逐件写出消息、事件流、模型、工具、循环和持久化边界。
