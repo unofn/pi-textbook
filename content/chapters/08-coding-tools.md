@@ -4,8 +4,8 @@ slug: coding-tools
 part: core
 partTitle: 第二部 · 闭合 Agent 核心
 chapter: "08"
-title: Read、Write、Edit 与 Bash
-summary: 把文件和进程能力接入 Agent Loop，并用明确的路径、提交和资源边界约束副作用。
+title: 四个工具怎样在同一个 workspace 里完成文件任务
+summary: 跟随 task.txt 的读取、覆盖、精确编辑和命令检查，理解文件与进程工具怎样返回可验证结果。
 minutes: 220
 difficulty: 核心
 artifact: packages/pi-course/src/coding-tools.ts
@@ -14,70 +14,117 @@ terms: bounded observation, path containment, mutation queue, exact edit, proces
 upstream: packages/coding-agent/src/core/tools/read.ts, packages/coding-agent/src/core/tools/write.ts, packages/coding-agent/src/core/tools/edit.ts, packages/coding-agent/src/core/tools/bash.ts
 ---
 
-## 你将得到什么
+## 同一个 task.txt 经过四次调用
 
-第 07 章的 Agent Loop 已经能可靠执行抽象工具，但 `echo` 只会返回一段文字。真正的
-编程 Agent 还要读取文件、修改文件并运行命令。接入这些能力后，错误不再只存在于
-消息列表里：一次调用可能覆盖文件、只写入半份内容，或启动一个不会自行结束的进程。
+第 07 章用返回固定 README 内容的内存 `read` 闭合了反馈回路。现在把它换成访问
+同一个 workspace 的 `read`、`write`、`edit` 和 `bash`；Agent Loop 的接口不变。
 
-本章只增加一种复杂性：**对学习环境产生副作用**。你会实现
-`createCodingTools()`，让它注册四个工具：
+下面的 `workspace` 是测试临时创建的目录。目录里只有一个文件：
 
-| 工具 | 输入 | 成功后必须说明 |
-|---|---|---|
-| `read` | `path`、可选 `offset/limit` | 实际显示的行、文件总行数、是否截断 |
-| `write` | `path/content` | 写入路径和字节数 |
-| `edit` | `path` 与一组 `oldText/newText` | 替换数量、修改前后的字节数 |
-| `bash` | `command` | 退出状态、超时、取消和截断状态 |
-
-四个工具共用第 06 章的参数验证与错误结果，也由第 07 章的循环负责 call/result
-配对。本章不重新实现这两层，只处理文件和进程自己的边界。
-
-涉及文件或进程的测试都会创建临时目录；`MutationQueue` 的纯内存测试不接触磁盘。
-不要把教材仓库、工作项目或个人目录当作练习数据。
-
-## 开始前：只认一条练习路线
-
-在教学历史仓库运行：
-
-```bash
-npm run practice -w @pi/course -- 08 <新目录>
-cd <新目录>
-npm install
+```text
+workspace/
+└── task.txt        内容是 status: draft
 ```
 
-生成器会保留第 07 章的实现，注入第 08 章测试，并放入一份学习脚手架。脚手架声明
-公共类型、`createCodingTools()` 和六段 Lab 的施工位置，但不包含路径解析、文件
-提交、编辑或进程管理算法。
+`createCodingTools()` 为这个目录创建一张工具表：
 
-需要重来时，创建另一个练习目录。隔离目录没有 Git 历史，不要运行恢复 commit 的
-命令，也不要查看 target diff。
+```ts
+const tools = createCodingTools({
+  cwd: workspace,
+  containment: "workspace",
+});
+```
 
-本章要守住三个不变量：
+四次调用始终使用同一个 `tools` 和同一个相对路径 `task.txt`。为了让代码短一些，下面的
+`run()` 只负责构造 `ToolCall` 并交给第 06 章的 executor：
 
-1. `read` 只报告完整显示的行，续读位置必须紧接最后一条完整观察；
-2. `write/edit` 在检查完成前不提交文件变化，同一路径的修改按登记顺序执行；
-3. `bash` 无论成功、非零退出、超时还是取消，都只形成一个有界的终态结果。
+```ts
+async function run(id: string, name: string, argumentsValue: unknown) {
+  return executeToolCall({
+    type: "toolCall",
+    id,
+    name,
+    arguments: argumentsValue,
+  }, tools);
+}
 
-:::rebuild title="Checkpoint 08 · 分六步接入文件与进程"
+const readResult = await run("read-1", "read", {
+  path: "task.txt",
+});
+
+const writeResult = await run("write-1", "write", {
+  path: "task.txt",
+  content: "status: draft\ncheck: pending",
+});
+
+const editResult = await run("edit-1", "edit", {
+  path: "task.txt",
+  oldText: "status: draft",
+  newText: "status: done",
+});
+
+const bashResult = await run("bash-1", "bash", {
+  command:
+    "node -e \"const fs=require('node:fs'); const s=fs.readFileSync('task.txt','utf8'); if(!s.includes('status: done')) process.exit(2); process.stdout.write('verified')\"",
+});
+```
+
+四条结果的正文依次是：
+
+```text
+read   →    1│ status: draft
+write  → 已写入 28 bytes
+edit   → 已完成 1 处精确替换
+bash   → verified
+```
+
+磁盘上的最终内容是：
+
+```text
+status: done
+check: pending
+```
+
+这四次调用已经形成一条完整的正常路径。`read` 返回自己实际看见的内容；`write` 整体
+覆盖文件；`edit` 替换一处经过检查的精确文本；`bash` 从同一个 `workspace` 启动，并读到修改
+后的文件。
+
+每条结果还有结构化的 `details`。其中的绝对路径随临时目录变化，下面用
+`$workspace/task.txt` 表示同一个文件：
+
+```text
+read.details  = { path: "$workspace/task.txt", bytes: 13,
+                  lines: 1, startLine: 1, endLine: 1, truncated: false }
+write.details = { path: "$workspace/task.txt", bytes: 28 }
+edit.details  = { path: "$workspace/task.txt", oldBytes: 28,
+                  newBytes: 27, edits: 1 }
+bash.details  = { exitCode: 0, timedOut: false,
+                  aborted: false, truncated: false, ... }
+```
+
+正文给下一轮模型阅读，`details` 给程序检查。四条结果仍沿用原 call 的 id 和 name；这项
+配对工作已经由第 06、07 章完成。`coding-tools.ts` 只负责把文件或进程的实际结果填进
+这两个位置。
+
+:::rebuild title="Checkpoint 08 · 在一个临时 workspace 中接入四个工具"
 **模式：** 重建。从 07 的 target 开始，只增加 coding tools。
 
 **起终点：** parent 是本章开始时的起点快照；target 是 12 项聚焦测试通过的终点快照。
 
 **教学文件：** `packages/pi-course/src/coding-tools.ts`
 
-**学习脚手架：** 练习目录中的同名文件保留公共类型、工具注册入口和 Lab 8.1–8.6
-的明确施工位；路径判断、截断、文件提交、编辑和子进程算法仍留给你实现。
+**学习脚手架：** 练习目录保留公共类型、工具注册入口和 Lab 8.1–8.6 的施工位置，
+不包含路径解析、截断、文件提交、编辑与子进程管理实现。
 
-**动手前只需知道：** `createCodingTools({ cwd, containment: "workspace" })`
-返回一个 `ToolRegistry`。`cwd` 是所有相对路径的基准；文件工具先解析路径，再观察
-或提交；`bash` 从这个目录启动，但它不受文件路径检查的完整约束。
+**动手前只需知道：** `createCodingTools({ cwd, containment: "workspace" })` 返回
+`ToolRegistry`。相对文件路径以 `cwd` 为基准；read 产生观察，write/edit 提交修改，
+bash 从同一目录启动进程。
 
-**第一步：** 先不看 target diff，只实现 `read`。每次只加入完整的编号行，并让
-`endLine` 与续读 `offset` 指向实际显示的范围。
+**第一次红灯：** 脚手架可以通过 TypeScript 编译。首次只运行 Lab 8.1 时，会看到
+`Tool read failed: Lab 8.1 Read 尚未实现`。
 
-**第一次红灯：** 脚手架可以通过 TypeScript 编译；首次只运行 Lab 8.1 时，应看到
-`Tool read failed: Lab 8.1 Read 尚未实现`，而不是缺模块或一串级联类型错误。
+**第一步：** 先不看 target diff。从 read 的完整编号行开始，只实现 Lab 8.1 所需分支。
+后面的路径、提交、编辑和进程分支由各自 Lab 接续。
 
 **聚焦测试：** `packages/pi-course/test/08-coding-tools.test.ts`
 
@@ -86,90 +133,71 @@ npm install
 **练习目录：** `npm run practice -w @pi/course -- 08`
 
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
-`node --test packages/pi-course/dist/test/08-*.test.js`。
+`node --test packages/pi-course/dist/test/08-*.test.js`
 
-**通过证据：** 12 项测试依次证明有界读取、路径限制、文件提交、精确编辑、进程
-终态，以及一次真实的 `read → edit → bash → final` 循环。
-
-第一次尝试禁止查看完整答案；只操作测试创建的临时目录。
+**通过证据：** 12 项测试依次观察有界读取、workspace 路径、完整文件提交、精确编辑、
+进程终态，以及一次 `read → edit → bash → final` 的真实 Agent Loop。
 :::
 
-## 先建立全景
+## read 只返回能够完整显示的行
 
-### 四个工具共享一条处理路径
+开头的一行文件没有触发截断。文件变成两行以后，可以把同一个 `task.txt` 放进更小的
+读取窗口：
 
-工具名称不同，处理步骤却可以统一：
+```ts
+const limitedTools = createCodingTools({
+  cwd: workspace,
+  containment: "workspace",
+  maxReadLines: 1,
+});
 
-```text
-ToolCall
-  │
-  ├─ 第 06 章：验证参数，绑定 callId 与 signal
-  │
-  ├─ 本章：解析路径或准备进程
-  │
-  ├─ 本章：执行有界观察或提交副作用
-  │
-  └─ 第 06/07 章：形成 ToolResult，再写入 transcript
+await executeToolCall({
+  type: "toolCall",
+  id: "read-page-1",
+  name: "read",
+  arguments: { path: "task.txt" },
+}, limitedTools);
 ```
 
-`read` 只观察环境；`write` 和 `edit` 修改环境；`bash` 启动另一个执行主体。因此，
-它们需要的限制也不同：
-
-| 资源 | 开始前检查 | 执行中的限制 | 结束证据 |
-|---|---|---|---|
-| 文件读取 | 路径属于练习目录 | 行数、字节数 | 完整显示范围与续读位置 |
-| 文件写入 | 路径与父目录合法 | 同路径串行、临时文件后 rename | 路径与写入字节数 |
-| 精确编辑 | 所有匹配都有效且唯一 | 内存中依次替换、最后只提交一次 | 替换数与前后字节数 |
-| 命令执行 | 预取消时不启动 | 输出上限、timeout、abort | exit、timeout、abort、truncated |
-
-:::predict title="测试全绿就能把任意命令交给 Agent 吗"
-假设所有文件路径测试和 Bash 生命周期测试都通过。现在把用户输入原样放进
-`command`，并允许 Agent 访问当前用户的环境变量。这是否已经构成安全沙箱？
----answer
-没有。路径检查只约束课程的文件工具；从固定 `cwd` 启动 Bash 也不会隔离网络、
-系统调用、用户权限或环境变量。测试只证明本章列出的行为。运行不可信代码仍需要
-容器、虚拟机或专用沙箱，并应另加权限确认。
-:::
-
-## 第一步：让 Read 只报告完整观察
-
-`read` 同时受行数和字节数限制。行数限制防止一次返回整份大文件；字节限制防止少数
-超长行占满模型上下文。两种限制都必须落到同一个可恢复结果上：
+第一份正文是：
 
 ```text
-   3│ gamma
-   4│ delta
+   1│ status: done
 
-[已显示第 3-4 行，共 9 行；继续读取：offset=5]
+[已显示第 1-1 行，共 2 行；继续读取：offset=2]
 ```
 
-`startLine` 和 `endLine` 描述真正显示的完整行。若字节上限只容纳第 3 行，
-`endLine` 必须是 3，续读位置必须是 4。不能先算出“准备读取到第 4 行”，再把输出
-从中间截断，却仍告诉模型从第 5 行继续；那会永久跳过第 4 行的一部分。
+第二次传入 `offset: 2`，就会从下一条尚未显示的完整行开始：
 
-一个稳妥的算法是逐行构造带行号的文本：
+```text
+   2│ check: pending
+```
 
-1. 从 `offset` 指定的行开始；
-2. 先格式化下一条完整行；
-3. 只有加入它后仍不超过字节上限，才把它计入结果；
-4. `endLine` 取最后一条已加入的行；
-5. 文件还有内容时，续读位置为 `endLine + 1`。
+`read` 同时接受行数上限和字节上限。实现逐行生成带编号的候选正文，并把续读提示也
+算进字节数。只有整条候选仍在 `maxReadBytes` 内，这一行才进入结果。
 
-如果第一条编号行连同必要的续读提示都放不进上限，就返回明确错误。课程不返回半行，
-因为当前接口只有按行续读的 `offset`，没有从一行中间继续的字节游标。
+因此，`endLine` 记录实际显示的最后一条完整行。它不能记录循环原本准备读取到哪里。
+文件还有内容时，续读位置为 `endLine + 1`。这两个值都从已经加入正文的行推导，所以
+下一次读取不会漏掉被字节上限挡住的内容。
 
-:::lab title="实践 8.1 · 实现有界 Read"
-**目标：** 让行窗口、字节上限、details 和续读位置描述同一段真实输出。
+如果第一条编号行连同续读提示也放不下，工具返回错误。当前接口只提供按行续读的
+`offset`，没有一行内部的字节游标；返回半行后将无法准确继续。
+
+`ReadDetails` 中的 `bytes` 和 `lines` 描述整个文件，`startLine/endLine` 描述这次真正
+显示的窗口，`truncated` 表示文件后面是否仍有内容。这些字段与正文说的是同一次观察。
+
+:::lab title="实践 8.1 · 让 read 返回可续读的完整行"
+**目标：** 让行窗口、字节上限、details 和续读位置指向同一段实际输出。
 
 **文件：** `packages/pi-course/src/coding-tools.ts`
 
 **动作：**
-1. 实现 `read` 的参数 schema 与工具注册。
-2. 读取 UTF-8 文件，检查 `offset` 没有越过文件末尾。
-3. 逐行加入编号文本，只保留能完整放入字节上限的行。
-4. 返回总字节数、总行数、实际起止行和 `truncated`。
-5. 若还有未显示内容，附上准确的下一次 `offset`。
-6. 删除 Lab 8.1 的显式异常，只运行本段测试。
+1. 加入 read 的 schema 和工具注册。
+2. 读取 UTF-8 文件，并检查 offset 是否落在文件行范围内。
+3. 逐行生成带编号的候选正文，把续读提示一起计入字节上限。
+4. 用实际加入的完整行填写 `startLine`、`endLine` 和 `truncated`。
+5. 返回整个文件的字节数、行数与本次窗口。
+6. 删除 Lab 8.1 的临时异常，只运行对应测试。
 
 **运行：**
 
@@ -179,40 +207,43 @@ node --test --test-name-pattern="Lab 8.1" \
   packages/pi-course/dist/test/08-*.test.js
 ```
 
-**预期：** `2/2`。第一项检查普通行窗口；第二项把字节上限压小，证明输出不会截断
-UTF-8 行，也不会跳过下一次应读的内容。
+**预期：** `2/2`。第一项读取普通行窗口；第二项压低字节上限，确认正文没有半行，
+下一次 offset 也没有跳行。
 :::
 
-## 第二步：让路径判断覆盖符号链接
+## 三个文件工具从同一个 root 解析路径
 
-`path.resolve(cwd, input)` 可以处理 `../` 和绝对路径，却只看字符串。假设
-`workspace/link` 是一个指向外部目录的符号链接，那么
-`workspace/link/secret.txt` 在字符串上仍位于 workspace 内。
+正常轨迹中的 `task.txt` 是相对路径。`path.resolve(workspace, "task.txt")` 把它变成
+`$workspace/task.txt`。在 `containment: "workspace"` 下，read、write 和 edit 都调用
+同一个 `resolvedPath()`，所以三者以相同方式理解这个名字。
 
-课程的 `"workspace"` 模式分两层检查：
+路径检查分两层。第一层处理字符串路径：
 
-1. 先把输入解析为绝对路径，拒绝词法上位于 `cwd` 外的结果；
-2. 再取得真实路径。如果目标已经存在，就对目标调用 `realpath`。如果目标尚不存在，
-   就从它的父目录逐层向上，找到第一个已存在的目录，再对该目录调用 `realpath`。
-   这样可以避免通过指向外部的符号链接创建文件。
+```text
+workspace + task.txt       → $workspace/task.txt       接受
+workspace + ../secret.txt → $parent/secret.txt         拒绝
+绝对的 /outside/file.txt  → /outside/file.txt          拒绝
+```
 
-`read`、`write` 和 `edit` 必须共用这一段解析逻辑。三个工具各写一份近似判断，
-很容易出现“读被挡住，写却能越界”的缝隙。
+第二层处理符号链接。字符串 `$workspace/link/secret.txt` 看起来仍在 root 里面，但
+`link` 可能指向外部目录。目标存在时，`realpath()` 取得目标的真实位置；目标尚未存在时，
+`nearestExistingPath()` 向父目录查找，直到找到一个能取得真实位置的祖先。真实位置仍在
+root 内，文件工具才继续。
 
-这仍是一层学习环境保护，不是无法绕过的安全边界。检查与实际打开文件之间存在
-时间窗口；另一个进程可以改动符号链接。强隔离要交给操作系统级沙箱。
+新文件也要检查最近的已存在祖先。否则，write 可以沿一个指向外部的目录链接创建
+`link/new.txt`，即使 read 已经挡住同一条路径。
 
-:::lab title="实践 8.2 · 共用一条文件路径边界"
-**目标：** 让三个文件工具对外部路径和符号链接给出一致结果。
+:::lab title="实践 8.2 · 让三个文件工具共用 workspace root"
+**目标：** 让 read、write 和 edit 对外部绝对路径与越界符号链接给出一致结果。
 
 **文件：** `packages/pi-course/src/coding-tools.ts`
 
 **动作：**
-1. 写一个共用的路径解析函数。
-2. 在 `"workspace"` 模式拒绝解析后位于根目录外的路径。
-3. 对已存在目标检查 `realpath`；对新目标检查最近的已存在祖先。
-4. 让 `read`、`write`、`edit` 都调用这个函数。
-5. 删除 Lab 8.2 的显式异常，只运行本段测试。
+1. 实现共用的 `resolvedPath()`。
+2. 先拒绝词法上落在 workspace 外的结果。
+3. 对已有目标检查 realpath；对新目标检查最近的已存在祖先。
+4. 让三个文件工具都通过这一个函数取得最终路径。
+5. 删除 Lab 8.2 的临时异常，只运行对应测试。
 
 **运行：**
 
@@ -222,54 +253,51 @@ node --test --test-name-pattern="Lab 8.2" \
   packages/pi-course/dist/test/08-*.test.js
 ```
 
-**预期：** `1/1`。测试只在临时目录创建外部文件和符号链接，并证明三个工具对这些
-越界输入给出一致结果。是否共用同一解析函数，还要从你的源码中确认。
+**预期：** `1/1`。外部文件保持原值，符号链接外部目录中不会出现新文件，三种工具都
+返回 `isError: true`。
 :::
 
-## 第三步：把 Write 变成一次明确提交
+这层检查会减少练习中的路径误操作。检查路径与真正打开文件之间仍有时间窗口，其他
+进程可以在这个窗口修改符号链接。它是一层课程 containment，不是操作系统安全边界。
 
-`write` 的语义应当简单：父目录不存在就创建；目标存在就整体覆盖。它不猜测用户想
-追加、合并还是保留哪一段。
+## write 用 rename 提交完整内容
 
-直接向目标文件写入时，其他读者可能看见半截内容。课程先在同一目录写临时文件，
-再用 `rename` 替换目标：
+开头的 write 把 `task.txt` 从一行整体覆盖成两行。它不会推测“这段 content 是追加
+还是合并”；传入的字符串就是文件的新内容。
+
+`atomicWrite()` 先创建父目录，再在目标文件旁边写一个临时文件：
 
 ```text
-content
-  → mkdir(parent)
-  → write(path.pi-tmp-...)
-  → rename(temp, path)
-  → { path, bytes }
+"status: draft\ncheck: pending"
+        │
+        ├─ mkdir($workspace)
+        ├─ write($workspace/task.txt.pi-tmp-...)
+        ├─ rename(temp, $workspace/task.txt)
+        └─ details.bytes = 28
 ```
 
-同一组工具里的 `write` 和 `edit` 还要共享修改队列。对同一路径，先登记的操作完成
-后，下一项才进入自己的读取或提交阶段。不同路径不需要共用一把全局锁。
+`rename` 替换目录项，成功后目标路径才指向新内容。测试为旧文件创建一个硬链接作为
+见证：直接改写旧 inode 时，硬链接也会变化；使用 `rename` 后，硬链接仍保存旧版本。
+测试还让一次 rename 提交失败，随后确认原目录内容未变，而且旁边没有残留临时文件。
 
-这里的“同一路径”是同一个解析后的绝对路径键。测试不靠大文件或计时制造竞态。
-一项测试记录默认 `MutationQueue.run()` 的实例和路径键，证明同一次
-`createCodingTools()` 注册的 write/edit 共用队列；另一项直接用 Promise gate
-控制执行顺序，分别观察同路径等待、不同路径继续执行，以及失败后释放下一项。
-本章不规定两个独立 Registry 是否还要共用队列。
+write 和 edit 都会修改文件。模块中的 `MutationQueue` 以解析后的绝对路径作为 key。
+同一路径的操作按登记顺序进入临界区；不同路径使用不同 key，可以继续执行。前一项
+抛错时，`finally` 也会释放 gate，下一项不会永久等待。
 
-测试还会为旧文件创建一个硬链接作为见证。若实现直接改写目标，见证文件也会跟着
-变化；若实现用 `rename` 替换目标路径，见证文件仍保留旧内容。另一个输入会故意让
-`rename` 失败，再检查旧目录没有变化，课程临时文件也已经清理。这样可以观察提交
-与清理行为，而不用猜测文件操作需要多长时间。
+这条队列控制课程工具发起的修改。它没有锁住其他进程，也没有把多个文件合成一笔
+事务。`rename` 缩小了半成品可见窗口，但没有证明断电后的持久性。
 
-这项设计缩小了半成品可见窗口，但它不等于数据库事务。课程没有证明断电持久性、
-权限继承、跨文件原子性，也无法阻止课程之外的进程同时写同一文件。
-
-:::lab title="实践 8.3 · 提交完整 Write"
-**目标：** 明确新建、整体覆盖和同路径修改的先后关系。
+:::lab title="实践 8.3 · 完整覆盖文件并排列同路径修改"
+**目标：** 让 write 创建父目录、提交完整内容，并让修改队列按路径安排操作。
 
 **文件：** `packages/pi-course/src/coding-tools.ts`
 
 **动作：**
-1. 实现同路径修改队列，失败也必须释放下一项。
-2. 在目标同目录写临时文件，成功后 rename，最后清理残留临时文件。
-3. 自动创建父目录，并返回最终路径与 UTF-8 字节数。
-4. 让 `write` 进入修改队列。
-5. 删除 Lab 8.3 的显式异常，只运行本段测试。
+1. 实现 `MutationQueue.run()`，让同 key 操作串行、不同 key 操作独立前进。
+2. 在目标同目录写临时文件，用 rename 提交，并在 finally 清理临时文件。
+3. 自动创建父目录，返回最终路径与 UTF-8 字节数。
+4. 让 write 以解析后的绝对路径进入修改队列。
+5. 删除 Lab 8.3 的临时异常，只运行对应测试。
 
 **运行：**
 
@@ -279,45 +307,53 @@ node --test --test-name-pattern="Lab 8.3" \
   packages/pi-course/dist/test/08-*.test.js
 ```
 
-**预期：** `2/2`。第一项检查新建、覆盖、父目录、details、硬链接见证、默认队列
-实例，以及提交失败后的临时文件清理；第二项用 Promise gate 证明同路径串行、
-不同路径可继续执行，失败也会释放下一项。
+**预期：** `2/2`。第一项检查新建、完整覆盖、details、硬链接见证、提交失败后的临时
+文件清理和默认队列实例；第二项用 Promise gate 观察同路径登记顺序、不同路径前进，
+以及失败后释放下一项。
 :::
 
-## 第四步：Edit 先验证整批，再写一次
+## Edit 先验证整批，再写一次
 
-`edit` 接受精确的 `oldText → newText`。零次匹配表示当前观察已经过期；多次匹配
-表示定位信息不足。两种情况都应失败，不能擅自挑第一处。
+开头的 edit 在当前 `task.txt` 中查找 `status: draft`。这个例子里只有这一处，所以它
+产生新字符串 `status: done`，然后通过同一个 `atomicWrite()` 提交。
 
-批量编辑按数组顺序作用于一份内存副本。后一项能看见前一项的结果：
+edit 也接受数组。下面两项按数组顺序作用于同一个内存副本：
+
+```ts
+[
+  { oldText: "status: draft", newText: "status: ready" },
+  { oldText: "status: ready", newText: "status: done" },
+]
+```
+
+第二项可以匹配第一项刚生成的 `status: ready`。循环只改变局部变量 `next`：
 
 ```ts
 let next = current;
 for (const edit of edits) {
-  // oldText 必须在 next 中恰好出现一次
+  // 找到第一处，并确认其后没有第二个非重叠匹配
   next = applyExactReplacement(next, edit);
 }
-// 全部成功后才提交一次
 await atomicWrite(file, next);
 ```
 
-这条顺序规则允许第二项修改第一项刚生成的文本。任何一项失败时，函数在进入
-`atomicWrite()` 前结束，磁盘文件应与调用前逐字节相同。`oldText` 不能为空，
-否则空字符串会在每个位置“匹配”，唯一性也失去意义；`newText` 可以为空，因为
-删除是一种合法编辑。
+每一项的 `oldText` 都要非空。实现找到第一处后，会从这段文本的结束位置继续查找；
+零次匹配表示当前文件已经和调用者的观察不同，第二个非重叠匹配表示定位不够具体。
+任意一项失败时，代码还没有调用 `atomicWrite()`，磁盘上的 `task.txt` 保持原样。
+空 `newText` 是合法值，它表示删除找到的那段文本。
 
-:::lab title="实践 8.4 · 实现批量精确 Edit"
-**目标：** 让一批相关编辑要么全部验证后提交，要么保持文件不变。
+:::lab title="实践 8.4 · 按顺序验证并提交一批精确编辑"
+**目标：** 让相关替换共享一份内存副本，全部通过后只提交一次。
 
 **文件：** `packages/pi-course/src/coding-tools.ts`
 
 **动作：**
-1. 解析单项和数组形式的编辑参数，拒绝空数组。
-2. 在内存副本中按顺序应用编辑。
-3. 每一步都拒绝空 `oldText`、零次匹配和多次匹配。
-4. 全部通过后只调用一次文件提交，并复用 Write 的同路径队列。
-5. 返回替换数量以及修改前后的字节数。
-6. 删除 Lab 8.4 的显式异常，只运行本段测试。
+1. 解析单项和数组两种参数形状，并拒绝空数组。
+2. 按顺序在内存字符串上应用编辑。
+3. 拒绝空 `oldText`、零匹配和第二个非重叠匹配。
+4. 全部通过后调用一次 `atomicWrite()`，并与 write 共用修改队列。
+5. 返回替换数、修改前字节数和修改后字节数。
+6. 删除 Lab 8.4 的临时异常，只运行对应测试。
 
 **运行：**
 
@@ -327,60 +363,76 @@ node --test --test-name-pattern="Lab 8.4" \
   packages/pi-course/dist/test/08-*.test.js
 ```
 
-**预期：** `2/2`。第一项检查顺序批处理、空 `newText` 删除、details，以及
-Write/Edit 共用默认队列；第二项检查空批次、空 `oldText`、零匹配、多匹配与
-中途失败，并在每个失败后确认文件内容没有变化。
+**预期：** `2/2`。第一项检查依赖前一项结果的替换、删除、details 和共用队列；第二项
+依次检查空批次、空 oldText、零匹配、非重叠重复和中途失败，并在每次失败后读取原文件。
 :::
 
-## 第五步：把 Bash 当成一段生命周期
+## bash 从同一个 cwd 启动并结算进程
 
-`spawn()` 返回子进程对象，只表示进程已经开始。工具还要同时管理 stdout、stderr、
-非零退出、启动失败、timeout、外部 abort 和输出上限。
+正常轨迹里的命令只读取 `task.txt`，然后输出 `verified`。`spawn()` 使用
+`cwd: workspace`，所以命令中的相对路径仍指向前三个工具看到的目录。
+
+进程退出以后，bash 工具把正文与状态分开保存：
 
 ```text
-预取消 ───────────────→ 不 spawn → aborted result
-
-spawn
-  ├─ stdout/stderr ───→ 持续消费，只保留上限内的字节
-  ├─ exit 0 ──────────→ success result
-  ├─ exit 非 0 ───────→ error result
-  ├─ timeout ─────────→ 请求终止进程组 → timedOut result
-  └─ abort ───────────→ 请求终止进程组 → aborted result
+content = "verified"
+details = {
+  exitCode: 0,
+  timedOut: false,
+  aborted: false,
+  truncated: false,
+  ...
+}
+isError = false
 ```
 
-stdout 和 stderr 都要持续读取，否则其中一个管道写满后，子进程可能一直等待。
-对已经启动的命令，捕获的 stdout、stderr 与截断说明共用
-`maxBashOutputBytes`。发生截断时，先给说明留出字节，再用剩余空间保存子进程输出。
-工具执行器在外层生成的错误说明，以及预取消时的固定提示，不属于这项输出预算。
-测试会让两路同时产生输出并检查共同预算；它没有把管道写满。达到上限后仍继续排空
-两条管道，要从你的数据监听代码中确认。
+退出码非零时，已经产生的 stdout/stderr 仍留在 content，`exitCode` 保存具体数字，
+`isError` 变成 true。这样下一轮模型既能看到命令说了什么，也能区分正常退出与失败。
 
-`"workspace"` 模式还会拒绝命令字符串中显式出现的绝对路径、`~/` 和 `../`。测试用
-目录外标记文件确认绝对路径和 `../` 命令没有启动；`~/` 分支由源码审查确认。这只是
-防止练习时常见误操作的字符串检查；shell 仍能使用环境变量、程序参数和系统调用
-访问工作目录之外的资源。
+一个已经启动的进程会同时产生 stdout、stderr、close、timeout 和 abort 事件。
+`runCommand()` 同时订阅两条输出流，并把收到的字节放进同一预算。stdout、stderr 与截断说明共用
+`maxBashOutputBytes`。达到上限后，监听器仍继续消费后续数据，只是不再
+保存；否则未被排空的管道可能让子进程停在那里。
 
-timeout 与 abort 可能同时到达，进程也可能恰好自行退出。清理动作要幂等：多次请求
-终止不会生成多个结果，timer 与 abort listener 最终都要移除。在 POSIX 系统上，
-课程先向同一进程组发送 `SIGTERM`，短暂等待后再发送 `SIGKILL`，并等这段清理结束
-才返回。测试还会启动一个忽略 `SIGTERM` 的后代进程，确认它不能在工具返回后继续
-写标记文件。测试直接观察终止处理器与后代标记；是否等待 `close` 和强杀步骤、
-是否移除 timer 与 listener，还要从源码中的 `await` 和 `finally` 确认。测试命令
-全部固定，不会拼接外部输入，也不会访问网络。
+发生截断时，结果先为 `… [输出已截断]` 留出空间，再从已捕获内容中取能放下的 UTF-8
+前缀。正文连同提示不超过配置的字节数。两条输出流谁先到由实际进程调度决定，课程
+没有为 stdout 与 stderr 重新规定稳定顺序。
 
-:::lab title="实践 8.5 · 结算 Bash 的每个终点"
-**目标：** 让成功、失败、超时、取消和超长输出都在有限资源内结束。
+### 取消和超时结束同一个进程组
+
+signal 在调用前已经 aborted 时，工具不执行 `spawn()`，而是直接返回
+`aborted: true` 的结果。进程启动后收到 abort，或者 timer 到达
+`bashTimeoutMs`，都会调用同一个 `terminate()`。
+
+在 POSIX 系统上，子进程以独立进程组启动。`terminate()` 先向进程组发送 `SIGTERM`，
+100 毫秒后再发送 `SIGKILL`，并等待强杀步骤结算。测试会启动一个忽略 `SIGTERM` 的后代进程；
+bash 工具返回后，这个后代不能再写出存活标记。Windows 没有使用这条负 pid
+进程组路径，当前实现退回到直接进程信号。
+
+timer 和 abort listener 最终在 `finally` 中移除。timeout、abort 与进程自行退出可能
+靠得很近，`forceKillDone` 让重复终止请求共享同一个延迟任务。最终只返回一条
+`ToolResultMessage`。
+
+### workspace 模式对命令做有限的字符串检查
+
+`containment: "workspace"` 还会检查 command 中显式出现的绝对路径、`../` 和 `~/`。
+命中时，bash 在 spawn 之前返回工具错误。这个检查能挡住练习中最直接的越界写法，
+但 shell 仍可以通过环境变量、程序参数或系统调用访问 cwd 之外；固定 cwd 也不会隔离
+网络、当前用户权限和密钥。
+
+:::lab title="实践 8.5 · 让 bash 的每个终点都返回结果"
+**目标：** 让成功、非零退出、预取消、运行中取消、超时和超长输出都得到有限结果。
 
 **文件：** `packages/pi-course/src/coding-tools.ts`
 
 **动作：**
-1. 预先检查 signal；已经取消时不要启动进程。
-2. 从指定 `cwd` 启动命令，并同时消费 stdout 与 stderr。
-3. 只保留上限内的输出，明确标记 `truncated`。
-4. 非零退出返回结构化错误，并保留 exit code。
-5. timeout 或运行中 abort 时请求终止进程；在 POSIX 系统上处理同一进程组。
-6. 等待直接进程关闭和延迟强制终止步骤，再清理 timer 与 listener。
-7. 删除 Lab 8.5 的显式异常，只运行本段测试。
+1. 在 signal 已预取消时直接返回，不启动子进程。
+2. 从配置的 cwd spawn 命令，同时消费 stdout 与 stderr。
+3. 让两条输出和截断提示共用字节预算。
+4. 保存 exit code，并区分 timedOut 与 aborted。
+5. 终止时处理直接进程；POSIX 上同时处理同一进程组。
+6. 等待 close 和延迟强杀步骤，最后清理 timer 与 listener。
+7. 删除 Lab 8.5 的临时异常，只运行对应测试。
 
 **运行：**
 
@@ -390,46 +442,56 @@ node --test --test-name-pattern="Lab 8.5" \
   packages/pi-course/dist/test/08-*.test.js
 ```
 
-**预期：** `4/4`。测试分别覆盖成功/非零退出、cwd 与路径字符串 guardrail，
-预取消不产生标记文件，stdout/stderr 共用输出上限，以及 timeout/运行中取消。
-最后一项还会在 POSIX 系统检查：忽略 `SIGTERM` 的同组后代不能在工具返回后继续
-运行。
+**预期：** `4/4`。四项测试覆盖成功与非零退出、cwd 和命令字符串检查、预取消、共同
+输出预算、timeout 与运行中取消。POSIX 分支还检查忽略 SIGTERM 的后代进程。
 :::
 
-:::mechanism title="workspace containment 的准确边界"
-`"workspace"` 模式会限制课程文件工具，并让 Bash 从指定 `cwd` 启动。它不会隔离
-Bash 的网络、系统调用、环境变量或当前用户权限，也没有命令审批。源码中的简单
-guardrail 只能减少常见误操作，不能安全执行任意不可信命令。
+:::mechanism title="workspace containment 管到哪里"
+文件工具会把词法路径和真实路径限制在 root 内。bash 只从 root 启动，并做一层有限的
+命令字符串检查。它们没有建立网络、系统调用、环境变量或用户权限隔离，也没有命令
+审批。执行不可信代码仍需要操作系统级沙箱。
 :::
 
-## 第六步：让真实工具走完 Agent Loop
+## 四个工具回到 Agent Loop
 
-前五步分别验证工具。最后还要证明它们能进入第 07 章的消息协议。使用
-`ScriptedModel` 安排四轮确定行为：
+四个工具都来自 `ToolRegistry`，所以第 07 章不需要知道当前执行的是 echo 还是文件操作。
+聚焦测试用 `ScriptedModel` 安排下面四轮：
 
 ```text
-assistant(read)  → toolResult(read)
-assistant(edit)  → toolResult(edit)
-assistant(bash)  → toolResult(bash)
-assistant(final) → stop
+assistant(read task.txt)  → toolResult(read)
+assistant(edit task.txt)  → toolResult(edit)
+assistant(bash verify)    → toolResult(bash)
+assistant(final)          → stop
 ```
 
-测试使用临时文件和固定本地命令，不调用模型 API。它要同时观察两类事实：
+临时 workspace 起初包含 `task.txt = "draft"`。edit 把它改成 `"done"`，bash 在同一 cwd
+读取并验证新值。最终有两类证据：文件确实等于 `done`；三条 tool result 的 id/name
+分别与原 call 配对。
 
-- 环境事实：文件确实被 edit 改写，bash 确实在指定目录检查到新内容；
-- 协议事实：每个 call 都有同 id/name 的 result，最后一轮才以 `stop` 结束。
+最终 role 顺序是：
 
-:::lab title="实践 8.6 · 闭合一次真实编码循环"
-**目标：** 让 read、edit 和 bash 通过同一个 Agent Loop 完成一次可观察任务。
+```text
+user
+→ assistant(read) → toolResult(read)
+→ assistant(edit) → toolResult(edit)
+→ assistant(bash) → toolResult(bash)
+→ assistant(final)
+```
+
+这条测试使用固定本地命令，不访问模型 API。`model.requests.length` 是 4，说明每个工具
+结果都在下一轮请求前写回了 transcript。
+
+:::lab title="实践 8.6 · 让真实工具走完既有反馈回路"
+**目标：** 让 read、edit 和 bash 在同一临时 workspace 中形成三次配对结果。
 
 **文件：** `packages/pi-course/src/coding-tools.ts`
 
 **动作：**
-1. 确认 `createCodingTools()` 返回的 Registry 同时包含四个工具定义。
-2. 用现有 `runAgentLoop()` 执行 ScriptedModel 的四轮脚本。
-3. 检查三条 call/result 配对和最后的 `stop`。
-4. 检查临时文件的最终内容。
-5. 删除 Lab 8.6 的显式异常，先运行本段测试，再运行本章全部测试。
+1. 让 `createCodingTools()` 注册四个工具及其 Provider definitions。
+2. 使用现有 `runAgentLoop()` 执行四轮 `ScriptedModel`。
+3. 检查三条 call/result 的 id、name 与 `isError`。
+4. 检查文件最终内容、bash 输出、消息 role 顺序和模型请求次数。
+5. 删除 Lab 8.6 的临时异常，运行局部测试，再运行全部聚焦测试。
 
 **运行：**
 
@@ -440,80 +502,87 @@ node --test --test-name-pattern="Lab 8.6" \
 node --test packages/pi-course/dist/test/08-*.test.js
 ```
 
-**预期：** 局部 `1/1`，完整 `12/12`。最终消息按
+**预期：** 局部 `1/1`，完整 `12/12`。文件内容是 `done`，bash 返回 `verified`，消息按
 `user → assistant → result → assistant → result → assistant → result → assistant`
-排列，三条 result 分别回答原来的 read、edit 和 bash call。
+排列。
 :::
 
-## 故意把它弄坏
+## 正常路径之外的测试边界
 
-编辑测试会创建一份包含两个相同片段的临时文件。暂时把“多次匹配时报错”改成只替换
-第一处，再运行 Lab 8.4：
+路径测试、文件提交测试和进程测试固定了许多具体行为，但没有证明符号链接竞态已经
+消失，也没有证明断电持久性。它们没有覆盖其他进程同时写文件、两个 Registry 对同一
+物理文件的统一排队、硬链接或内部符号链接别名，以及文件操作的运行中取消。
 
-```text
-正确：匹配 2 次 → isError=true → 文件不变
-错误：匹配 2 次 → isError=false → 第一处被悄悄修改
-```
+Bash 测试没有固定 stdout/stderr 混合后的先后顺序，也没有覆盖 spawn 启动失败、
+timeout 与 abort 同时发生的优先级、所有 timer/listener 异常路径、脱离原进程组的后代，
+或 Windows 上完整的子进程树回收。它们也没有建立任意 shell 输入转义、命令审批、
+网络或密钥隔离。
 
-:::failure title="预期失败 · 让 Edit 擅自选择第一处"
-只改匹配分支，不改测试。首个偏差应落在“多匹配必须失败”或“文件保持原样”的断言，
-而不是后续 Bash。观察后手动恢复这处改动，再运行 Lab 8.4 得到 `2/2`。若无法确认
-恢复完整，删除练习目录并重新生成；不要拿真实项目验证。
-:::
-
-## 本章没有证明什么
-
-12 项测试没有把课程变成安全沙箱，也没有覆盖以下性质：
-
-- 文件路径检查与实际打开之间的符号链接竞态；
-- 断电持久性、权限与时间戳继承、跨文件事务；
-- 课程外进程同时修改同一文件；
-- 两个独立 Registry 同时修改同一路径时是否共用队列；
-- 通过不同硬链接或内部符号链接别名访问同一物理文件时的统一排队；
-- 并发读者是否在所有文件系统上都看不到提交中的临时状态；
-- 文件操作的运行中取消；
-- stdout 与 stderr 混合后的稳定先后顺序；
-- spawn 启动失败，以及 timeout 与 abort 同时到达时的优先级；
-- timer、abort listener 与延迟强杀任务是否在每条异常路径都完成清理；
-- 脱离原进程组的后代，以及 Windows 上完整的子进程树回收；
-- 任意 shell 输入的转义、命令审批、网络或密钥隔离；
-- 超大文件的流式读取和所有 UTF-8 异常输入。
-
-测试通过只说明：在本章固定环境和输入下，列出的路径、提交、编辑、进程与消息行为
-符合约定。
+edit 测试没有覆盖重叠匹配；当前 target 从第一处匹配的结束位置继续查找，因此不会把
+重叠位置算作第二处。read 测试也没有覆盖超大文件的流式读取、结尾空行的解释和所有
+异常 UTF-8 输入。12 项测试证明的是本章列出的固定输入与结果，不是通用文件系统或
+进程沙箱。
 
 :::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的上游工具处理了更多生产细节：read 支持文本与图片，并按行数和
-字节数截断；write 自动创建父目录；edit 处理多处替换和重叠；同文件修改会串行；
-bash 还会把被截断的完整输出保存到临时文件。
+固定提交 `8479bd8` 的上游 coding tools 处理了更多生产细节：read 支持文本和图片，
+并按行数与字节数截断；write 自动创建父目录；同文件修改会串行；bash 还会把被截断的
+完整输出保存到临时文件。上游 edit 支持一次提交多个彼此不重叠的替换；每项都匹配原始
+文件，并明确拒绝重叠或嵌套编辑。课程 target 则按数组顺序修改同一份内存副本，所以
+后一项可以匹配前一项刚生成的文本。
 
-边界也要如实区分。该提交的内建 coding tools 会把相对路径解析到 cwd，也接受绝对
-路径和解析到 cwd 外的 `..`；它没有课程 `"workspace"` 模式这样的路径限制。课程的
-限制是为了保护练习环境而增加的主动强化，不代表上游默认行为。
+路径边界不同。该提交的内建 coding tools 把相对路径解析到 cwd，也接受绝对路径和
+解析到 cwd 外的 `..`。上游没有课程 `containment: "workspace"` 的 cwd jail。课程的
+路径限制是保护练习环境的主动强化，不能表述成上游默认行为。
+:::
+
+## 去掉第二个非重叠匹配检查
+
+完成正常 edit 后，可以临时删掉“发现第二个非重叠匹配时报错”的分支。对内容
+`same same` 执行 `same → X`，两种行为会分开：
+
+```text
+正常：匹配 2 次 → isError=true  → 文件仍是 same same
+改坏：匹配 2 次 → isError=false → 文件变成 X same
+```
+
+:::failure title="诊断 · edit 擅自选择了第一个非重叠匹配"
+只改变非重叠重复分支，运行 Lab 8.4。第一处偏差应出现在“匹配多次”或“文件保持原样”
+的断言。恢复第二次查找后，局部测试回到 `2/2`。
 :::
 
 ## 本章验收
 
-:::checkpoint title="Checkpoint 08 · Agent 获得有界的环境能力"
-在隔离练习目录运行 build 和本章 12 项测试。你还要现场解释四件事：为什么 Read 的
-续读位置不能从预选范围计算；为什么 Edit 要先验证整批；为什么同路径修改要串行；
-为什么固定 cwd 的 Bash 仍不是沙箱。
+:::checkpoint title="Checkpoint 08 · 同一个 workspace 留下四类证据"
+在 practice 目录运行：
 
-若四项解释和 `read → edit → bash → final` 的配对证据都成立，本章通过。需要重做
-时创建新的 practice 目录，不回退第 06、07 章，也不在真实项目中重复破坏实验。
+```bash
+npm run build -w @pi/course
+node --test packages/pi-course/dist/test/08-*.test.js
+```
+
+结果应为 `12/12`。再沿开头的 `task.txt` 回答四个问题：read 的 `endLine` 从哪个实际值
+产生；write 为什么用临时文件和 rename；edit 中途失败为什么不会修改磁盘；bash 的
+cwd、输出预算和终止步骤分别约束什么。
+
+`npm run checkpoint -w @pi/course -- 08` 可以重新定位 parent 与 target；
+`npm run practice -w @pi/course -- 08 <新目录>` 会从同一 parent 创建新的隔离目录。
+下一章会保留这四个工具和 Agent Loop，在它们外面增加可持续的 Agent 状态。
 :::
 
 ## 可选迁移练习
 
-:::transfer title="无脚手架迁移 · 只读目录列表"
-新增一个只读 `list` 工具：路径必须经过同一 workspace 检查，结果必须排序，并同时
-受条目数和字节数限制。先写出 details 与续读语义，再实现测试。它不修改文件，所以
-不应进入 write/edit 的修改队列。请用资源所有权解释这个决定，不要只说“这样更快”。
+:::transfer title="迁移 · 为同一个 workspace 增加 list"
+增加一个只读 `list` 工具。它复用 `resolvedPath()`，按名称排序结果，并同时限制条目数
+与输出字节数。先写 details 和续读语义，再实现测试。list 不修改文件，因此不进入
+write/edit 的 MutationQueue。
 :::
 
 ## 小结
 
-文件和进程工具的难点不在 Node API 的调用方式，而在结果是否可恢复、修改是否能
-确定提交、进程是否一定结算。Read 只报告完整观察；Write 明确整体覆盖；Edit 先验证
-整批；Bash 管理输出和终点。课程 containment 能减少练习时的误操作，但不能代替
-操作系统隔离。下一章会在这个循环外增加可持续的 Agent 状态和用户时序控制。
+同一个临时 workspace 让四个动作连成一条可观察轨迹。read 从 `task.txt` 返回完整行；
+write 用临时文件和 rename 提交整体内容；edit 在内存里排除第二个非重叠匹配，再提交一次；
+bash 从相同 cwd 启动，并把输出、退出码、超时和取消收进一个有界的终态。
+
+workspace containment 让三个文件工具共用 root，也为 bash 加了一层有限 guardrail。
+它保护练习输入，但没有替代操作系统隔离。第 09 章会让同一个 Agent 对象跨多次运行
+保存消息，并处理新的用户输入时序。
