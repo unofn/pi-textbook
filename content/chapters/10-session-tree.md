@@ -239,7 +239,7 @@ const entry = JSON.parse(line) as SessionEntry;
 message。正确边界是 `parseSessionEntry(value: unknown)`：从最外层开始，每验证一项事实，
 才把类型收窄一层。
 
-以固定树中的 `a-read` 为例，它必须完整保留工具请求：
+以固定树中的 `a-read` 为例，解析后的记录要完整保留这次工具请求：
 
 ```text
 entry a-read
@@ -262,12 +262,17 @@ entry a-read
 | entry 类型 | 当前 checkpoint 只接受 `message`、`metadata` |
 | message | 完整的 `user`、`assistant` 或 `toolResult` |
 | metadata value | `null`、布尔、字符串、有限数、这些值组成的数组或普通对象 |
-| object 字段 | 只接受该结构声明的字段，不悄悄吞掉拼错或未知字段 |
+| object 字段 | 接受该结构声明的字段；遇到拼错或未知字段就在当前路径报错 |
 
-“普通对象”需要检查 prototype。`Date`、`Map`、类实例与数组都不属于这里的 JSON object。
-还要拒绝 accessor、symbol key、不可枚举字段、数组空洞、`undefined`、函数、`BigInt`、
-`NaN`、`Infinity` 和循环引用。它们有的会被 `JSON.stringify()` 丢弃，有的会改变形状，
-有的直接无法序列化。
+递归检查的目标，是让内存中的值经过 JSONL 往返后仍表示同一份数据。用固定记录做三个
+小实验就能看出问题：`a-read.arguments.path` 若是 `undefined`，写入 JSON 时这个字段会
+消失；metadata 中的 `score: NaN` 会在磁盘上变成 `score: null`；metadata 对象若引用
+自身，序列化会直接抛错。解析器在写入前拒绝这三类结果：字段丢失、形状改变和无法
+序列化。
+
+因此 metadata 中的 object 要有普通对象的 prototype，数组中的每个位置都有实际值，
+数值保持有限，并且嵌套值能继续通过同一检查。Lab 10.2 的测试证据再覆盖完整的非法值
+矩阵；正文先用上面三个可观察结果说明这条边界为何存在。
 
 解析成功后返回新对象。这样 `parseSessionEntry()` 同时完成两件事：证明形状符合协议，
 并切断外部对象对内部记录的可变引用。
@@ -683,6 +688,8 @@ user、assistant 与 toolResult。
 无换行尾部只读恢复，换行结束的坏行立即失败。一次底层 append 失败可能已经写出半行，所以当前
 writer 进入 `tainted`，不再碰文件。
 
-下一章会把 `pathTo()` 返回的 active path 交给 `buildContext()`，由它在保留 entry
-身份、metadata 和 compaction 的前提下投影模型消息。原始 session 仍是 append-only，
-不会为了缩短上下文而改写过去。
+下一章会把 `pathTo()` 返回的 active path 交给 `buildContext()`。它读取路径上最新的
+compaction，把摘要转换成一条合成消息；metadata 与 compaction entry 本身不进入模型
+消息。随后函数按完整 interaction 选择原始 message entries，返回消息的深副本，并在
+`keptEntryIds` 中记录这些消息对应的 source entry id。整个投影只读 active path，原始
+session 仍是 append-only，不会为了缩短上下文而改写过去。
