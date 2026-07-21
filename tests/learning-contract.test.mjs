@@ -280,7 +280,7 @@ test("第六章沿唯一教学路线分三步闭合工具契约", async () => {
     body,
     /\*\*教学文件：\*\*\s*`packages\/pi-course\/src\/tool\.ts`/,
   );
-  assert.match(body, /学习脚手架.*公共.*不含.*实现/s);
+  assert.match(body, /学习脚手架.*公共.*不(?:包含|含).*实现/s);
   assert.match(body, /第一次红灯.*Lab 6\.1.*validator/s);
   assert.match(
     chapter.source,
@@ -298,10 +298,13 @@ test("第六章沿唯一教学路线分三步闭合工具契约", async () => {
     chapter.source,
     /4 项聚焦测试.*validator.*Registry.*执行器.*signal.*progress.*details/s,
   );
-  assert.match(
-    chapter.source,
-    /没有证明.*预取消.*中途取消.*并发.*错误.*密钥/s,
-  );
+  const keepsPreviousCoverageNote =
+    /没有证明.*预取消.*中途取消.*并发.*错误.*密钥/s.test(chapter.source);
+  const usesObjectCenteredCoverageNote =
+    /没有证明.*及时响应.*取消.*并发顺序/s.test(chapter.source) &&
+    /没有实现通用脱敏/.test(chapter.source) &&
+    /错误文本.*路径或秘密/s.test(chapter.source);
+  assert.ok(keepsPreviousCoverageNote || usesObjectCenteredCoverageNote);
   assert.match(chapter.source, /`echo`/);
   assert.doesNotMatch(chapter.source, /`add`|workshop\//);
 });
