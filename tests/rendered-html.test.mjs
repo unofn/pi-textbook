@@ -75,7 +75,7 @@ test("章节页暴露真实 commit、parent、测试与陪学协议", async () =
   assert.match(html, /npm run practice -w @pi\/course -- 00/);
   assert.match(html, /本章重建入口/);
   assert.match(html, /起终点.*parent.*起点.*target.*终点/s);
-  assert.match(html, /可选迁移练习/);
+  assert.match(html, /第一次学习.*当前练习目录.*不在两棵目录.*复制代码/s);
 });
 
 test("学习方法明确 commit + Agent 引导优先，迁移为可选", async () => {
