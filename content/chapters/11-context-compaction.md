@@ -191,9 +191,11 @@ entries 保持原路径顺序：
 [u3, calls, r-test, r-read, a3]
 ```
 
-分组函数不会把 `r-test` 重排到 `r-read` 后面。它只在同一 user group 内建立 callId
-集合配对：call id 唯一、result id 存在且唯一、每个 call 最终有 result。它不验证完整
-工具时序。`a3` 在这个 fixture 中是终态回答，因此也留在同一组中。
+分组函数保留 `r-test`、`r-read` 的原路径顺序，同时在这个 user group 内核对四个对象
+关系：每个 `call.id` 只声明一次；每条 result 的 `toolCallId` 都能在组内找到对应 call；
+一个 call 至多对应一条 result；group 结束时，所有 call 都已经配齐 result。这些关系只
+依赖 id 集合，所以反序完成的两个 result 仍能组成同一组。`a3` 是这个 fixture 的终态
+回答，也按原位置留在组中。
 
 预算层之所以使用 group，而不是直接使用 message，是因为裁剪位置只能落在 `a1/u2`
 或 `a2/u3` 之间。落在 `calls/r-test`、`r-test/r-read` 或 `r-read/a3` 之间都会丢掉一次
@@ -401,16 +403,30 @@ node --test packages/pi-course/dist/test/11-*.test.js
 
 正常路径已经闭合以后，再看输入边界会更清楚。
 
-`parseSessionEntry()` 只接受上面展示的七字段 summary。缺字段、多字段、数组中混入非
-字符串、空 parent、负数或无限 `tokensBefore` 都会报错。早期草案中出现过 `files`、
-`nextSteps`、`invariants` 和 `compactedEntryIds`；target 不迁移这些旧字段，也不在运行
-时维护两套 schema。
+先破坏 `compact-1` 的一个字段。正常 summary 使用 `changedFiles`；若把它换成早期草案中的
+`files`，输入会变成：
 
-`groupInteractions()` 同样会在分组结束时核对事实：第一条消息必须是 user；每个
-toolResult 都能在本组找到 call；同一个 `callId` 不会出现重复 call 或重复 result；每个
-call 最终都有 result。这是 user 边界内的 id 集合配对，不会检查 result 的 `toolName`
-是否等于 call name、result 是否出现在 call 之后，也不要求 group 以终态 assistant 结束。
-错误文字带 entry id 或 call id，使问题停在历史边界，不会伪装成稍后的 token 选择错误。
+```text
+compact-1.summary.changedFiles  被移除
+compact-1.summary.files         = ["context.ts"]
+  → parseSessionEntry(compact-1) 报 schema 错误
+  → Store 写入和 token 选择都没有开始
+```
+
+这里的 parser 只生成前文定义的七字段 `CompactionSummary`。旧记录需要先在边界外迁移成
+当前形状；缺少当前字段或加入旧别名时，错误停在 `compact-1`，不会延后成预算差异。
+
+再回到开篇的第三组。把 `r-test.toolCallId` 从 `test-1` 改成 `unknown-1`：
+
+```text
+[u3, calls(read-1, test-1), r-test(unknown-1), r-read(read-1), a3]
+  → groupInteractions() 找不到 unknown-1 对应的 call
+  → 第三组不进入预算选择
+```
+
+若只把正常的 `r-test(test-1)` 移到 `calls` 前面，函数仍返回这一组。它先用 user 划定
+interaction，再核对上一节的四个 id 关系；result 的数组位置、`toolName` 与终态 assistant
+不参与这次配对。错误信息携带 entry id 或 call id，读者可以在历史边界定位第一处偏差。
 
 :::failure title="预期失败 · 按三条消息截取工具组"
 临时把 Lab 11.3 的组选择改成 `messages.slice(-3)`，然后只运行 Lab 11.3。开篇第三组会
