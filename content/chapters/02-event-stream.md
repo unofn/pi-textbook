@@ -203,9 +203,10 @@ queue，消费者会观察到什么？`events.result()` 又会得到什么？
 份不一致的观察结果。迭代器要先清空 queue，再根据 `done` 结束。
 :::
 
-## events 保存三类状态
+## events 保存两条交付队列和一条完成状态
 
-刚才的时间线需要三个容器和一个最终 Promise：
+刚才的时间线落在五个字段上：两个数组、一个布尔值，以及构造时配成一对的 Promise 与
+resolver：
 
 ```ts
 export class EventStream<T, R = T> implements AsyncIterable<T> {
@@ -221,31 +222,30 @@ export class EventStream<T, R = T> implements AsyncIterable<T> {
 }
 ```
 
-`queue` 保存已经到达的事件。`waiting` 保存已经发生、但还没有等到事件的
-`next()`；其中每个回调就是一名等待者（waiter）。`done` 记录这条流是否已经结束。
-`finalResult` 在构造时只创建一次，所以先后多次调用 `result()` 等待的是同一份最终
-事实。
+`queue` 保存已经到达、尚未读取的事件；`waiting` 保存已经调用 `next()`、尚未得到事件
+的 resolver。`done` 是流的结束标记。构造器创建 `finalResult` 时，把它的 resolve 函数
+保存为 `resolveFinalResult`；`result()` 始终返回这个 `finalResult`，所以多个调用者等待
+的是同一个最终值。
 
-`push(event)` 的状态迁移可以先写成普通步骤：
+`push(event)` 按函数入口时的旧状态决定是否接收本次事件：
 
 ```text
-流已经结束
-  → 忽略这次 push
+1. 入口读取 done
+   ├─ 原来就是 true  → 返回，本次 event 不再进入流
+   └─ 原来是 false   → 继续处理本次 event
 
-收到终态事件
-  → 从事件提取最终值
-  → 完成 finalResult
-  → 标记 done
+2. 检查本次 event
+   ├─ 普通事件        → 完成状态不变
+   └─ 终态事件        → 提取最终值，置 done = true，完成 finalResult
 
-仍有 waiter
-  → 取出最早的 waiter，把 event 直接交给它
-
-没有 waiter
-  → 把 event 放到 queue 末尾
+3. 交付本次 event；这里不重新用新的 done 状态拦截它
+   ├─ waiting 非空    → 取出最早的 waiter，返回 { value: event, done: false }
+   └─ waiting 为空    → queue.push(event)
 ```
 
-终态处理之后仍要继续走交付分支。这样，终态既会完成 `result()`，也会像普通事件一样
-交给正在等待的消费者或进入 queue。
+第 2 步把 `done` 改成 `true`，只影响下一次 `push()` 和 queue 清空后的 `next()`。当前这
+条终态事件已经通过入口检查，因此仍执行第 3 步：它会交给 waiter 或进入 queue，不会被
+刚写入的新 `done` 状态吞掉。
 
 :::lab title="实践 2.1 · 让先到的事件排队"
 **目标：** 复现 `push(delta) → push(done) → next() → next()`，同时取得最终值。
@@ -256,7 +256,7 @@ export class EventStream<T, R = T> implements AsyncIterable<T> {
 1. 声明构造器、`push()`、`end(result)`、`result()` 和异步迭代器的完整公共接口。
 2. 创建 queue、waiting、done 与 finalResult；暂未进入的分支可以抛出
    `new Error("not implemented in lab 2.1")`。
-3. 实现 `push()`。终态先完成 finalResult，随后继续走普通事件的交付路径。
+3. 实现 `push()`。终态写入 done、完成 finalResult，随后继续走本次事件的交付路径。
 4. 实现迭代器的 queue 与 done 分支，只运行第一项聚焦测试。
 
 **运行：**
@@ -379,65 +379,35 @@ node --test packages/pi-course/dist/test/02-*.test.js
 `IteratorResult`。
 :::
 
-## 四个调用现在怎样连起来
+## 四个公开调用各改哪一份状态
 
-同一个 `events` 只维护一份状态。生产者与消费者谁先行动，决定事件暂时停在哪里：
+前面的两条时间线可以收成一张状态查找表：
 
-```text
-push 先到
-  → 没有 waiter
-  → event 进入 queue
-  → 后来的 next 从 queue 取走
+| 调用时的状态 | 本次动作 | 调用者观察到什么 |
+|---|---|---|
+| `push(event)`，入口 `done === true` | 状态不变 | 本次事件不进入流 |
+| `push(event)`，入口 `done === false` | 若本次是终态，写入 `done` 并完成 `finalResult`；随后交给 waiter 或 queue | 本次事件仍以 `done: false` 交付 |
+| `next()`，queue 非空 | 取出队首 | 立即得到一条事件 |
+| `next()`，queue 为空且 `done` | 状态不变 | `{ value: undefined, done: true }` |
+| `next()`，queue 为空且未结束 | resolver 进入 waiting | Promise 等待下一次 `push()` 或 `end()` |
+| `end(result)` | 尚未结束时完成最终值；置 `done` 并结束现有 waiter | 迭代结束，不生成事件 |
+| `result()` | 返回同一个 `finalResult` | 等到唯一的最终值 |
 
-next 先到
-  → queue 为空
-  → resolve 进入 waiting
-  → 后来的 push 直接唤醒 waiter
-
-终态通过 push 到达
-  → 完成 result
-  → 终态仍交给 iterator
-  → queue 清空后，iterator 才结束
-
-显式 end(result)
-  → 完成 result
-  → 唤醒 waiter 为 done: true
-  → 不额外生成事件
-```
-
-`result()` 没有另一套结束状态。它只返回构造时创建的 finalResult。终态 `push()` 或
-`end()` 完成这一个 Promise，迭代器也由同一个 `done` 状态收口。
-
-这一版只支持一个事件消费者。多个调用者可以等待同一个 `result()`；两个异步迭代器
-却会争抢 queue 和 waiter，不会各自收到完整副本。如果界面和 Agent loop 都要观察
-过程事件，上层需要显式转发。
-
-`AsyncIterable` 也不限制生产速度。生产者持续调用 `push()`，消费者读取较慢时，queue
-会继续增长。容量上限、暂停、丢弃与背压策略属于另一层；checkpoint 02 只固定交付和
-结束语义。
-
-:::note title="这里没有实现取消"
-消费者从 `for await...of` 中 `break`，只表示它不再调用 `next()`。生产者不会因此
-停止，`result()` 也不会自动完成。取消需要 `AbortSignal`、生产者协作和错误终态。
-第 04 章处理开始前已经取消的模型调用，第 05 章处理传输中的取消，第 09 章再由
-`Agent` 管理一次运行的控制器。
-:::
-
-:::note title="两项测试覆盖到哪里"
-聚焦测试覆盖 queue 路径、waiter 路径、可观察终态和显式 `end()`。它们没有证明多个
-事件消费者、背压、错误终态或取消已经实现。测试使用固定事件和手动 next，因此也不
-涉及真实网络与调度延迟。
-:::
+当前 `EventStream` 的直接范围是一名事件消费者：queue 与 waiting 由这个消费者使用；两个
+异步迭代器会争抢同一批事件，而不是各得一份副本。第 03 章把 `T/R` 换成 Agent 消息并
+加入错误终态，第 04、05 章接入模型行为与传输，第 09 章再由运行控制器管理取消。
 
 :::pi title="与当前上游 Pi 对照"
 固定提交 `8479bd8` 的 `packages/ai/src/utils/event-stream.ts` 也让
 `EventStream<T, R>` 实现 `AsyncIterable<T>`，并提供 `result(): Promise<R>`。
-上游的 `AssistantMessageEventStream` 把 `done` 和 `error` 都识别为终态。课程此处
-保留更小的单消费者容器；消息、错误与取消在后续 checkpoint 接入。
+上游的 `AssistantMessageEventStream` 在这个通用容器上把 `done` 和 `error` 识别为
+终态，并从两者提取最终 `AssistantMessage`。通用类不认识消息业务类型；第 03 章会沿用
+同一分工完成课程里的消息特化。
 :::
 
 ## 完成正常路径后再做一次诊断
 
+:::failure title="诊断 · result 完成了，迭代器漏掉终态"
 临时让终态完成 `result()` 后立刻返回：
 
 ```ts
@@ -448,13 +418,9 @@ if (this.isComplete(event)) {
 }
 ```
 
-此时 `events.result()` 仍能得到 `"AB"`，迭代器却只读到 `delta "A"`。第一处偏差
-发生在终态的交付路径：它没有进入 queue，也没有交给 waiter。
-
-:::failure title="诊断 · result 完成了，迭代器漏掉终态"
-加入上面的 `return`，运行聚焦测试。先用手动 `next()` 确认领域输出只剩 delta，再看
-测试报告的事件序列差异。删除 `return`，让终态继续走普通交付路径；恢复后手动输出与
-`2/2` 测试都应回到正常状态。
+运行聚焦测试后，`events.result()` 仍得到 `"AB"`，事件序列却只剩 `delta "A"`。这项
+差异直接定位到多出的 `return`：终态没有继续进入 waiter 或 queue。删除它以后，事件
+序列恢复为 `delta → done`，两项测试回到 `2/2`。
 :::
 
 ## 本章验收
@@ -467,12 +433,8 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/02-*.test.js
 ```
 
-结果应为 `2/2`。测试之外，再对同一个 `events` 手动说明四次状态变化：
-
-1. `push(delta)` 发生时没有 waiter，事件停在哪里；
-2. `next()` 发生时 queue 为空，哪一个值被保存在 waiting；
-3. `push(done)` 为什么既完成 `result()`，又仍被 `next()` 读到；
-4. `end(result)` 怎样结束已有 waiter，而不生成终态事件。
+结果应为 `2/2`：第一项同时观察 queue 中的 `delta → done` 和最终值 `"AB"`；第二项观察
+waiting 中的 `next()` 被 `push(delta)` 唤醒，并由 `end("A")` 结束同一个流。
 
 确认只修改 `packages/pi-course/src/event-stream.ts`。重新定位起终点可运行
 `npm run checkpoint -w @pi/course -- 02`；创建新的隔离练习目录可运行
@@ -491,9 +453,7 @@ node --test packages/pi-course/dist/test/02-*.test.js
 
 ## 小结
 
-一个 `EventStream` 同时接住生产者和消费者。事件先到时进入 queue；`next()` 先到时，
-它的 resolve 作为 waiter 留在 waiting。后来的动作会取出另一边已经保存的值。
-
-终态事件完成 finalResult，也继续交给迭代器。queue 清空后，`done` 才让迭代器停止。
-`end(result)` 则在没有终态事件时显式关闭流。下一章会为这条时间协议加入 Agent 自己
-的消息类型。
+`EventStream` 在一个生命周期上提供两个观察接口：异步迭代器读取每条已接收事件，
+`result()` 等待唯一的最终值。queue 与 waiting 解决事件和消费者谁先到，`done` 与
+finalResult 共同收束结束。下一章会保持这套时间协议，只把 `T/R` 换成 Agent 的消息与
+最终回复。
