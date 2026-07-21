@@ -657,7 +657,7 @@ node --test --test-name-pattern="Lab 12.4" \
 node --test packages/pi-course/dist/test/12-*.test.js
 ```
 
-恢复到 `2/2` 与 `12/12` 才结束。不要保留演示用错误分支。
+恢复到 `2/2` 与 `12/12` 后，这个实验结束；最终 diff 中不包含演示用错误分支。
 :::
 
 ## 测试证据与验收
@@ -672,10 +672,14 @@ node --test packages/pi-course/dist/test/12-*.test.js
 | 12.4 | 2 | trust 先于 import、factory/重名失败零残留 |
 | 12.5 | 3 | before fail-closed、paired result、after 失败保留 core 事实 |
 
-这些测试没有证明操作系统级隔离、任意 Node 模块可被强制终止、Extension 可卸载、并发
-factory 的事务隔离，也没有覆盖所有 frontmatter 语法或信任策略的正确性。它们同样没有
-证明 source path 已 canonicalize，或文件在 trust 判断之后保持不变。不要从 `12/12`
-推导出这些结论。
+这 12 项证据停在三个边界：
+
+- Resource containment 在发现和激活时检查路径；它不是操作系统沙箱，检查完成后的文件
+  变化仍由调用环境管理。
+- `isTrusted()` 由调用者提供。Extension 测试固定的是 `trust → import` 顺序，以及 hook
+  timeout 后 host 停止等待；它不判断策略质量，也不终止已经运行的模块代码。
+- Staging 保证单次 factory 失败时零残留。卸载、reload 和多个 factory 并发提交需要另
+  一套生命周期协议。
 
 本章全量命令是：
 
