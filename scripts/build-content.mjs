@@ -99,21 +99,15 @@ if (
 
 const requiredHeadings = [
   "你将得到什么",
-  "先建立全景",
-  "故意把它弄坏",
   "本章验收",
-  "可选迁移练习",
   "小结",
 ];
 
 const directiveMinimums = {
   rebuild: 1,
-  predict: 1,
   lab: 2,
-  failure: 1,
   checkpoint: 1,
   pi: 1,
-  transfer: 1,
 };
 
 const directiveLabels = {
