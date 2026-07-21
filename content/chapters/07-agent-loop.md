@@ -331,25 +331,23 @@ turn_end(stop)
 最终 `messages` 只有四条 canonical message。事件数量可以更多，因为同一条消息会经历
 多个可观察阶段。恢复会话时使用 messages；实时 UI 和诊断使用 events。
 
-## 其余 stopReason 决定执行还是结束
+## `length`：工具不启动，调用仍然闭合
 
-正常路径已经说明 `toolUse + calls` 怎样继续，以及 `stop + no calls` 怎样完成。其余组合
-可以沿相同对象判断：
+继续使用开头的 `readCall`。假设第一轮 assistant 已经给出 `read(call-1)`，但
+`stopReason` 是 `length`。这表示模型输出因长度上限而结束，工具参数可能还不完整。loop
+先保存这条 assistant，再进入非执行分支。把事件、执行次数和返回值串起来，完整时间线是：
 
-| assistant 的结果 | 是否执行 call | 写入什么 | 运行结果 |
-|---|---:|---|---|
-| `toolUse + calls` | 是 | 每个执行结果 | 继续下一轮 |
-| `stop + no calls` | 否 | 无 | `stop` |
-| `length`，有或没有 calls | 否 | 为已有 calls 写 skipped results | `length` |
-| `error/aborted`，有或没有 calls | 否 | 为已有 calls 写 skipped results | 原 reason |
-| `stop + calls` | 否 | `unexpected-stop` results | `error` |
-| `toolUse + no calls` | 否 | 无 | `error` |
+```text
+assistant_message(length, read(call-1))
+executor 调用次数          0
+messages 追加              toolResult(call-1, skipped: true, reason: length)
+tool_skipped               toolResult(call-1)
+finish("length", 1)        → turn_end(length), steps: 1
+```
 
-`stop` 消息夹带 tool call 时，call 不得执行；`toolUse` 没有任何 call 时，loop 以
-`error` 结束。二者都说明模型消息内部的结束原因与内容不一致。
-
-`length` 下的工具参数可能被截断。即使残留文本恰好能解析或通过 schema，loop 也不会
-启动工具。它为 `call-1` 生成下面的结果：
+其中 executor 调用次数是观察值，不是一种 `LoopEvent`。实际事件顺序是
+`assistant_message → tool_skipped → turn_end`，整个过程没有 `tool_start` 或 `tool_end`。
+追加到消息列表的工具结果是：
 
 ```ts
 {
@@ -364,20 +362,38 @@ turn_end(stop)
 }
 ```
 
-这条结果说明 call 已被看见但没有执行。它与原 call 配对，transcript 中不会留下一个
-无人回答的工具请求。`error`、`aborted` 和意外的 `stop` 使用同一个外壳，只替换原因与
-说明文字。每条跳过结果都会发出 `tool_skipped`。
+这里的 `toolCallId` 与 `readCall.id` 都是 `call-1`。它表达的不是工具输出，而是“这个调用
+已经被 loop 接收，但因 `length` 没有启动”。因此 transcript 仍满足同一个配对不变量：
+
+> 一条 assistant 进入 transcript 后，只要其中已经出现工具调用，loop 就会在结束或再次
+> 请求模型前，为每个调用写入具有相同 `toolCallId` 的工具结果。结果可以来自真实执行，
+> 也可以明确记录未执行的原因。
+
+`length` 的具体路径看清以后，其余组合只是在“是否启动 executor、怎样配对、是否继续”
+三个位置取不同值：
+
+| assistant 的结束原因与内容 | executor | 写入消息列表 | 下一步 |
+|---|---:|---|---|
+| `toolUse` + 至少一个工具调用 | 每个调用执行一次 | 对应的执行结果 | 请求下一轮模型 |
+| `stop` + 没有工具调用 | 0 次 | 无 | `finish("stop", steps)` |
+| `length/error/aborted` + 任意数量的工具调用 | 0 次 | 为每个已有调用写入 skipped 工具结果 | `finish(reason, steps)` |
+| `stop` + 至少一个工具调用 | 0 次 | 为每个调用写入 `unexpected-stop` 工具结果 | `finish("error", steps)` |
+| `toolUse` + 没有工具调用 | 0 次 | 无 | `finish("error", steps)` |
+
+`error`、`aborted` 和内容中带工具调用的 `stop` 都复用与 `length` 相同的 skipped 结果结构，
+只改变原因和说明文字；每条 skipped 工具结果都会伴随一个 `tool_skipped` 事件。表中最后
+两行没有形成可继续执行的完整工具批次，因此 loop 以 `error` 结束。
 
 :::lab title="实践 7.3 · 处理所有非执行终态"
-**目标：** 不启动 executor，同时让已经出现的 calls 都得到配对结果。
+**目标：** 不启动 executor，同时让已经出现的每个工具调用都得到配对结果。
 
 **文件：** `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 实现 `skippedCall()`，保留 call id 与 name，并记录没有执行的原因。
-2. `length`、`error`、`aborted` 中的每个 call 都追加 skipped result。
-3. `stop + calls` 追加 `unexpected-stop` result，并以 `error` 结束。
-4. `toolUse + no calls` 直接以 `error` 结束。
+1. 实现 `skippedCall()`，保留工具调用的 `id` 与 `name`，并记录未执行的原因。
+2. `length`、`error`、`aborted` 中的每个工具调用都追加 skipped 工具结果。
+3. `stop` 中出现工具调用时，追加 `unexpected-stop` 工具结果，并以 `error` 结束。
+4. `toolUse` 中没有工具调用时，直接以 `error` 结束。
 5. 所有分支都通过 `finish()` 发出唯一 `turn_end`。
 
 **运行：**
@@ -388,13 +404,13 @@ node --test --test-name-pattern="非执行终态" \
   packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** `2/2`。测试比较 executor 调用次数、每个 call 的配对结果、终止 reason、
+**预期：** `2/2`。测试比较 executor 调用次数、每个工具调用的配对结果、终止 reason、
 `tool_skipped` 和唯一 `turn_end`。
 :::
 
-## 多个工具同时运行，结果仍按 call 顺序追加
+## 多个工具同时运行，结果仍按工具调用顺序追加
 
-一条 assistant message 可以依次声明 `slow` 与 `fast` 两个 calls。loop 会先为两者发出
+一条 assistant 消息可以依次声明 `slow` 与 `fast` 两个工具调用。loop 会先为两者发出
 `tool_start`，再用 `Promise.all()` 同时等待两个 executor Promise：
 
 ```ts
@@ -413,30 +429,30 @@ const results = await Promise.all(
 tool_end(fast-call) → tool_end(slow-call)
 ```
 
-`Promise.all()` 返回的数组仍按输入 Promise 排列。整批结束后，loop 按这个数组追加
-messages：
+`Promise.all()` 返回的数组仍按输入 Promise 排列。整批结束后，loop 按这个数组的顺序
+写入消息列表：
 
 ```text
 toolResult(slow-call) → toolResult(fast-call)
 ```
 
 完成事件服务实时观察，transcript 顺序服务下一次模型请求。后者保持 assistant content
-中原有的 call 顺序，模型就能稳定重放同一批动作。
+中原有的工具调用顺序，模型就能稳定重放同一批动作。
 
-注入的 executor 可能 reject。每个 call 的异步函数分别用 `try/catch` 把 rejection
-转换成同 id/name 的错误结果；一个失败不会让同批其他 Promise 提前丢失。错误结果保留
-`error.message`，不写入 stack。
+注入的 executor 可能 reject。每个工具调用对应的异步函数分别用 `try/catch` 把 rejection
+转换成具有相同 `toolCallId` 和 `toolName` 的错误结果；其中一项失败不会让同批其他
+Promise 提前丢失。错误结果保留 `error.message`，不写入 stack。
 
 :::lab title="实践 7.4 · 隔离并发完成与单项失败"
-**目标：** 让事件反映完成顺序，让 transcript 保持声明顺序，并为每个 call 留下结果。
+**目标：** 让事件反映完成顺序，让 transcript 保持声明顺序，并为每个工具调用留下结果。
 
 **文件：** `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 为整批 calls 发出 `tool_start`，再同时启动执行。
+1. 为整批工具调用发出 `tool_start`，再同时启动执行。
 2. 每个调用完成时立即发出自己的 `tool_end`。
 3. 单独捕获每个 executor rejection，用 `failedExecution()` 生成配对结果。
-4. 等整批完成后，按 `Promise.all()` 的结果顺序追加 messages。
+4. 等整批完成后，按 `Promise.all()` 的结果顺序写入消息列表。
 
 **运行：**
 
@@ -452,27 +468,37 @@ node --test --test-name-pattern="并发工具" \
 
 ## 取消与 maxSteps 阻止新的模型请求
 
-loop 在发起模型请求前检查 signal：
+loop 只用 `steps` 表示当前循环轮次。每次进入循环头部时，它也是即将发起的模型请求
+序号，并且从 `1` 开始。因此请求开始前有一个稳定关系：已经完成的模型请求数是
+`steps - 1`。
 
 ```ts
-if (options.signal?.aborted) {
-  return finish("aborted", steps - 1);
+for (let steps = 1; steps <= maxSteps; steps += 1) {
+  // 第 steps 次请求尚未发起；此前已经完成 steps - 1 次模型请求。
+  if (options.signal?.aborted) {
+    return finish("aborted", steps - 1);
+  }
+
+  // 从这里发起并收集第 steps 次 model.stream()。
+  // 当前请求完成以后，本轮终态返回的计数就是 steps。
+  // ...
 }
 ```
 
-运行开始前已经取消时，模型调用次数是 `0`，返回 `steps: 0`。输入 user message 仍留在
-结果中。
+运行开始前已经取消时，循环刚进入 `steps = 1`，此前完成的请求数自然是 `1 - 1 = 0`，
+所以返回 `steps: 0`。输入 user message 仍留在结果中。
 
 第二个检查点位于一批工具全部结束、结果已经追加之后。若 `read` 执行期间发生取消，
-loop 会等待当前 executor 返回，保留 `readResult`，然后以 `aborted` 结束。第二次
-`model.stream()` 不会开始。
+第 `steps` 次模型请求已经完成，所以这里以当前 `steps` 结束。loop 会等待当前 executor
+返回，保留 `readResult`，然后返回 `aborted`；下一次 `model.stream()` 不会开始。如果继续
+进入下一轮，`steps` 会加一，循环头的 `steps - 1` 又正好等于已经完成的请求数。
 
 这两个检查点只阻止新工作启动。signal 已经交给 provider 与工具，但它们需要主动观察
 signal 才会及时停止；loop 没有提供墙钟超时。
 
-`maxSteps` 计算已经发起的模型请求。默认上限是 `32`。若设置 `maxSteps: 1`，第一轮
-模型仍可提出 `readCall`，工具也会执行并产生 `readResult`。循环随后没有第二次模型调用
-额度，于是返回：
+`maxSteps` 限制可以发起的模型请求数，默认上限是 `32`。若设置 `maxSteps: 1`，第一轮
+模型仍可提出 `readCall`，工具也会执行并产生 `readResult`。这一轮结束后循环达到上限，
+于是返回：
 
 ```text
 reason          maxSteps
@@ -481,7 +507,8 @@ model requests  1
 messages        user → assistant(call-1) → toolResult(call-1)
 ```
 
-结果中不会凭空增加一条 `stop` assistant，因为模型从未生成它。
+消息列表停在 `toolResult(call-1)`：生成最终 `stop` assistant 需要第二次模型请求，而这次
+请求没有开始。
 
 :::lab title="实践 7.5 · 处理取消与回合上限"
 **目标：** 阻止边界之外的新模型请求，同时保留已经形成的消息和工具结果。
