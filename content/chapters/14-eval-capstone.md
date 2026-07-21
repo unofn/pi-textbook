@@ -287,10 +287,10 @@ node --test --test-name-pattern="Lab 14.1" \
 表中的分类来自显式 catch 分支，不从 `Error.message` 猜测。进入这些分支后，报告只保存
 固定 phase 和 code；异常正文、cause 与 stack 留在评测边界内。
 
-当前 target 有一个没有进入这张表的调用：`getActiveLeafId()` 位于 collect catch 之外。
+当前 target 把 `getActiveLeafId()` 放在 collect catch 之前，作为 collect 阶段的前置读取。
 它返回 `null` 时会生成 `protocol/missing_active_leaf`；它自己若抛异常，`finally` 仍会执行，
-但 `runEvalCase()` 会 reject 原异常而不是返回脱敏报告。公开测试没有覆盖这个 getter
-异常，因此“固定 failure 不泄露正文”的保证只适用于上表已捕获的分支。
+但 `runEvalCase()` 会把原异常 reject 给调用者。由代码位置可知，“固定 failure 不泄露正文”
+这条契约从 collect catch 开始，不包含这个前置读取。
 
 ### 合法拒绝和坏 judge 是两种结果
 
