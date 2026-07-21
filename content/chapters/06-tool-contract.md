@@ -4,8 +4,8 @@ slug: tool-contract
 part: core
 partTitle: 第二部 · 闭合 Agent 核心
 chapter: "06"
-title: Tool 是类型化的环境动作
-summary: 依次实现 validator、Registry 和 executor，把模型提出的动作变成完整、配对的环境结果。
+title: 工具调用：一条 echo 请求怎样变成配对结果
+summary: 跟随一次 echo 调用，观察参数怎样经过 schema、Registry 和 executor，最后形成同 id 的工具结果。
 minutes: 150
 difficulty: 核心
 artifact: packages/pi-course/src/tool.ts
@@ -16,81 +16,107 @@ upstream: packages/agent/src/types.ts, packages/agent/src/agent-loop.ts
 
 ## 你将得到什么
 
-到第 05 章为止，模型已经可以生成完整的 `ToolCall`。但这个调用仍是一项不可信的
-提议：工具名可能不存在，参数可能缺字段或类型错误，工具本身也可能抛出异常。
-TypeScript 无法约束模型在运行时发来的 JSON。
+第 05 章结束时，模型已经能提出一条完整的 `ToolCall`。现在固定其中一条：
 
-本章处理一个新问题：**怎样把不可信调用变成一条可信、完整的环境观察。**
+```ts
+const echoCall: ToolCall = {
+  type: "toolCall",
+  id: "call-1",
+  name: "echo",
+  arguments: {
+    value: "Pi",
+    ignored: "drop me",
+  },
+};
+```
 
-你将实现三个连续边界：
+这条对象记录了模型的请求：调用 `echo`，把 `"Pi"` 交给它。`id: "call-1"` 会一路
+进入执行结果，让下一轮模型知道结果回答的是哪次调用。
 
-1. validator 把 `unknown` 参数收窄成工具需要的类型；
-2. `ToolRegistry` 决定本次运行允许哪些工具；
-3. `executeToolCall()` 负责查找、验证、执行和结果归一化。
+完成这一章后，下面的调用会正常返回：
 
-完成后，成功、未知工具、参数错误和工具异常都会返回 `ToolResultMessage`。每条结果
-都保留原调用的 id 和 name。上层不需要用一个分支处理成功，再用三个异常通道处理
-失败。
+```ts
+const result = await executeToolCall(echoCall, tools);
+```
 
-本章只修改：
+忽略每次运行都会变化的 `timestamp`，`result` 是：
+
+```ts
+{
+  role: "toolResult",
+  toolCallId: "call-1",
+  toolName: "echo",
+  content: [{ type: "text", text: "Pi" }],
+  details: { source: "echo" },
+  isError: false,
+}
+```
+
+模型传来的 `ignored` 没有进入工具参数，也没有进入结果。`echo` 只收到 schema 声明的
+字段 `{ value: "Pi" }`。
+
+这条成功路径经过三个对象：schema 检查参数，`ToolRegistry` 找到本次运行允许使用的
+工具，`executeToolCall()` 按顺序调用它们并生成 `ToolResultMessage`。
+
+```text
+echoCall
+  id=call-1, name=echo
+  arguments={ value: "Pi", ignored: "drop me" }
+        │
+        ▼
+tools.get("echo")
+        │
+        ▼
+echo.schema.parse(arguments)
+  → { value: "Pi" }
+        │
+        ▼
+echo.execute({ value: "Pi" })
+  → content=[text("Pi")], details={ source: "echo" }
+        │
+        ▼
+ToolResultMessage
+  toolCallId=call-1, toolName=echo, isError=false
+```
+
+随后我们会改变这条调用的参数或查找结果，观察参数错误、未知工具和工具异常怎样得到
+同一种配对结果。先把正常路径中的三个部件建立起来。
+
+实现只修改：
 
 ```text
 packages/pi-course/src/tool.ts
 ```
 
-重新练习时，运行：
+## echo 同时带着描述和可执行函数
 
-```bash
-npm run practice -w @pi/course -- 06 <新目录>
+先写出刚才使用的 `echo`。它有名称、给模型看的说明、参数 schema 和本地执行函数：
+
+```ts
+const echoSchema = objectSchema({
+  value: stringValue,
+});
+
+const echo: Tool<{ value: string }> = {
+  name: "echo",
+  description: "Echo one value",
+  schema: echoSchema,
+  async execute({ value }) {
+    return {
+      content: [text(value)],
+      details: { source: "echo" },
+    };
+  },
+};
+
+const tools = new ToolRegistry([echo]);
 ```
 
-练习目录会保留第 05 章源码，注入第 06 章测试，并放入一份只用于学习的代码骨架。
-骨架已经声明 `Schema`、`Tool`、`ToolRegistry` 和 executor 的公共签名，主要的
-未实现入口都带有 Lab 编号。验证、注册、执行和错误归一化仍要由你完成。
+模型无法直接调用 `execute`。Provider 只会收到 `name`、`description` 和参数的 JSON
+Schema。真正执行时，程序从同一个 Registry 中找到 `echo`，调用
+`echo.schema.parse()`，再把解析后的值交给 `echo.execute()`。
 
-如果想从头再来，请创建另一个练习目录。隔离目录没有 Git 历史，不要修改注入测试，
-也不要在里面运行恢复 commit 的命令。
-
-本章不变量是：
-
-> 执行器每收到一个完整的 tool call，都必须返回一个 `ToolResultMessage`。结果沿用
-> 原调用的 `toolCallId` 和 `toolName`；失败只改变内容、details 与 `isError`。
-
-## 先建立全景
-
-模型只负责提出调用。程序拥有信任边界：
-
-```text
-ToolCall
-  id / name / arguments: unknown
-             │
-             ▼
-      ToolRegistry.get(name)
-             │
-      ┌──────┴──────┐
-    未找到          找到 Tool
-      │               │
-      │        schema.parse(arguments)
-      │               │
-      │        ┌──────┴──────┐
-      │      验证失败       typed input
-      │        │              │
-      │        │        tool.execute()
-      │        │              │
-      └────────┴──────┬───────┘
-                     ▼
-             ToolResultMessage
-```
-
-三个组件各自回答一个问题：
-
-| 组件 | 问题 | 不能负责什么 |
-|---|---|---|
-| validator | 这个 `unknown` 是否符合参数形状？ | 工具是否存在、动作是否成功 |
-| Registry | 当前运行是否授权了这个工具名？ | 参数验证、执行副作用 |
-| executor | 怎样按固定顺序调用前两者并形成结果？ | 工具内部的业务规则 |
-
-`Tool` 把模型可见的描述和程序可执行的函数放在同一个契约中：
+`Tool` 接口把这两面放在同一个对象里：
 
 ```ts
 export interface Tool<P, D = unknown> {
@@ -104,48 +130,32 @@ export interface Tool<P, D = unknown> {
 }
 ```
 
-`schema` 同时提供两种能力。`parse()` 在运行时把 `unknown` 收窄成 `P`；
-`jsonSchema` 告诉 provider 允许生成哪些字段。两者必须描述同一组参数。否则，模型
-以为可以生成的参数会被执行器拒绝，或者执行器接受了模型并不知道该怎样生成的参数。
+`P` 是工具真正接收的参数类型。模型生成的 `ToolCall.arguments` 仍是 `unknown`；只有
+`schema.parse()` 成功后，executor 才得到 `P`。
 
-:::predict title="运行前先判断"
-`echo` 的 TypeScript 参数类型是 `{ value: string }`。模型却传来
-`{ "value": 1 }`。如果代码写成 `call.arguments as { value: string }`，工具收到的
-值会自动变成字符串吗？工具抛出 `new Error("exploded")` 时，调用结果还要保留原
-call id 吗？
----answer
-类型断言只改变编译器的看法，运行时的 `1` 仍是 number。参数必须先经过
-`schema.parse()`。工具异常也要形成错误 `ToolResultMessage`，并保留原 id；否则
-下一轮只看到一个没有结果的悬空调用。
-:::
+这条调用要保持一个配对规则：executor 收到 `call-1/echo`，无论成功还是失败，返回的
+消息都继续使用 `toolCallId: "call-1"` 和 `toolName: "echo"`。结果可以报告错误，但
+不能让原调用从 transcript 中悬空。
 
-:::rebuild title="Checkpoint 06 · 依次建立三道工具边界"
-**模式：** 重建。从 05 的 target 开始，只实现工具契约。
+:::rebuild title="Checkpoint 06 · 让一条 echo 调用经过三道边界"
+**模式：** 重建
 
-**起终点：** parent 是本章开始时的起点快照；target 是 4 项聚焦测试通过的终点
-快照。
-
-**怎么使用这张卡：** 先读完当前实践前的机制，再只替换对应 Lab 的显式异常。
-每段结束都先取得局部绿灯。
+**起终点：** `parent` 是第 05 章完成后的起点；`target` 是 4 项聚焦测试通过的终点。
 
 **教学文件：** `packages/pi-course/src/tool.ts`
 
-**学习脚手架：** 练习目录中的 `tool.ts` 只固定公共类型和函数签名，不含任何核心
-实现。它让泛型接口先通过编译，学习者仍要亲自完成三道边界。
+**学习脚手架：** 练习目录已经声明 `Schema`、`Tool`、`ToolRegistry` 和 executor 的
+公共签名，但不包含 target 实现。三个 Lab 的运行时入口仍会抛出带编号的临时错误。
 
-**动手前只需知道：** validator 是带 JSON Schema 元数据的函数；Registry 是本次
-运行自己的工具表；executor 的固定顺序是 `lookup → parse → execute → normalize`。
+**动手前只需知道：** schema 同时提供给模型看的 `jsonSchema` 和运行时使用的
+`parse()`；Registry 保存本次允许使用的工具；executor 按
+`lookup → parse → execute → result` 前进。
 
-**第一次红灯：** build 会通过。只运行第一段测试时，会得到
-`Lab 6.1 objectSchema 尚未实现`，测试名称含“validator”。先完成 validator，
-不要同时写 Registry 和 executor。
+**第一次红灯：** starter 可以通过 build。只运行 validator 测试时，第一条运行时错误
+是 `Lab 6.1 objectSchema 尚未实现`。
 
-**第一步：**
-1. 运行 build，确认公共表面已经完整。
-2. 运行“validator”测试，确认第一条运行时红灯来自 Lab 6.1。
-3. 完成实践 6.1，取得 `1/1`。
-4. 完成实践 6.2，取得另一个 `1/1`。
-5. 完成实践 6.3，先取得 `2/2`，再运行本章全部 `4/4`。
+**第一步：** 先不看 target diff。运行 build 和 validator 测试，确认起点；随后只完成
+schema 与 validator，不提前实现 Registry 或 executor。
 
 **聚焦测试：** `packages/pi-course/test/06-tool-contract.test.ts`
 
@@ -153,86 +163,140 @@ call id 吗？
 
 **练习目录：** `npm run practice -w @pi/course -- 06`
 
-**聚焦运行：** `npm run build -w @pi/course`，然后 `node --test packages/pi-course/dist/test/06-*.test.js`
+**聚焦运行：** `npm run build -w @pi/course`，然后运行
+`node --test packages/pi-course/dist/test/06-*.test.js`
 
-**通过证据：** 4 项聚焦测试分别观察 validator、Registry 和执行器；最后两项还
-检查 signal、progress、details、`isError` 与完整错误配对。
-
-第一次尝试禁止查看完整答案。若卡住，陪练按“当前组件 → 公共签名 → 伪代码 →
-单个分支”的顺序增加提示。
+**通过证据：** 4 项测试分别观察 validator、Registry、成功结果、三类失败，以及
+callId、signal、progress、content、details 和 `isError`。
 :::
 
-## 第一步：让 validator 同时携带行为和描述
+## 同一个 schema 做两件不同的事
 
-脚手架已经给出这个类型：
+把 `echoSchema` 展开，可以看到两种能力：
 
 ```ts
-export type Validator<T> = ((value: unknown) => T) & {
+export interface Schema<T> {
+  parse(value: unknown): T;
   jsonSchema?: Record<string, unknown>;
-  optional?: boolean;
-};
+}
 ```
 
-`Validator<T>` 要完成两件事：作为函数验证输入，同时用对象属性保存元数据。
-`Object.assign()` 可以把函数和元数据合成同一个值：
+`jsonSchema` 会进入第 05 章的 Provider 请求。`parse()` 留在本地，executor 每次执行
+前都会调用它。前者告诉模型应该生成什么，后者检查模型实际生成了什么。
+
+对于只接收 `value: string` 的 echo，模型看到的定义是：
+
+```ts
+{
+  type: "object",
+  properties: {
+    value: { type: "string" },
+  },
+  required: ["value"],
+  additionalProperties: false,
+}
+```
+
+这份描述能引导模型生成 `{ "value": "Pi" }`。模型输出仍来自进程外，程序不能因为
+请求里已经带过 schema 就跳过运行时检查。
+
+同一个 `echoSchema` 收到开头的 arguments：
+
+```ts
+echoSchema.parse({
+  value: "Pi",
+  ignored: "drop me",
+});
+```
+
+输出是一个新对象：
+
+```ts
+{ value: "Pi" }
+```
+
+`parse()` 只遍历 schema 声明的字段，因此 `ignored` 被过滤。原始 arguments 没有被
+修改。`echo.execute()` 只会看到返回的新对象。
+
+### validator 是一个带元数据的函数
+
+最小的 `stringValue` 既能调用，也保存自己的 JSON Schema：
 
 ```ts
 export const stringValue: Validator<string> = Object.assign(
   (value: unknown) => {
-    if (typeof value !== "string") throw new Error("必须是 string");
+    if (typeof value !== "string") {
+      throw new Error("必须是 string");
+    }
     return value;
   },
   { jsonSchema: { type: "string" } },
 );
 ```
 
-`optionalString` 收到 `undefined` 时直接返回 `undefined`，其他值复用
-`stringValue()`。它的元数据还要带 `optional: true`。`optionalPositiveInteger`
-使用相同结构，只接受大于等于 1 的整数。
+`Object.assign()` 把函数和元数据放到同一个值上。`objectSchema()` 可以调用这个函数
+检查字段，也可以读取 `stringValue.jsonSchema` 生成 Provider 定义。
 
-`objectSchema(shape)` 也要完成两件事。
+课程还提供两个可选字段 validator：
 
-先从 shape 生成 provider 看见的 JSON Schema：
-
-```text
-properties           每个 validator 的 jsonSchema
-required             没有 optional 标记的 key
-additionalProperties false
+```ts
+const requestSchema = objectSchema({
+  value: stringValue,
+  label: optionalString,
+  limit: optionalPositiveInteger,
+});
 ```
 
-再实现 `parse(value)`：
+`optionalString` 接受字符串或 `undefined`。`optionalPositiveInteger` 接受大于等于 1 的
+整数或 `undefined`。它们带有 `optional: true`，所以 `label` 和 `limit` 不进入 JSON
+Schema 的 `required` 数组。
 
-1. 拒绝 `null`、数组和其他非对象值；
-2. 只遍历 shape 中声明的 key；
-3. 把输入对应字段交给各自 validator；
-4. 返回一个新对象。
+用测试中的完整值调用 `parse()`：
 
-因为只遍历 shape，输入中的额外字段不会进入结果。这里的“清洗”指构造新对象，
-不表示修改传入对象。
+```ts
+requestSchema.parse({
+  value: "Pi",
+  label: "answer",
+  limit: 2,
+  ignored: "drop me",
+});
+```
 
-代码骨架已经写好下面这段映射类型（mapped type）：
+得到：
 
 ```ts
 {
-  [TKey in keyof TShape]: ReturnType<TShape[TKey]>;
+  value: "Pi",
+  label: "answer",
+  limit: 2,
 }
 ```
 
-它把每个 validator 的返回类型映射到同名字段。你只需实现运行时逻辑，不必重新设计
-这段泛型。
+省略可选字段时，返回对象保留字段名，值为 `undefined`。`null`、数组、`value: 1` 和
+`limit: 0` 分别在对象检查或字段 validator 中被拒绝。
 
-:::lab title="实践 6.1 · 收窄 unknown，并生成 JSON Schema"
-**目标：** 让同一组 validator 同时约束运行时输入和 provider definition。
+`objectSchema()` 的泛型会根据每个 validator 的返回类型推导结果字段。实现部分只需
+完成运行时遍历和 JSON Schema 生成，不用重写这段映射类型。
+
+:::predict title="模型已经看过 schema，parse 还能省略吗"
+Provider 请求带有 `additionalProperties: false`，模型仍返回
+`{ value: "Pi", ignored: "drop me" }`。executor 能否把原对象直接交给 echo？
+---answer
+不能。JSON Schema 描述模型应该怎样生成参数，不会替本地程序检查实际 JSON。
+`parse()` 重新验证 `value`，并只把声明过的字段放进新对象；`ignored` 不会到达工具。
+:::
+
+:::lab title="实践 6.1 · 生成模型描述，并解析运行时参数"
+**目标：** 让同一组 validator 写出 JSON Schema，也把 `unknown` 收窄成新对象。
 
 **文件：** `packages/pi-course/src/tool.ts`
 
 **动作：**
 1. 实现 `stringValue`、`optionalString` 和 `optionalPositiveInteger`。
-2. 在 `objectSchema()` 中生成 `properties`、`required` 和
+2. 让 `objectSchema()` 生成 `properties`、`required` 和
    `additionalProperties: false`。
-3. `parse()` 只复制 shape 中声明的字段，并调用对应 validator。
-4. 保留脚手架中的公共签名，删除 Lab 6.1 的显式异常。
-5. 先 build，再只运行本段测试。
+3. `parse()` 拒绝非对象输入，只遍历 shape 中声明的字段，并返回新对象。
+4. 删除 Lab 6.1 的临时错误，只运行 validator 测试。
 
 **运行：**
 
@@ -242,40 +306,88 @@ node --test --test-name-pattern="validator" \
   packages/pi-course/dist/test/06-*.test.js
 ```
 
-**预期：** `1/1`。测试会检查完整 JSON Schema、合法输入、可选字段、额外字段清洗，
-以及非对象输入、非字符串字段和非正整数字段。
+**领域输出：** 带额外字段的合法输入变成
+`{ value: "Pi", label: "answer", limit: 2 }`；错误类型停在 parse 内。
+
+**测试证据：** 局部测试应为 `1/1`，并比较完整 JSON Schema、字段过滤、可选字段和
+三种非法输入。
 :::
 
-## 第二步：让每次运行显式持有动作空间
+## Registry 保存这一次允许使用的工具
 
-`ToolRegistry` 使用自己的 `Map<string, Tool>` 保存工具。不要把它放到模块级全局变量；
-不同产品入口可以授权不同工具，测试也需要创建互不影响的 Registry。
-
-四个方法的职责很窄：
+创建 `new ToolRegistry([echo])` 后，这个 Registry 只包含一项允许动作：`echo`。
+它使用自己的 `Map<string, Tool>` 保存对象，不写入模块级全局变量。
 
 ```text
-register(tool)  重名时抛错，否则保存
-get(name)       返回工具或 undefined
-list()          按注册顺序返回工具数组
-definitions()   只导出 name、description、schema
+tools
+  "echo" → echo Tool
 ```
 
-`definitions()` 的结果会交给第 05 章的 provider adapter。`execute` 是本地函数，
-不能序列化到网络请求中。工具没有 `jsonSchema` 时，可以使用
-`{ type: "object" }` 作为最小描述；本章的 `objectSchema()` 会提供更精确的定义。
+调用者可以为另一个产品入口创建不同的 Registry，例如只注册 `read`，或者同时注册
+`echo` 和 `upper`。两个实例不会共享工具。Registry 因而明确了交给这次运行的动作
+空间。
 
-:::lab title="实践 6.2 · 建立本次运行的 ToolRegistry"
-**目标：** 让模型看到的工具定义与执行器能找到的工具来自同一张表。
+四个方法分别提供不同视角：
+
+| 方法 | 返回或动作 | 使用者 |
+|---|---|---|
+| `register(tool)` | 检查重名后保存工具 | 组合代码 |
+| `get(name)` | 返回可执行 Tool 或 `undefined` | executor |
+| `list()` | 按注册顺序返回 Tool 数组 | 本地检查 |
+| `definitions()` | 返回 name、description、parameters | Provider 请求 |
+
+`tools.definitions()` 不包含 `execute`。函数不能进入网络请求，模型也不需要看到本地
+实现。对开头的 echo，它返回：
+
+```ts
+[
+  {
+    name: "echo",
+    description: "Echo one value",
+    parameters: {
+      type: "object",
+      properties: { value: { type: "string" } },
+      required: ["value"],
+      additionalProperties: false,
+    },
+  },
+]
+```
+
+Registry 不会自己接入模型。组合代码要显式把这些定义放进本轮 context：
+
+```ts
+const stream = model.stream({
+  systemPrompt: options.context.systemPrompt,
+  messages,
+  tools: options.tools.definitions(),
+});
+```
+
+到了第 05 章的 Provider adapter，`context.tools` 才由
+`toProviderTools(context.tools)` 翻译进请求。这段连接代码不在本章的 4 项聚焦测试里；
+它只是说明 Registry 的输出怎样抵达上一章已经写好的边界。
+
+`tools.get("echo")` 则返回完整的 echo 对象，包括同一份 schema 和 `execute()`。模型
+可见的定义与 executor 能找到的实现由同一张表产生。
+
+重复注册 `echo` 会抛出 `Tool 已存在：echo`。静默覆盖会让 Provider 已经看到的定义与
+真正执行的函数在运行中发生变化，所以 Registry 在写入前检查名称。
+
+工具没有提供 `jsonSchema` 时，`definitions()` 使用 `{ type: "object" }` 作为最小
+参数描述。`objectSchema()` 会提供前面看到的精确版本。
+
+:::lab title="实践 6.2 · 固定本次运行的工具表"
+**目标：** 让 Provider 定义与本地执行器从同一个 Registry 取得 echo。
 
 **文件：** `packages/pi-course/src/tool.ts`
 
 **动作：**
-1. 给每个 Registry 实例创建私有 `Map`。
-2. 构造器收到初始工具时，逐个调用 `register()`。
-3. `register()` 在写入前检查重名；不要默默覆盖旧工具。
-4. 完成 `get()` 与 `list()`。
-5. `definitions()` 只返回 provider 需要的三个字段。
-6. 删除 Lab 6.2 的显式异常，运行本段测试。
+1. 为每个 Registry 实例创建私有 Map。
+2. 构造器逐个注册初始工具；`register()` 在写入前拒绝重名。
+3. 实现 `get()` 和保持注册顺序的 `list()`。
+4. `definitions()` 只交出 name、description 和参数 schema。
+5. 删除 Lab 6.2 的临时错误，只运行 Registry 测试。
 
 **运行：**
 
@@ -285,45 +397,28 @@ node --test --test-name-pattern="Registry" \
   packages/pi-course/dist/test/06-*.test.js
 ```
 
-**预期：** `1/1`。测试会确认构造器接收初始工具，比较完整的工具定义，检查
-`list()` 是否保留对象和顺序，并证明再次注册同名工具会被拒绝。
+**领域输出：** `get("echo")` 返回可执行工具；`definitions()` 只返回 Provider 可见字段；
+第二次注册 echo 得到明确错误。
+
+**测试证据：** 局部测试应为 `1/1`。测试还注册 `upper`，检查定义、对象身份和顺序。
 :::
 
-## 第三步：让每种预期结果都带着原调用返回
+## executor 按固定顺序完成 echoCall
 
-`executeToolCall()` 的顺序不能交换：
+schema 与 Registry 准备好后，`executeToolCall()` 负责一次完整调用：
 
 ```text
 1. registry.get(call.name)
 2. tool.schema.parse(call.arguments)
-3. tool.execute(typedInput, { ...context, callId: call.id })
-4. 把 ToolOutput 变成 ToolResultMessage
+3. tool.execute(parsed, { ...context, callId: call.id })
+4. 把 ToolOutput 写成 ToolResultMessage
 ```
 
-名称不存在时，不调用 schema。验证失败时，不调用 `execute`。成功时，原样保留
-工具返回的 `content`、`details` 和 `isError`；工具没有提供 `isError` 时使用
-`false`。
+第一步找到开头注册的 echo。第二步把
+`{ value: "Pi", ignored: "drop me" }` 变成 `{ value: "Pi" }`。第三步才进入
+`echo.execute()`，所以工具产生副作用之前已经拿到经过检查的参数。
 
-可以先写一个 `failedResult(call, error)`，让三类可预见的失败使用同一种消息结构：
-
-```json
-{
-  "role": "toolResult",
-  "toolCallId": "i",
-  "toolName": "echo",
-  "content": [
-    {"type": "text", "text": "Tool echo failed: 必须是 string"}
-  ],
-  "details": {"error": "必须是 string"},
-  "isError": true
-}
-```
-
-执行器只把 `error.message` 放入结果，不包含 stack。它无法自动识别任意字符串中的
-绝对路径或密钥。因此，工具实现仍要避免把秘密写进异常消息，产品层以后还要加入
-专门的脱敏策略。
-
-`ToolContext` 还包含 `signal` 和进度回调 `reportProgress`：
+`ToolContext` 还会把调用身份和运行控制交给工具：
 
 ```ts
 {
@@ -332,26 +427,127 @@ node --test --test-name-pattern="Registry" \
 }
 ```
 
-执行器负责原样传递它们。signal 能否及时停止动作，取决于工具是否主动检查并响应。
-本章的测试只证明取消信号会到达工具；执行器无法强制一个忽略 signal 的工具停下。
+外部 context 可以携带 `signal` 和 `reportProgress`。executor 原样传递它们，并在最后
+写入 `callId`，因此调用者不能用 context 覆盖模型的 call id。signal 到达工具只说明
+取消请求已经传递；工具仍要主动观察 signal，才能及时停止自己的工作。
 
-`details` 供日志或 UI 使用；`content` 会进入下一轮模型上下文。即使 UI 不读取
-`details`，模型看到的 `content` 也不应改变。
+### content 给模型，details 给程序
 
-:::lab title="实践 6.3 · 实现闭合的单次执行器"
-**目标：** 让成功和三类失败都通过 Promise 正常返回完整、配对的
-`ToolResultMessage`。
+echo 返回的 `ToolOutput` 是：
+
+```ts
+{
+  content: [{ type: "text", text: "Pi" }],
+  details: { source: "echo" },
+}
+```
+
+executor 保留这两个字段。`content` 会作为 `ToolResultMessage` 的正文进入下一轮模型
+上下文；`details` 保存 UI、日志或调用方需要的结构化信息。模型不需要读取 details
+才能理解结果，程序也不必从正文 `"Pi"` 中反向解析来源。
+
+工具可以显式返回 `isError: true` 表示领域失败，同时提供有用的 content 和 details。
+这条路径没有抛异常。工具省略 `isError` 时，executor 写入 `false`。
+
+测试中的 `inspect` 工具展示了完整 context。它收到 `callId: "ctx"`、同一个 signal 和
+同一个 progress callback，先报告 `progress:Pi`，再返回：
+
+```ts
+{
+  content: [text("done:Pi")],
+  details: { phase: "domain-error" },
+  isError: true,
+}
+```
+
+这些值全部进入最终 ToolResultMessage；executor 不会因为 `isError: true` 丢掉 output。
+
+## 三种失败仍然回答原调用
+
+成功路径已经闭合。现在分别替换 `echoCall` 的一个条件，观察 executor 停在哪一步。
+
+### 参数类型错误：parse 拦在 execute 前
+
+把 arguments 改为：
+
+```ts
+{ value: 1 }
+```
+
+Registry 仍能找到 echo，`stringValue` 随后抛出 `必须是 string`。`echo.execute()` 没有
+运行，executor 返回：
+
+```ts
+{
+  role: "toolResult",
+  toolCallId: "call-1",
+  toolName: "echo",
+  content: [text("Tool echo failed: 必须是 string")],
+  details: { error: "必须是 string" },
+  isError: true,
+}
+```
+
+### 未知工具：查找结束后不再解析
+
+保留 id，把名称改成 `missing`：
+
+```ts
+{ ...echoCall, name: "missing", arguments: {} }
+```
+
+`tools.get("missing")` 返回 `undefined`。executor 不调用任何 schema 或 execute，直接
+形成：
+
+```ts
+{
+  role: "toolResult",
+  toolCallId: "call-1",
+  toolName: "missing",
+  content: [text("Tool missing failed: 未知工具")],
+  details: { error: "未知工具" },
+  isError: true,
+}
+```
+
+结果保留请求中的 name。把它改写成某个已注册工具名，会掩盖模型实际请求了未知动作。
+
+### 工具抛错：调用已经进入 execute
+
+在独立 Registry 中注册一个会抛出 `new Error("exploded")` 的 echo，再执行原来的
+`echoCall`。lookup 与 parse 都已经成功，异常发生在 execute 内。结果仍然配对：
+
+```ts
+{
+  role: "toolResult",
+  toolCallId: "call-1",
+  toolName: "echo",
+  content: [text("Tool echo failed: exploded")],
+  details: { error: "exploded" },
+  isError: true,
+}
+```
+
+聚焦测试使用名为 `boom` 的工具隔离这条分支，执行规则相同。executor 把 Error 的
+`message` 写进 content 和 details，不附带 stack。普通错误文本仍可能由工具主动包含
+路径或秘密；这一章没有实现通用脱敏。
+
+三种失败都通过 Promise 正常返回 ToolResultMessage。第 07 章因此可以把每个结果按
+call id 写回 transcript，不需要同时处理“返回消息”和“executor 向外抛错”两条通道。
+
+:::lab title="实践 6.3 · 让成功与失败都形成配对结果"
+**目标：** 按 `lookup → parse → execute → result` 完成一次调用，并保留 output 与
+运行 context。
 
 **文件：** `packages/pi-course/src/tool.ts`
 
 **动作：**
-1. 写 `failedResult()`，统一 role、id、name、错误文本、details、`isError` 和时间。
-2. 实现 `lookup → parse → execute → normalize`。
-3. 未知名称直接返回失败结果；用同一个 try/catch 捕获 schema 与 execute 的异常，
-   再统一转换成失败结果。
-4. 把外部 context 展开后再写入 `callId`，保证调用 id 不能被覆盖。
-5. 成功结果保留工具给出的 `details` 与显式 `isError`。
-6. 删除 Lab 6.3 的显式异常，先运行“执行器”测试，再运行本章全部测试。
+1. 写 `failedResult()`，统一 role、原 id/name、错误正文、details、`isError` 和时间。
+2. 未知名称在 lookup 后直接返回失败结果。
+3. 用 try/catch 包住 parse 和 execute，把参数错误与工具异常转换成失败结果。
+4. 成功路径保留 content、details 和显式 `isError`；缺省 `isError` 写成 false。
+5. 把 signal、progress callback 和不可覆盖的 callId 交给工具。
+6. 删除 Lab 6.3 的临时错误，先运行执行器测试，再运行全部聚焦测试。
 
 **运行：**
 
@@ -362,31 +558,43 @@ node --test --test-name-pattern="执行器" \
 node --test packages/pi-course/dist/test/06-*.test.js
 ```
 
-**预期：** 局部 `2/2`，完整 `4/4`。测试会证明非法参数没有进入副作用；完整错误
-外壳保留 id 和 name；signal、progress、details 与显式 `isError` 没有丢失。
+**领域输出：** 合法 echo 返回 `content: [text("Pi")]`；参数错误和未知工具不进入
+execute；工具抛错后仍返回同 id/name 的错误消息。
+
+**测试证据：** 局部测试应为 `2/2`，完整聚焦测试应为 `4/4`。测试还比较 signal、
+progress、details、显式领域错误和有限 timestamp。
 :::
 
-:::mechanism title="配对结果让失败仍可进入反馈回路"
-模型下一轮需要知道动作发生了什么。成功文本、未知工具、参数错误和领域失败都属于
-环境反馈。它们使用同一种消息形状后，第 07 章的 Agent loop 只需追加结果，不必
-从异常中猜测失败属于哪个 call。
-:::
+## 四种结果放在一起看
 
-:::note title="这 4 项测试没有证明什么"
-本章没有证明预取消会阻止工具启动，也没有证明中途取消、多个工具并发、progress
-事件顺序或 Registry 的长期生命周期。测试只检查 signal 被传入工具。它们还没有
-证明所有错误文本都不含绝对路径或密钥，也没有验证专门的错误脱敏策略。
+沿着同一条执行顺序，可以定位每种结果第一次分开的地方：
+
+| 输入变化 | lookup | parse | execute | 结果 |
+|---|---:|---:|---:|---|
+| 合法 echo | 找到 | 成功并过滤字段 | 运行 | `isError=false` |
+| `value: 1` | 找到 | 失败 | 不运行 | echo 的配对错误 |
+| `name: missing` | 未找到 | 不运行 | 不运行 | missing 的配对错误 |
+| echo 抛出 `exploded` | 找到 | 成功 | 进入后抛错 | echo 的配对错误 |
+
+`failedResult()` 让后三行拥有相同消息外壳。失败阶段不同，原调用的 id 与 name 始终
+保留。下一轮模型既能看到动作失败，也能知道失败属于哪次请求。
+
+:::note title="四项测试覆盖到哪里"
+聚焦测试覆盖 validator、Registry、成功执行、未知工具、参数错误、工具异常和显式
+领域错误。它们证明 signal 与 progress callback 会传到工具，没有证明工具会及时响应
+取消，也没有规定多个工具的并发顺序。测试没有覆盖 Registry 的跨运行生命周期、预取消
+或完整脱敏策略。
 :::
 
 :::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 中，`packages/agent/src/types.ts` 的 `AgentTool` 同样把 schema、
-execute、signal、进度回调、模型 content 和结构化 details 放进工具边界。
-`packages/agent/src/agent-loop.ts` 会在执行前验证参数，并把工具异常转换成错误结果。
-上游使用 `typebox`，还支持 UI label、增量更新、hooks 和更多执行模式。课程用小型
-validator 展示相同的信任顺序。
+固定提交 `8479bd8` 中，`packages/agent/src/types.ts` 的 `AgentTool` 同样组合 schema、
+execute、signal、进度回调、模型 content 和结构化 details。
+`packages/agent/src/agent-loop.ts` 在执行前验证参数，并把工具异常转换成错误结果。上游
+使用 `typebox`，还支持 UI label、增量更新、hooks 和更多执行模式。课程用小型 validator
+展示同一条 `lookup → parse → execute → result` 路径。
 :::
 
-## 故意把它弄坏
+## 完成正常实现后再检查执行顺序
 
 临时把 schema 验证移到 `execute()` 之后：
 
@@ -394,18 +602,18 @@ validator 展示相同的信任顺序。
 错误顺序：lookup → execute(raw arguments) → parse
 ```
 
-当 `echo` 收到 `{ value: 1 }` 时，副作用计数会从 1 变成 2。测试会先在
-`executionCount` 上失败，之后才会比较错误结果。
+当 echo 收到 `{ value: 1 }` 时，工具已经开始运行，后面的 parse 无法撤销副作用。聚焦
+测试中的 `executionCount` 会从 1 变成 2，第一处偏差出现在执行次数，而非错误文本。
 
-:::failure title="预期失败 · 让非法参数先进入副作用"
-只修改执行顺序，不改测试。运行名称含“执行器”的两项测试，应在一秒内得到
-`executionCount` 的明确差异。恢复 `parse → execute` 后，重跑同一命令得到 `2/2`。
-这个实验只观察单次执行器，不借用下一章的 transcript。
+:::failure title="诊断 · 非法参数先进入了工具"
+只改变 parse 与 execute 的先后，不修改测试。运行名称含“执行器”的两项测试，记录
+`executionCount` 的差异。恢复 `parse → execute` 后，非法参数不再进入工具，局部测试
+回到 `2/2`。
 :::
 
 ## 本章验收
 
-:::checkpoint title="Checkpoint 06 · 工具边界闭合"
+:::checkpoint title="Checkpoint 06 · echo 调用得到完整配对结果"
 运行：
 
 ```bash
@@ -413,36 +621,36 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/06-*.test.js
 ```
 
-应得到 `4/4`。然后用一张表解释四种调用：
+结果应为 `4/4`。测试之外，再用开头的 `echoCall` 说明六个值：
 
-| 输入 | execute 是否运行 | result id/name | isError |
-|---|---:|---|---:|
-| 合法 `echo` | 是 | 与 call 相同 | false |
-| 未知名称 | 否 | 与 call 相同 | true |
-| 参数类型错误 | 否 | 与 call 相同 | true |
-| 工具抛错 | 已进入工具 | 与 call 相同 | true |
+1. Provider 从 `definitions()` 看到了哪些字段；
+2. `parse()` 收到什么，交给 `execute()` 的对象又是什么；
+3. Registry 怎样限定这次运行可查找的工具名；
+4. 参数错误为什么不会增加 execution count；
+5. content 与 details 分别交给谁使用；
+6. 成功、未知工具、参数错误与工具异常为什么都保留原 id/name。
 
-最后回答：参数在哪一步或哪条语句中从 `unknown` 获得运行时信任？为什么 signal
-传播不等于取消保证？为什么错误结果仍要保留 call id 和 name？
-
-若需要重做，创建一个新的 practice 目录。下一章会把这个单次执行器放进 Agent loop，
-闭合 `model → tool → result → model`。
+`npm run checkpoint -w @pi/course -- 06` 可以重新定位 parent 与 target；
+`npm run practice -w @pi/course -- 06 <新目录>` 会从同一 parent 创建隔离练习目录。
+第 07 章会把这个单次 executor 接入 Agent Loop，闭合
+`model → tool call → tool result → model`。
 :::
 
 ## 可选迁移练习
 
-:::transfer title="迁移 · 实现一个 uppercase 工具"
-完成本章三段重建后，再创建 `uppercase({ value: string })`。复用 `stringValue` 和
-`objectSchema()`，不要复制 `echo` 的完整对象。写两个测试：合法输入返回大写文本；
-number 输入在执行前失败，并保留原 call id。只迁移工具定义，不修改 Registry 或
+:::transfer title="迁移 · 注册 uppercase 工具"
+创建 `uppercase({ value: string })`，复用 `stringValue` 与 `objectSchema()`。合法调用
+返回大写 content，并在 details 中记录 `{ source: "uppercase" }`；`value: 1` 在
+execute 前形成同 id/name 的错误结果。只新增 Tool 和测试，不修改 Registry 或
 executor。
 :::
 
 ## 小结
 
-validator 负责验证参数，Registry 保存本次运行允许使用的工具，executor 按固定顺序
-把调用变成结果。即使工具名不存在、参数不合法或动作抛错，调用仍会得到完整、配对
-的 `ToolResultMessage`。
+一条 `echoCall` 先用 name 在 Registry 中找到工具。schema 的 `jsonSchema` 描述模型
+应该生成的参数，`parse()` 检查实际 arguments，并过滤未声明字段。executor 只把解析
+成功的新对象交给 `execute()`。
 
-第 07 章不再处理这些局部错误。它只负责把模型消息、工具调用和工具结果按正确顺序
-写回同一条反馈回路。
+工具返回的 content 会进入下一轮模型上下文，details 留给程序使用。成功、参数错误、
+未知工具和工具异常都变成 `ToolResultMessage`，并继续使用原调用的 id 与 name。下一章
+会把这些配对结果按顺序写回完整反馈回路。
