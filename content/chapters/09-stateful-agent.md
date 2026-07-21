@@ -81,10 +81,12 @@ interface ActiveRun {
 永远不会被读取的消息。
 
 `Agent` 不接管第 07、08 章的模型与工具状态机。它把 context、signal、事件回调和两
-个取队列函数交给 `runAgentLoop()`。循环返回后，`Agent` 先释放本次 `ActiveRun`，
-再用 `run_end` 让 reducer 保存结果并通知订阅者；此后 run 2 才能开始。不能被破坏的
-不变量是：任何时刻同一个实例最多只有一份有效的 `ActiveRun`，并且旧运行只能清理
-自己创建的那一份。
+个取队列函数交给 `runAgentLoop()`。循环返回后，`Agent` 先释放本次 `ActiveRun`，再发布
+`run_end`。此时 `reduceAgentState(oldState, run_end)` 计算出新快照，`Agent` 保存这个
+返回值并通知订阅者；reducer 本身不持有状态。此后 run 2 才能开始。
+
+这条时间线只维护一个所有权事实：同一个实例在任意时刻最多有一份有效的 `ActiveRun`，
+旧运行也只清理自己创建的那一份。
 
 :::rebuild title="Checkpoint 09 · 让同一个 Agent 管理两次运行"
 **模式：** 重建
@@ -292,9 +294,10 @@ node --test --test-name-pattern="Lab 9.2" \
 单个订阅者抛错不会终止 run 1。`emit()` 把错误文字追加到 `diagnostics`，继续通知其余
 订阅者。`unsubscribe()` 只删除创建它的那个 listener。
 
-`ToolResultMessage.details` 是 `unknown`，其中可能出现函数等不可复制值。循环在结果
-进入 transcript 和 `tool_end` 前尝试复制；不可复制的数据会变成标准、可复制的错误结果。
-工具调用失败的事实仍被保留，`Agent` 也能正常发布 `run_end` 并回到 `idle`。
+`ToolResultMessage.details` 是 `unknown`，其中可能出现函数等不可复制值。工具此时可能
+已经执行并产生了副作用，只是原结果无法安全进入 transcript。循环会生成一条标准、
+可复制的错误结果，沿用原 call 的 id 和 name。这样 call/result 配对仍然完整，`Agent`
+也能发布 `run_end` 并回到 `idle`；这条消息不表示工具副作用已经回滚。
 
 :::lab title="实践 9.3 · 隔离状态、事件和返回值"
 **目标：** 让三个公开出口都与内部状态隔离，并让一个失败订阅者不影响运行。
@@ -446,9 +449,9 @@ emit(run_end)
 this.activeRun = undefined   // 故意增加
 ```
 
-不要把原来的清理整体移到 `run_end` 后面。那会使回调启动 run 2 时仍看到 run 1 busy，
-测试只会等待超时。上面的变体先允许回调创建 run 2，再让旧代码把新记录删掉，因而能
-直接观察所有权错误。
+原来的清理仍留在 `run_end` 之前。若把它整体移到事件之后，回调启动 run 2 时仍会看到
+run 1 busy，测试只能等到超时。上面的变体先允许回调创建 run 2，再让旧代码把新记录
+删掉，因此能直接观察所有权错误。
 
 :::failure title="预期失败 · run 1 清掉了 run 2"
 只运行 Lab 9.2。run 1 的 `run_end` listener 会启动 run 2，随后第三次并行
@@ -457,21 +460,20 @@ this.activeRun = undefined   // 故意增加
 回到 `11/11`。
 :::
 
-## 本章没有证明什么
+## 这份 Agent 的边界是单实例、内存内生命周期
 
-11 项测试精确覆盖本章列出的同步单实例行为，但没有证明：
+11 项测试把当前层固定在三个范围内：
 
-- 异步 subscriber 的背压、优先级和并行顺序；
-- `run_start` 事件乱序；runId 防护只覆盖当前实现的 `loop` 与 `run_end`；
-- 模型流事件和工具进度中的任意临时数据都可复制；
-- steering 或 follow-up 在 `maxSteps` 边界的产品策略；
-- 进程崩溃后的恢复、跨进程取消或多个 Agent 共同写同一会话；
-- 消息的磁盘持久化、分支、压缩和并发提交；
-- 模型或工具忽略 signal 且永不返回时，`Agent` 能强制停止它。
+- 一个 `Agent` 实例串行拥有一份 `ActiveRun`，subscriber 在 `emit()` 调用中同步执行。
+  异步回调的背压与优先级需要另一层调度协议。
+- `abort()` 把同一个 signal 送到模型和工具；运行何时真正结束，仍取决于它们是否响应
+  signal。steering 与 follow-up 在 `maxSteps` 边缘的取舍属于产品策略。
+- transcript 和公开状态都保存在当前进程。会话持久化、分支与压缩由后续章节加入；多个
+  进程共同写一条会话需要更外层的协调。
 
-测试还通过变异公开值来检查 `getState()`、subscriber event 与 `prompt()` result 的
-副本边界。loop 输入 context 和模型返回 assistant 的深复制可以从源码看到，聚焦测试
-没有为这两处各写一条独立的别名变异断言。
+聚焦测试通过修改返回对象，直接检查 `getState()`、subscriber event 与 `prompt()` result
+的副本边界。Loop 输入 context 和模型返回 assistant 也会深复制，但这两处目前只有源码
+路径，没有各自的别名变异用例。
 
 :::pi title="与固定上游 Pi 对照"
 固定提交 `8479bd8` 的 `packages/agent/src/agent.ts` 同样在底层循环外保存消息、工具和
