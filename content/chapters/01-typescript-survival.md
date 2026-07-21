@@ -356,14 +356,18 @@ test("unknown 必须先通过运行时边界", () => {
 });
 ```
 
-完整运行会得到稳定的测试名称与计数：
+完整运行使用 Node 的 TAP 输出。去掉每次都会变化的 duration，关键行是：
 
 ```text
-✔ tagged union 的完成态覆盖所有事件
-✔ unknown 必须先通过运行时边界
-tests 2
-pass 2
-fail 0
+TAP version 13
+# Subtest: tagged union 的完成态覆盖所有事件
+ok 1 - tagged union 的完成态覆盖所有事件
+# Subtest: unknown 必须先通过运行时边界
+ok 2 - unknown 必须先通过运行时边界
+1..2
+# tests 2
+# pass 2
+# fail 0
 ```
 
 build 与测试提供不同证据。`tsc` 检查联合成员、分支字段和模块连接；`node --test`
