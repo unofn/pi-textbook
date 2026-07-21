@@ -4,8 +4,8 @@ slug: composition-root
 part: product
 partTitle: 第四部 · 从核心到产品
 chapter: "13"
-title: 把已有能力接成一个可落盘的 Runtime
-summary: 显式选择活动分支，恢复 Agent，在每次模型请求前统一构造上下文，并让 prompt 只有在新消息落盘后才完成。
+title: 把已有能力接成一个能提交历史的 Runtime
+summary: 显式选择活动分支，恢复 Agent，在每次模型请求前统一构造上下文，并让 prompt 只有在新消息被 Session Store 接受后才完成。
 minutes: 150
 difficulty: 核心
 artifact: packages/pi-course/src/composition.ts
@@ -14,126 +14,142 @@ terms: composition root, runtime, active leaf, context projection, durability, p
 upstream: packages/coding-agent/src/core/agent-session-runtime.ts
 ---
 
-## 你将得到什么
+## 一次 `Runtime.prompt()` 到底什么时候完成
 
-前四章已经分别解决了状态、历史、上下文和资源加载。现在这些部件都能独立工作，但还
-缺一个明确的负责人，把一次请求从头送到尾：
+第 12 章结束时，组成 Agent 的部件已经分别可用：`Agent` 能运行多轮，Session Store 能
+保存一棵历史树，`buildContext()` 能从活动路径派生有限输入，Resource Catalog 能生成
+system prompt，Extension Host 能包住工具执行器。现在固定一次调用，把这些对象放到同一
+条时间线上。
 
-```text
-选择历史分支
-  → 恢复 Agent
-  → 构造本轮 context
-  → 运行 model / tool loop
-  → 追加本轮新消息
-  → 把结果交给产品入口
-```
-
-如果 interactive、print 和 JSON 各自完成这套接线，系统里很快会出现三种恢复方式、
-三种工具执行器和三种落盘时机。它们表面上都叫 Pi，重启后看到的历史却可能不同。
-
-本章只解决这个根问题：**建立一个拥有完整对象图和持久化生命周期的 Runtime。**
-完成后，你会得到：
-
-- `createRuntime()`：从显式选择的 session leaf 恢复唯一的 Agent；
-- `createContextProjectingModel()`：在每次模型请求前调用第 11 章唯一的
-  `buildContext()`；
-- `Runtime.prompt()`：串行运行请求，只追加本轮新增消息，并等它们落盘后再返回；
-- `flush()` 与 `dispose()`：说清哪些工作已经被接受，什么时候可以安全退出；
-- `runMode()`：让三种入口只借用 `Runtime.prompt()`，不再拥有 Agent。
-
-本章的总原则是：
-
-> 一次请求只有一个运行时负责人。它恢复哪条历史，就沿哪条历史构造上下文；它向调用者
-> 报告完成时，本轮新增事实必须已经写进 session。
-
-## 为什么第 13 章放在这里
-
-Composition root 必须最后出现。太早写它，只能先发明一批还不存在的接口，后面每加
-一个能力就重改一次“总入口”。
-
-现在依赖已经稳定：
+Runtime 从已有 session 的 `old-assistant` leaf 恢复：
 
 ```text
-第 09 章 Agent          保存跨轮状态，提供控制面
-第 10 章 Session        保存追加式事实，按 leaf 选择路径
-第 11 章 buildContext   从活动路径派生有限模型输入
-第 12 章 Resources      生成 system prompt，提供 extension executor
-                │
-                ▼
-第 13 章 Runtime        只负责接线、持久化顺序和生命周期
-                │
-                ▼
-第 14 章 Eval           从外部验证整个系统
+old-user                      user: 继续检查 parser
+└── old-assistant             assistant: 我会先看现有实现
 ```
 
-这个顺序也让错误有清楚的归属。分支选错，回到 session；裁剪拆坏工具往返，回到
-context；extension 没有挡住工具，回到 resource host；这些部件都正确、组合后仍然
-丢历史，才是 Runtime 的问题。
+配置和依赖也固定下来：
 
-## 开始动手
+```text
+prompt             "检查 parser 并记录结论"
+activeLeafId       "old-assistant"
+configured prompt "BASE SYSTEM"
+resources          AGENTS.md + inactive skill:review metadata
+extension          review-policy
+tool               review_note
+```
 
-在教学历史仓库中生成隔离练习。不要修改原始 Pi，也不要在教材目录里写实现：
+`review-policy` 允许这次 `review_note`，并在结果返回后观察一次。模型第一次看到恢复历史和
+当前 user message，随后产生 tool call；工具结果回到 transcript 后，模型第二次给出最终
+回答。到这里 Agent loop 已经结束，但 `Runtime.prompt()` 还不能完成：
+
+```text
+Runtime.prompt("检查 parser 并记录结论")
+  → 恢复 old-user → old-assistant
+  → 第一次 context projection：旧路径 + 临时 user
+  → model 返回 review_note tool call
+  → review-policy before allow → core tool → after observe
+  → 第二次 context projection：旧路径 + 本轮 user/call/result
+  → model 返回最终 assistant
+  → Agent.prompt() 完成
+  → 只取本轮新增的四条 message
+  → session.append(entry-1 user)
+  → session.append(entry-2 assistant tool call)
+  → session.append(entry-3 toolResult)
+  → session.append(entry-4 final assistant)
+  → active leaf 更新为 entry-4
+  → Runtime.prompt() 才向调用者 resolve
+```
+
+这条调用给“完成”增加了一个产品语义：调用者拿到成功结果时，本轮 entries 已被当前
+Session Store 接受并进入它的公开状态。若调用者提供持久 Store，下一次 Runtime 可以从
+`entry-4` 恢复；本章不会把 append Promise 完成提升成 `fsync` 或崩溃耐久保证，
+InMemory Store 也仍然只存在于进程内。
+
+四个已有部件都不适合独自承担这项责任。Agent 不知道哪个 Session Store 属于当前产品；
+Store 不知道哪条分支被用户选中；`buildContext()` 只读输入；Mode 只负责输出。把对象图、
+顺序和生命周期接起来的地方叫 composition root，本章的具体实现就是 `createRuntime()`。
+
+## 从四个独立部件进入一个 Runtime
+
+同一个 `Runtime` 只创建一个 Agent，并保存调用者交进来的依赖身份：
+
+```text
+RuntimeConfig                         RuntimeDeps
+  activeLeafId                         model
+  systemPrompt                         tools
+  maxSteps                             session
+  context budget                       resources
+                                       extensionHost
+                                       createId / now
+           │                               │
+           └──────── createRuntime ────────┘
+                              │
+                              ▼
+                         一个 Runtime
+                   ┌──────────┼──────────┐
+                   ▼          ▼          ▼
+                control     prompt     session/resources/extensions
+```
+
+`Runtime.control` 只转发 `getState()`、`subscribe()`、`steer()`、`followUp()` 和 `abort()`，
+不暴露 Agent 的 `prompt()`。新请求只能从 `Runtime.prompt()` 进入，否则调用者可以得到模型
+结果却跳过持久化。
+
+对象之间的责任保持原样：
+
+| 对象 | 继续拥有的事实 |
+|---|---|
+| Session Store | 已提交的 entry 和追加顺序 |
+| `buildContext()` | 本次模型能看到的有限投影 |
+| Agent | canonical transcript 和当前运行状态 |
+| Extension Host | 工具调用前后的策略与观察 |
+| Runtime | leaf 选择、对象接线、prompt 串行化、Store 提交与关闭 |
+| Mode | 一次输入和一次输出的编码 |
+
+第 13 章没有把 session、context 或 extension 逻辑搬进 Agent。它只给 Agent 增加一个
+`initialMessages` 接缝，再在 `composition.ts` 中建立上述关系。
+
+## 建立练习起点
+
+在教学历史仓库中生成隔离练习：
 
 ```bash
-cd <你的教学历史仓库>
+cd <你的工作区>/pi-course
 npm run checkpoint -w @pi/course -- 13
 npm run practice -w @pi/course -- 13 <新目录>
 cd <新目录>
 npm install
 ```
 
-本章修改两个文件：
+本章只修改：
 
 ```text
 packages/pi-course/src/agent.ts
 packages/pi-course/src/composition.ts
 ```
 
-`agent.ts` 只增加 `initialMessages` 接缝。不要把 session、context 或 mode 搬进 Agent。
-主要施工都在 `composition.ts`。
+`agent.ts` 只增加初始历史注入；其余实现都留在 composition root。
 
-先确认脚手架可以编译：
-
-```bash
-npm run build -w @pi/course
-```
-
-然后只运行第一段：
-
-```bash
-node --test --test-name-pattern="Lab 13.1" \
-  packages/pi-course/dist/test/13-*.test.js
-```
-
-正确起点是 `0/2`，两项都应准确失败在：
-
-```text
-Lab 13.1 createRuntime 尚未实现
-```
-
-如果 build 先红了，或者错误来自 Lab 13.2、13.3，先检查 practice 目录和 starter。
-不要在错误起点上补类型或改测试。
-
-:::rebuild title="Checkpoint 13 · 分四步组装一个可恢复、可落盘的 Runtime"
-**模式：** 重建。从第 12 章 target 开始，只增加组合边界和 Agent 的历史注入接缝。
+:::rebuild title="Checkpoint 13 · 让一次 prompt 在 Store 提交后完成"
+**模式：** 重建。从第 12 章 target 开始，增加 Runtime 组合边界与 Agent 的历史注入接缝。
 
 **起终点：** `parent` `03541892bcd533444af599d1813401f79807de3c` 是起点；`target` `1caf1082b3f92504346bbeda969e4cfbb0f8f636` 是终点。
 
 **教学文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/composition.ts`
 
-**学习脚手架：** `starters/13-composition.ts` 固定 Runtime、context adapter 和 mode 的
-公共表面。`RuntimeImpl` 的 `prompt/flush/dispose` 明确停在 Lab 13.3，不要求你在第一段
-提前实现持久化。
+**学习脚手架：** `starters/13-composition.ts` 已固定 Runtime、context adapter 与 Mode 的
+公共类型。`RuntimeImpl.prompt/flush/dispose` 会继续停在 Lab 13.3，前两个 Lab 不需要提前
+实现持久化。
 
-**动手前只需知道：** Runtime 只创建一个 Agent，并持有它使用的 session、resources
-和 extension host。非空 session 必须显式选择 leaf；一次 prompt 返回前，本轮新增消息
-必须完成追加。
+**动手前只需知道：** 非空 session 由调用者显式给出 leaf；Agent 结束后只取本轮新增
+suffix；Runtime 等这些消息全部 append 后才完成 prompt。
 
-**第一步：** 给 Agent 加入 `initialMessages` 深复制接缝，再实现 session 选择和
-Runtime 外壳。此时不调用 prompt，也不实现持久化队列。
+**第一步：** 给 Agent 加入 `initialMessages` 深复制，再让 `createRuntime()` 恢复指定
+active path，创建一个 Agent 和一个不暴露 prompt 的 control。
 
-**第一次红灯：** fresh starter build 为绿；首次只运行 Lab 13.1 时，两项都应显示
+**第一次红灯：** fresh starter 可以 build；只运行 Lab 13.1 时，两项都应显示
 `Lab 13.1 createRuntime 尚未实现`。
 
 **聚焦测试：** `packages/pi-course/test/13-composition-modes.test.ts`
@@ -145,105 +161,66 @@ Runtime 外壳。此时不调用 prompt，也不实现持久化队列。
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/13-*.test.js`。
 
-**施工顺序：** Runtime 外壳与恢复 `2/2` → context adapter `3/3` →
-持久化与生命周期 `3/3` → mode 呈现 `2/2`。
+**施工顺序：** Runtime 恢复 `2/2` → context adapter `3/3` → prompt 持久化与生命周期
+`3/3` → Mode 呈现 `2/2`。
 
-**通过证据：** 四段依次全绿；故障实验先暴露错误，再在恢复 poison 逻辑后回绿；
-最后 10 项聚焦测试全部通过。
+**通过证据：** 四个 Lab 可独立运行，失败注入能被现有测试捕获，最后本章 `10/10`。
 
-第一次尝试先不看 target diff。陪练先检查当前不变量，再按函数边界给提示。
+第一次尝试先不看 target diff。只比较当前 Lab 的对象、时序和第一个可观察偏差。
 :::
 
-## 先建立全景
+验证起点：
 
-### Runtime 拥有什么
-
-Composition root 不是新的业务层。它不重新实现 Agent loop、session store 或
-`buildContext()`。它只决定现有对象怎样相遇，以及谁负责它们的生命周期。
-
-```text
-RuntimeConfig                         RuntimeDeps
-  activeLeafId                         model
-  systemPrompt                         tools
-  maxSteps                             session
-  context budget                       resources
-                                       extensionHost
-                                       createId / now
-          │                                │
-          └────────── createRuntime ───────┘
-                              │
-                              ▼
-                         一个 Runtime
-                  ┌───────────┼────────────┐
-                  ▼           ▼            ▼
-              control       prompt       session/resources
-          观察、取消、排队   唯一写入口     可检查的依赖身份
+```bash
+npm run build -w @pi/course
+node --test --test-name-pattern="Lab 13.1" \
+  packages/pi-course/dist/test/13-*.test.js
 ```
 
-所有权要分清：
+正确结果是 `0/2` 和准确的 starter 错误。若 build 失败，先检查 practice 是否从正确 parent
+生成。
 
-| 对象 | 拥有的事实 | 不该做的事 |
-|---|---|---|
-| `SessionStore` | 已提交的历史 entry | 猜测用户想继续哪个分支 |
-| `buildContext()` | 本次模型可见的有限投影 | 写 session、调用模型 |
-| `Agent` | 当前 canonical transcript 与运行状态 | 决定消息如何持久化 |
-| `ExtensionHost` | 工具调用前后的策略 | 创建第二个 Agent loop |
-| `Runtime` | 分支选择、对象接线、追加顺序、生命周期 | 重写上述部件的内部规则 |
-| `runMode()` | 一次输入和一次输出编码 | 绕过 Runtime 直接调用 Agent |
+## Lab 13.1：从指定 leaf 恢复唯一 Agent
 
-这里有一个有意的限制：`Runtime.control` 暴露 `getState()`、`subscribe()`、
-`steer()`、`followUp()` 和 `abort()`，但不暴露 `prompt()`。所有新请求必须经过
-`Runtime.prompt()`，否则调用者可以拿到模型结果，却绕过 session 持久化。
-
-### 一次 prompt 穿过哪些层
-
-Runtime 恢复后，一次请求走这条路径：
-
-```text
-Runtime.prompt("修复测试")
-  → 在 Runtime 队列中等待前一项完成
-  → Agent.prompt()
-      → projecting model adapter
-          → active path + 本轮未持久化 suffix
-          → buildContext()
-          → inner model
-      → extensionHost.wrapExecutor(coreExecutor)
-          → executeToolCall()
-  → 取得 Agent 新增的 message suffix
-  → 逐条 session.append()
-  → 更新 active path / persisted count / active leaf
-  → resolve 调用者
-```
-
-注意模型请求发生在持久化之前。同一次 Agent run 可能调用模型多次，第二次模型请求必须
-看见刚产生、但尚未写入 session 的工具调用和工具结果。这就是第 2 段要构造“临时
-suffix”的原因。
-
-:::pi title="课程边界 · 本章验证的是可观察的 Runtime 契约"
-课程把组合边界压缩成 `createRuntime()`、一个 model adapter 和一个很薄的
-`runMode()`，目的是让恢复、投影、落盘和生命周期可以由 10 项黑盒测试直接观察。它
-不是原始 Pi 生产入口的逐行复刻，也不声称已经实现完整 CLI、RPC、配置加载或跨进程
-锁。判断本章是否完成，只看这里列出的输入、输出和失败语义。
-:::
-
-:::predict title="为什么不能直接从 session.entries() 取最后一行恢复"
-Session 里有 `root → left` 和 `root → right` 两个分支，物理文件最后一行恰好是
-`left`。用户这次想继续 `right`。Runtime 能不能把最后一行当作 active leaf？
----answer
-不能。文件顺序只表示 append 发生的先后，不表示用户当前选择。非空 session 必须由
-调用者显式提供 `activeLeafId`，再用 `pathTo()` 恢复那条祖先链。猜最后一行会把一次
-存储偶然性变成产品决策。
-:::
-
-## 第一步：恢复明确选择的历史
-
-这一段只做 Runtime 外壳和恢复，不调用 `prompt()`。Starter 里的
-`RuntimeImpl.prompt/flush/dispose` 继续报告 Lab 13.3 尚未实现，这是正确状态。
-
-先给 Agent 增加唯一接缝：
+先只创建对象，不调用开篇的 prompt。`RuntimeConfig.activeLeafId` 是必填的 nullable 字段：
 
 ```ts
-export interface AgentOptions {
+interface RuntimeConfig {
+  activeLeafId: string | null;
+  systemPrompt?: string;
+  maxSteps?: number;
+  context: ContextBudget;
+}
+```
+
+`null` 只表示“这是空 session 的新会话”，不表示“替我猜一个 leaf”。四种组合只有两种
+成功路径：
+
+```text
+entries 为空 + activeLeafId === null    → []
+entries 为空 + activeLeafId 是字符串    → 拒绝，不存在这条 leaf
+entries 非空 + activeLeafId === null    → 拒绝，调用者没有选择分支
+entries 非空 + activeLeafId 是字符串    → pathTo(entries, activeLeafId)
+```
+
+固定 session 若同时有 `old-user → left` 和 `old-user → old-assistant`，配置选择
+`old-assistant` 就只恢复右侧路径。物理最后一行没有选择权；第 10 章的 `pathTo()` 已经
+拥有 duplicate id、缺失 parent 与所选祖先链的 cycle 诊断，Runtime 不重新实现 parent
+遍历。
+
+选出的 path 还包含 metadata 或 compaction。Agent 初始 transcript 只接收其中的 message：
+
+```text
+selected path
+  → 过滤 type === "message"
+  → 深复制每条 AgentMessage
+  → new Agent({ initialMessages })
+```
+
+为此，Agent 增加唯一的新选项：
+
+```ts
+interface AgentOptions {
   model: Model;
   tools: ToolRegistry;
   toolExecutor?: ToolExecutor;
@@ -253,87 +230,11 @@ export interface AgentOptions {
 }
 ```
 
-构造函数必须深复制历史：
+构造函数用 `structuredClone()` 初始化 state。只复制 messages 数组会继续共享
+`content[0]`、tool arguments 和 result details；Store 返回值随后被修改时，Agent 历史也
+会被污染。
 
-```ts
-constructor(private readonly options: AgentOptions) {
-  this.state = {
-    status: "idle",
-    messages: [...structuredClone(options.initialMessages ?? [])],
-    streamingText: "",
-    pendingToolCallIds: [],
-    diagnostics: [],
-  };
-}
-```
-
-`[...(options.initialMessages ?? [])]` 只复制数组，不复制消息里的 content blocks。
-测试会在 Runtime 创建后修改 Store 返回的嵌套文本；Agent 的状态不能跟着变化。
-
-### 先写恢复规则
-
-`RuntimeConfig.activeLeafId` 是必填的 nullable 字段：
-
-```ts
-export interface RuntimeConfig {
-  activeLeafId: string | null;
-  systemPrompt?: string;
-  maxSteps?: number;
-  context: ContextBudget;
-}
-```
-
-它不是“有值就选分支，没值就随便选一个”。规则只有三条：
-
-```text
-entries 为空 + activeLeafId === null     → 新会话，恢复 []
-entries 为空 + activeLeafId 是字符串     → 拒绝，leaf 不存在
-entries 非空 + activeLeafId === null     → 拒绝，调用者没有选择分支
-entries 非空 + activeLeafId 是字符串     → pathTo(entries, activeLeafId)
-```
-
-把规则收进一个纯 helper。最小控制流是：
-
-```text
-validateSessionSelection(entries, activeLeafId)
-  if entries.length === 0:
-    要求 activeLeafId === null
-    return []
-
-  要求 activeLeafId !== null
-  return pathTo(entries, activeLeafId)
-```
-
-不要自己再写一遍 parent 遍历。第 10 章的 `pathTo()` 已经拥有重复 id、缺失 parent 和
-祖先链诊断。
-
-### 再接 Runtime 外壳
-
-本章固定的构造签名是：
-
-```ts
-export async function createRuntime(
-  config: RuntimeConfig,
-  deps: RuntimeDeps,
-): Promise<Runtime>
-```
-
-Lab 13.1 的施工顺序：
-
-```text
-entries = await deps.session.entries()
-initialPath = validateSessionSelection(entries, config.activeLeafId)
-initialMessages = initialPath 中所有 message entry 的深副本
-agent = new Agent({ model: deps.model, tools: deps.tools, initialMessages, ... })
-runtime = new RuntimeImpl(agent/control, initialPath, deps)
-return runtime
-```
-
-这一阶段可以先把 `deps.model` 和核心 tool executor 直接交给 Agent。第 2 段完成 model
-adapter，第 3 段再把 adapter、resource prompt 和 extension executor 接回唯一
-`createRuntime()`。不要为了提前贴近 target，把后两段一起写完。
-
-Runtime 对外身份必须保持原对象：
+`createRuntime()` 返回的依赖身份保持不变：
 
 ```text
 runtime.session    === deps.session
@@ -341,45 +242,17 @@ runtime.resources  === deps.resources
 runtime.extensions === deps.extensionHost
 ```
 
-这不是为了少复制。调用者需要确认 Runtime 正在使用哪一个 Store、catalog 和 extension
-host；偷偷构造第二份依赖会让测试和产品观察不同的对象图。
+这让调用者观察到的 Store、catalog 和 extension host 就是 Agent 真正使用的对象图。
 
-:::lab title="实践 13.1 · 组装 Runtime 外壳并恢复活动路径"
+:::lab title="实践 13.1 · 恢复 active path 并建立 Runtime 外壳"
+实现 `AgentOptions.initialMessages`、Agent 构造时深复制、session 选择 helper、Runtime
+control 和 `createRuntime()` 的恢复部分。`Runtime.prompt/flush/dispose` 暂时保留 Lab 13.3
+异常，也不调用 `buildContext()`。
 
-**只实现：**
+最小控制流是：读取 `session.entries()` → 验证空/非空与 leaf 的组合 → 调用 `pathTo()` →
+投影 message 深副本 → 创建一个 Agent → 返回持有原依赖的 Runtime 外壳。
 
-- `AgentOptions.initialMessages` 和 Agent 构造时的深复制；
-- session 选择 helper；
-- `createRuntime()` 的恢复与 Runtime 外壳；
-- Runtime control 对 Agent 的观察、steering、follow-up 和 abort 转发。
-
-暂时不要实现 `Runtime.prompt()`，也不要调用 `buildContext()`。
-
-**先预测：**
-
-1. 一个非空 session 没传 leaf，应该继续最后一行还是启动失败？
-2. 活动路径上有 metadata，Agent 初始 transcript 是否包含它？
-3. Runtime 创建后，修改 Store 返回的嵌套 message，Agent state 会不会变化？
-
-**不变量：**
-
-```text
-非空 session ⇒ 显式 activeLeafId
-initial Agent messages = selected path 中 message entry 的深副本
-Runtime.control 不暴露 prompt
-每个依赖只出现一个实例
-```
-
-**最小施工路线：**
-
-1. 在 `agent.ts` 增加 `initialMessages?: readonly AgentMessage[]`。
-2. 把 Agent 的 state 初始化移进 constructor，使用 `structuredClone()`。
-3. 在 `composition.ts` 实现 `validateSessionSelection()`。
-4. 把 selected path 中的 message 投影成 `AgentMessage[]`。
-5. 构造一个 Agent 和一个 Runtime 外壳。
-6. 保留 starter 中 Lab 13.3 的三个显式异常。
-
-**运行：**
+运行：
 
 ```bash
 npm run build -w @pi/course
@@ -387,86 +260,76 @@ node --test --test-name-pattern="Lab 13.1" \
   packages/pi-course/dist/test/13-*.test.js
 ```
 
-**通过后记录：**
-
-```text
-空 session + null leaf: accepted
-非空 session + null leaf: rejected
-selected branch: root → right
-Agent initial messages: root question, right answer
-Runtime.control.prompt: absent
-Lab 13.1: 2/2
-```
-
-**常见误区：**
-
-- 用 `entries.at(-1)` 选择 leaf；
-- 把所有分支消息交给 Agent，再期待 context 层替你删掉 sibling；
-- 只复制 entries 数组，仍共享 message content；
-- 把 `Agent` 本身作为 `control` 返回，意外暴露 `prompt()`；
-- 第一段就实现持久化队列，首红不再能定位当前施工位。
+`2/2` 要证明：空 session 只接受 null leaf；非空 session 必须显式选择；Agent 只恢复所选
+分支且不共享嵌套消息；`runtime.control` 没有 `prompt`；三个公开依赖保持原对象身份。
 :::
 
-## 第二步：每次模型请求前投影 context
+## Lab 13.2：每次模型请求都投影当前路径与临时 suffix
 
-Agent 保存完整 canonical transcript。模型不一定能看到全部历史：第 11 章已经规定，模型
-输入必须由 `buildContext()` 按 interaction 和预算派生。
+Runtime 已从 `old-user → old-assistant` 恢复两条 message。现在开篇 prompt 进入 Agent，
+第一次调用 model 时，Agent context 中有三条消息：
 
-我们不改 Agent loop。给 inner model 包一层 adapter：
-
-```ts
-export function createContextProjectingModel(
-  inner: Model,
-  config: Pick<RuntimeConfig, "systemPrompt" | "context">,
-  getSnapshot: () => ContextProjectionSnapshot,
-): Model
+```text
+[old user, old assistant]  已持久化 prefix
+[current user]             尚未持久化 suffix
 ```
 
-`getSnapshot()` 返回两个量：
+`buildContext()` 接收的却是 `SessionEntry[]`，而 current user 还没有 entry id。Model adapter
+在内存中为 suffix 构造临时 entry：
+
+```text
+old-user → old-assistant → __runtime_context_0
+                                  current user
+```
+
+临时 id 只服务这一次 model request，不写 Store，也不调用 `deps.createId()`。若固定 id 与
+active path 冲突，就在前面继续加 `_`，直到逻辑身份唯一。
+
+Adapter 每次 `stream()` 都读取：
 
 ```ts
-export interface ContextProjectionSnapshot {
+interface ContextProjectionSnapshot {
   activePath: readonly SessionEntry[];
   persistedMessageCount: number;
 }
 ```
 
-- `activePath` 是已经提交的活动路径；
-- `persistedMessageCount` 是这条路径中已提交的 message 数量；
-- Agent 传给 model 的 `context.messages` 是“恢复历史 + 当前 run 已产生消息”。
+`persistedMessageCount` 是 active path 中已经提交的 message 数，不是 path 总长度；metadata
+与 compaction 不计入。它必须是整数，并满足：
 
-所以待投影的临时后缀是：
+```text
+0 <= persistedMessageCount <= context.messages.length
+```
+
+范围合法还不够。Composition root 同时维护另一条不变量：
+
+```text
+context.messages.slice(0, persistedMessageCount)
+  ≡ activePath 中 message entry 的消息投影
+```
+
+Target 的 adapter 信任 Runtime 保持这条前缀对齐关系，只检查 count 的范围；它不会逐条
+比较两侧消息。单独调用这个公开 adapter 时，调用者也要承担同一前置条件。
+
+当前 suffix 正是：
 
 ```ts
 context.messages.slice(snapshot.persistedMessageCount)
 ```
 
-### 临时 entry 只为调用 buildContext
-
-`buildContext()` 接受 `SessionEntry[]`，suffix 此时还只是 `AgentMessage[]`。把每条临时
-消息包装成 `MessageSessionEntry`，接到活动路径末尾：
-
-```text
-parent = activePath 最后一条 entry id，空路径则为 null
-for (message, index) in suffix:
-  生成不会与 activePath 冲突的临时 id
-  entry.parentId = parent
-  parent = entry.id
-```
-
-临时 id 只在这一份模型请求里使用，不写 Store，也不调用 `createId()`。它们的作用是
-让第 11 章的分组和 compaction 逻辑看到一条合法路径。
-
-先验证：
+第二次 model request 发生在整个 Agent run 尚未提交到 Session Store 时。此时 suffix 已
+增长为 current user、assistant tool call 和 toolResult。Adapter 再读一次 snapshot，把这
+三条临时接到同一 active leaf，`buildContext()` 才能看到完整工具 interaction。
 
 ```text
-persistedMessageCount 是整数
-0 <= persistedMessageCount <= context.messages.length
+model request 1: persisted path + user
+model request 2: persisted path + user + assistant(toolCall) + toolResult
 ```
 
-否则 `slice()` 会把损坏快照伪装成正常输入。
+捕获 Runtime 创建时的旧 snapshot 会让第二个 prompt 继续使用过时 leaf，也会把已经提交
+的消息误当 suffix。`getSnapshot()` 因此在每次 `stream()` 时调用。
 
-然后只调用一次：
+投影只有一个入口：
 
 ```ts
 const projected = buildContext(entries, {
@@ -478,70 +341,18 @@ const projected = buildContext(entries, {
 });
 ```
 
-inner model 得到 `projected.systemPrompt` 和 `projected.messages`。原请求中的 tools 要深
-复制后保留，`AbortSignal` 必须原样传下去：
+Inner model 得到 `projected.messages` 与 `projected.systemPrompt`。Tools 深复制后继续传递；
+`AbortSignal` 保持同一对象，取消链才能贯穿 Agent 与 provider。
 
-```text
-projected messages ──深复制──▶ inner
-context tools       ──深复制──▶ inner
-options.signal      ──同一对象─▶ inner
-```
+:::lab title="实践 13.2 · 构造每次 model request 的 context"
+只实现临时 entry helper 和 `createContextProjectingModel()`，先直接测试 adapter，不接
+Runtime 持久化。
 
-signal 表示同一条取消链，复制没有意义；messages 和 tools 是可变数据，不能与 inner
-共享引用。
+控制流是：读取最新 snapshot → 验证 persisted count → 深复制 active path → 从 Agent
+messages 取得未持久化 suffix → 串成临时 entries → 调用唯一 `buildContext()` → 把投影
+messages、system prompt、tools 副本和同一 signal 交给 inner model。
 
-:::predict title="为什么 snapshot 要在每次 stream() 时重新读取"
-Runtime 创建时保存了一份 `initialPath`。第一次 prompt 已经成功落盘，第二次 prompt 又
-开始了。若 adapter 永远使用创建时那份路径，会发生什么？
----answer
-第二次请求仍以旧 leaf 和旧的 persisted count 为基准，新提交消息会被当成临时 suffix，
-甚至重复接到旧路径上。`getSnapshot()` 必须在每次 `stream()` 时读取 Runtime 当前的
-active path 和计数。
-:::
-
-:::lab title="实践 13.2 · 实现模型请求前的 context adapter"
-
-**只实现：**
-
-- 临时 entry 构造 helper；
-- `createContextProjectingModel()`。
-
-先直接测试 adapter，不急着接 Runtime 的持久化。
-
-**先预测：**
-
-1. 已恢复 2 条消息，本轮新增 1 条 user，临时 suffix 应该有几条？
-2. 预算只容纳最新 interaction 时，adapter 能否自己 `slice(-N)`？
-3. tools 需要参与第 11 章消息预算吗？它们是否仍要交给 inner model？
-
-**不变量：**
-
-```text
-model input = buildContext(active path + unpersisted suffix)
-buildContext 是唯一消息裁剪入口
-tools 保留且隔离，signal 原样传递
-临时 entry 不写 session
-```
-
-**最小控制流：**
-
-```text
-stream(context, options)
-  snapshot = getSnapshot()
-  validate persistedMessageCount
-  path = structuredClone(snapshot.activePath)
-  suffix = context.messages.slice(persistedMessageCount)
-  entries = path + chainTemporaryEntries(suffix)
-  projected = buildContext(entries, budget + systemPrompt)
-  return inner.stream(
-    clone({ systemPrompt: projected.systemPrompt,
-            messages: projected.messages,
-            tools: context.tools }),
-    { signal: options.signal }
-  )
-```
-
-**运行：**
+运行：
 
 ```bash
 npm run build -w @pi/course
@@ -549,49 +360,35 @@ node --test --test-name-pattern="Lab 13.2" \
   packages/pi-course/dist/test/13-*.test.js
 ```
 
-**通过后记录：**
+`3/3` 分别证明：临时 user 接到旧路径且输入修改不影响 inner request；固定成本先扣除，
+预算只保留完整的最新 interaction；tools 等值但不共享引用，signal 保持同一身份。
 
-```text
-persisted messages: 2
-temporary suffix: 1
-inner messages: old question, old answer, temporary user
-budget result: latest interaction only
-same signal: true
-shared tools reference: false
-Lab 13.2: 3/3
-```
-
-**常见误区：**
-
-- 直接把 Agent 的全部 messages 交给 `buildContext()`，忽略 compaction entry；
-- 把已持久化消息再次包装成临时 entry，造成重复；
-- 在 adapter 里另写 token 裁剪；
-- 丢掉 tools，模型在下一次请求中突然失去动作空间；
-- 创建新的 `AbortController`，切断 Runtime 的取消链；
-- 捕获创建时的 path，不在每次请求读取新 snapshot。
+若 adapter 自己 `slice(-N)`、丢掉 tools、创建新 AbortController，或把临时 entry 写进
+session，就已经出现第二套上下文或生命周期规则。
 :::
 
-## 第三步：让 prompt 的完成等于事实已经落盘
+## Lab 13.3：把资源、Extension、Agent 与 Session Store 接成一次调用
 
-前两段已经恢复 Agent，并让每次模型请求使用正确上下文。现在才进入 Runtime 最重要的
-职责：把一次 run 产生的新消息可靠地追加到 session。
+回到开篇的 `review-policy` 请求。`createRuntime()` 先准备 Agent 的两个输入。
 
-### 先完成对象图
-
-配置 system prompt 和资源上下文按固定顺序拼接：
+System prompt 按固定顺序合并：
 
 ```text
-configured system prompt
+BASE SYSTEM
 
 # Pi resources
-...
+PROJECT RULE
+review: Review code carefully
 ```
 
-没有配置文字就只用资源；catalog 为空就不要制造空标题；两者都没有时传
-`undefined`。资源正文仍由第 12 章的 `formatResourceContext()` 生成，Runtime 不解析
-Skill。
+配置文字在前，`formatResourceContext(resources, [])` 的结果在后。当前 Runtime 只接
+catalog 的静态 resource context：API 没有 ActivatedSkill 参数，因此这里只有 instructions
+和 Skill metadata，inactive `review` 正文不会出现。`activateSkill()` 的结果和
+`renderTemplate()` 生成的 UserMessage 也不是 Runtime 输入；调用者可以先 render，再把文本
+交给 `prompt()`，但 target 不会保存 template identity。Catalog 为空时不调用 formatter，
+以免制造空的 `# Pi resources`；两部分都为空时 system prompt 是 `undefined`。
 
-工具执行器也只接一次：
+工具也只有一个执行入口：
 
 ```ts
 const coreExecutor: ToolExecutor = (call, context) =>
@@ -602,159 +399,117 @@ const toolExecutor = deps.extensionHost
   : coreExecutor;
 ```
 
-最终 `createRuntime()` 只创建一个 Agent：
+Agent 看到的 tool schema 与 core executor 使用同一个 `ToolRegistry`。Extension Host 包在
+executor 外层，而不是只挂在 `runtime.extensions` 字段供人查看。
+
+最终对象图是：
 
 ```text
-inner model
-  → createContextProjectingModel()
-  → Agent
-
-ToolRegistry
-  → executeToolCall()
-  → extensionHost.wrapExecutor()
-  → Agent
+inner model → context projecting model ─┐
+                                        ├→ 一个 Agent
+ToolRegistry → core executor → hooks ──┘
+                         │
+selected path + Session Store ← Runtime
 ```
 
-不要创建一份“有扩展的 tools”和一份“给 Agent 展示的 tools”。Agent 的 tool schema
-和 executor 必须来自同一个 Registry。
+### 新消息从哪个位置开始
 
-### 只保存本轮新增的 suffix
-
-恢复历史已经在 Agent state 里，不能每次 prompt 后整段重写。真正的新消息边界是：
+Agent state 已经含有 `old-user` 与 `old-assistant`。当前排队操作真正开始时，Runtime 记录：
 
 ```ts
 const beforeCount = this.agent.getState().messages.length;
 const result = await this.agent.prompt(value);
 const suffix = result.messages.slice(beforeCount);
-await this.persist(suffix);
 ```
 
-`beforeCount` 必须在当前排队操作真正开始时读取，不能在调用 `Runtime.prompt()` 时读取。
-两个 prompt 几乎同时进入队列时，第二个调用发生时第一个还没更新 Agent；若二者都记录
-同一个旧长度，第二个会把第一轮消息再追加一次。
+若开篇 run 产生 user、assistant tool call、toolResult、final assistant，suffix 就是这四条，
+恢复历史不会被再次写入。
 
-每条 suffix 转成一条 message entry：
+`beforeCount` 不能在调用 `Runtime.prompt()` 的瞬间读取。两个 prompt 几乎同时到达时，第二
+个调用尚未等到第一轮更新 Agent；二者会得到相同旧长度。它要等到当前 operation 真正从
+Runtime 队列开始时再读取。
+
+### 每次 append 成功后推进 leaf
+
+Runtime 为 suffix 逐条创建 message entry：
 
 ```text
-id        = deps.createId()
-parentId  = 当前 activeLeafId
-timestamp = deps.now()
-message   = structuredClone(message)
-await session.append(entry)
-
-append 成功后才更新：
-  activePath
-  persistedMessageCount
-  activeLeafId
+entry-1.parentId = old-assistant
+entry-2.parentId = entry-1
+entry-3.parentId = entry-2
+entry-4.parentId = entry-3
 ```
 
-先 append，后更新内存。Store 拒绝一条 entry 时，Runtime 不能假装它已经成为活动
-leaf。
+每条 entry 使用 `deps.createId()`、`deps.now()` 和 message 深副本。顺序固定为：
 
-### 用一条队列串行 prompt
+```text
+await session.append(entry)
+  → activePath.push(entry copy)
+  → persistedMessageCount += 1
+  → activeLeafId = entry.id
+```
 
-第 09 章的 Agent 拒绝并行 prompt，Runtime 应把并发调用排队，而不是把 “Agent is
-busy” 暴露成随机时序错误。最小队列是一条 promise tail：
+Store 确认成功前不推进内存 leaf。四条全部完成后，Runtime 返回 `AgentRunResult` 的深副本，
+开篇调用才真正完成。
+
+### 两个 prompt 共用一条 operation queue
+
+第 09 章的 Agent 拒绝并行 prompt。Runtime 用一条 Promise tail 把并发调用按接收顺序串行：
 
 ```text
 operation = operationTail.then(runAgentAndPersist)
 operationTail = operation.then(
-  success → undefined,
-  failure → undefined
+  () => undefined,
+  () => undefined,
 )
 return operation
 ```
 
-tail 自己吞掉完成状态，只为保证后续操作能排在它之后；当前 `operation` 的失败仍原样
-返回给调用者。不要写成 `operationTail = operation`，否则前一项失败会让后一项跳过
-自己的健康检查。
+内部 tail 只负责让下一项继续排队；公开 operation 仍把当前错误交还调用者。第二项开始时
+再读取 `beforeCount`，所以它只持久化自己的 user 与 assistant。
 
-### append 失败后必须 poison
+### 部分提交后 Runtime 不能继续
 
-一次 prompt 可能要追加 user、assistant(tool call)、toolResult、assistant 四条消息。
-若前两条成功、第三条失败，Runtime 已经处在部分提交状态。它无法知道磁盘是否只写了
-一部分，也不能安全地从内存继续。
+正常调用已经闭合，现在再看 append failure。假设 `entry-1` 成功，`entry-2` 的 Store
+append 抛出 `diskError`。Agent 内存已经拥有完整回答，session 却只拥有本轮第一条消息；
+Runtime 无法把两者当成同一完成状态。
 
-因此第一次 append 失败时保存原始原因：
+第一次 persist 错误会保存：
 
 ```text
 poisoned = true
-poisonCause = error
-throw error
+poisonCause = diskError
 ```
 
-后续 `prompt()` 和 `flush()` 都抛出同一个 `poisonCause`，不再调用 model 或 Store。
-这不是自动修复。使用者要关闭 Runtime，检查 session，再显式选择可恢复的 leaf 创建
-新实例。
+这次 prompt、已排队但尚未开始的 prompt，以及后续 `prompt()`、`flush()` 都得到同一个
+`poisonCause`。后续调用不再进入 model 或 Store。Runtime 不自动重试，因为底层失败时
+无法证明一次写入完全没有发生。
 
-### flush 和 dispose 的边界
+### `flush()` 与 `dispose()` 等待哪些工作
 
-`flush()` 等待当前队列，再检查 poison。它不创建新任务。
+`flush()` 等待当前 operation tail，然后检查 poison；它不创建新任务。
 
-`dispose()` 做两件事：
-
-1. 立即关闭新 prompt 入口；
-2. 等待 dispose 之前已经被 Runtime 接受的任务全部落盘。
-
-所以检查 `disposed` 要发生在 `prompt()` 调用时。一个 prompt 已经进入队列，即使尚未
-轮到 Agent，也属于已接受工作；dispose 不能把它悄悄丢掉。重复 dispose 返回同一个
-Promise。
-
-:::lab title="实践 13.3 · 接通资源、扩展、持久化队列和生命周期"
-
-**实现：**
-
-- 固定顺序的 system prompt 合并；
-- projecting model 与 extension-wrapped executor 的最终接线；
-- `RuntimeImpl.persist()`；
-- `RuntimeImpl.prompt()`、`flush()` 和 `dispose()`；
-- 当前 active path、persisted message count 与 leaf 的更新。
-
-**先预测：**
-
-1. `Agent.prompt()` 已返回、第二条 entry 还在等待磁盘时，`Runtime.prompt()` 能否先
-   resolve？
-2. 两个 Runtime prompt 同时调用，第二个的 `beforeCount` 应该何时读取？
-3. append 第三条失败后，再调用 prompt，模型请求数应不应该增加？
-4. dispose 前已经排队、但还没有进入 Agent 的 prompt，要不要完成？
-
-**不变量：**
+`dispose()` 在调用时关闭新的 prompt 入口，但会等待此前已经接受的 operation。一个 prompt
+即使仍在队列里、尚未进入 Agent，也属于已接受工作。重复 `dispose()` 返回同一个 Promise：
 
 ```text
-prompt resolve ⇒ 本轮 suffix 已全部 append
-persisted entry 形成一条以 activeLeafId 为尾的 parent chain
-append failure ⇒ Runtime poison with same cause
-disposed ⇒ 拒绝新 prompt，但等待已接受任务
-resources / extensions / core tools 只接进同一个 Agent
+prompt 1 正在向 Store 提交
+prompt 2 已排队
+dispose()
+prompt 3 到达 → 立即拒绝
+
+prompt 1 提交完成 → prompt 2 运行并提交 → dispose 完成
 ```
 
-**最小控制流：**
+:::lab title="实践 13.3 · 完成 Runtime.prompt 的接线与生命周期"
+实现 system prompt 合并、最终 model/executor 接线、`RuntimeImpl.persist()`、
+`prompt()`、`flush()`、`dispose()`，以及 active path、message count 与 leaf 更新。
 
-```text
-Runtime.prompt(value)
-  在调用时拒绝 disposed / poisoned
-  operation = tail.then:
-    再检查 poison
-    beforeCount = agent.getState().messages.length
-    result = await agent.prompt(value)
-    suffix = result.messages.slice(beforeCount)
-    await persist(suffix)
-    return structuredClone(result)
-  更新 tail，但不吞当前 operation 的失败
-  return operation
+主控制流是：调用时拒绝 disposed/poisoned → 把 operation 放入 tail → operation 开始时再
+检查 poison 并读取 beforeCount → await Agent → 只取 suffix → 逐条 await append 并推进
+leaf → 全部成功后返回结果副本。
 
-persist(suffix)
-  parentId = activeLeafId
-  for message in suffix:
-    构造 entry snapshot
-    try await session.append(entry)
-    catch error:
-      保存 poisonCause
-      throw 同一个 error
-    append 成功后更新 path / count / leaf
-```
-
-**运行：**
+运行：
 
 ```bash
 npm run build -w @pi/course
@@ -762,43 +517,20 @@ node --test --test-name-pattern="Lab 13.3" \
   packages/pi-course/dist/test/13-*.test.js
 ```
 
-**通过后记录：**
-
-```text
-extension denied core execution: true
-configured prompt before resources: true
-inactive skill body visible: false
-two queued prompts model order: 1 → 2
-session roles: user → assistant → toolResult → assistant → user → assistant
-prompt resolved before first append gate: false
-poison reused original Error object: true
-dispose kept preaccepted prompt: true
-Lab 13.3: 3/3
-```
-
-**常见误区：**
-
-- Agent 一结束就 resolve，另起后台任务写 session；
-- 用最终 transcript 全量追加，复制恢复历史；
-- 在 prompt 调用时读取 `beforeCount`，并发排队后产生重复 suffix；
-- append 失败后继续使用同一个 Runtime；
-- Store 还没确认成功就推进 active leaf；
-- dispose 清空队列，丢掉已经接受的工作；
-- extension host 只保存在 `runtime.extensions`，却没有真正包住 executor；
-- 把 inactive Skill 正文也拼进 system prompt。
+`3/3` 覆盖三组事实：resources 按顺序进入 system prompt、inactive body 不出现、Extension
+确实包住 executor，两个 prompt 等 Store 接受后串行 resolve；恢复历史不重复追加，第二次 append
+失败后保存同一 poison cause；`flush()` 等队列，`dispose()` 保留调用前已接受工作并永久
+关闭入口。
 :::
 
-## 故意把它弄坏
+## 用现有测试破坏一次 poison 规则
 
-这次故障实验把 poison 状态拿掉，只改一个根规则，不叠补丁。
-
-:::failure title="失败注入 · Runtime 忘记第一次 append 失败"
-在 `RuntimeImpl.persist()` 的 `catch` 中，暂时删掉保存 poison 状态的两行，只保留
+:::failure title="失败注入 · 忘记 append failure 已使 Runtime 不一致"
+Lab 13.3 通过后，临时删掉 `persist()` catch 中保存 poison 的两行，只保留
 `throw error`：
 
 ```ts
 catch (error) {
-  // 暂时删掉：
   // this.poisoned = true;
   // this.poisonCause = error;
   throw error;
@@ -808,32 +540,23 @@ catch (error) {
 运行：
 
 ```bash
+npm run build -w @pi/course
 node --test --test-name-pattern="Lab 13.3 · 只追加恢复历史之后的新 suffix" \
   packages/pi-course/dist/test/13-*.test.js
 ```
 
-你应该看到第一次 append 仍然失败，但下一次 prompt 又调用了模型或 Store。第一次偏差
-不是“错误信息不一样”，而是 Runtime 在部分提交后继续接受了新事实：
-
-```text
-expected model requests after second prompt: 1
-observed:                              2
-violated invariant: append failure ⇒ Runtime poison with same cause
-```
-
-恢复这两行，再重跑同一条命令。正确结果是后续 prompt 和 `flush()` 都得到第一次的
-`diskError`，model request 仍为 `1`，Store 也不再追加。
-
-不要用“把失败 entry 再写一次”修这个测试。磁盘 I/O 失败时，Runtime 不知道底层到底
-提交了多少字节；自动重试可能把一个不确定事实写成两个。
+第一次 append failure 仍会返回，但第二次 prompt 会再次进入 model 或 Store。恢复 poison
+赋值后，同一测试应回绿：model request 保持一次，Store append 保持两次，后续 prompt 和
+flush 都得到原始 `diskError`。恢复实验时撤销这两行改动；自动重试无法判断底层 append
+是否已经部分发生，因此不是这里的恢复手段。
 :::
 
-## 第四步：Mode 只负责一次呈现
+## Lab 13.4：Mode 只改变输出编码
 
-有了 Runtime，入口层已经很薄：
+`interactive`、`print` 和 `json` 不创建三套 Runtime。它们都借用同一个接口：
 
 ```ts
-export async function runMode(
+async function runMode(
   runtime: Runtime,
   mode: "interactive" | "print" | "json",
   prompt: string,
@@ -841,62 +564,35 @@ export async function runMode(
 ): Promise<AgentRunResult>
 ```
 
-本章的 mode 不是完整 CLI。它们只验证一条边界：
+对开篇 prompt，interactive 与 print 都写最后一条 assistant 的文本；JSON 写一条带换行的
+对象：
 
-```text
-validate mode
-  → await runtime.prompt(prompt)       只调用一次
-  → interactive / print：写最终 assistant 文本
-  → json：写 { reason, steps, messages } + 换行
-  → 返回结果深副本
+```json
+{"reason":"stop","steps":2,"messages":[...]}
 ```
 
-未知 mode 要在调用 Runtime 前失败。输出 sink 抛错则原样上抛，但不能撤销已经完成的
-session 写入：模型和落盘属于 Runtime 事实，屏幕是否写成功属于呈现故障。
-
-这里不增加版本号、sequence、stderr、exit code、配置解析或 doctor。那些都可以成为
-真实产品的入口契约，却不是本章要证明的对象图问题。现在加进去，只会把持久化故障和
-协议呈现混在同一批测试里。
-
-:::lab title="实践 13.4 · 让三种 mode 只借用 Runtime.prompt"
-
-**只实现：**
-
-- `finalAssistantText()`；
-- `runMode()`。
-
-不要创建 Agent、Store、ResourceCatalog 或 ExtensionHost。
-
-**先预测：**
-
-1. interactive 和 print 是否需要不同的 Agent？
-2. 未知 mode 传入时，Runtime 的 prompt 计数应该是多少？
-3. Runtime 已经完成落盘，随后 `io.write()` 失败，session 是否回滚？
-
-**不变量：**
+完整顺序是：
 
 ```text
-每次 runMode 只调用一次 Runtime.prompt
-mode 只改变输出编码，不改变 AgentRunResult
-未知 mode 不运行 prompt
-IO failure 不伪装成 Runtime failure，也不回滚事实
+验证 mode
+  → await runtime.prompt(prompt)       恰好一次
+  → interactive / print：最后一条 assistant 的 textOf()
+  → json：JSON.stringify({ reason, steps, messages }) + "\n"
+  → await io.write(output)
+  → 返回 result 深副本
 ```
 
-**最小控制流：**
+未知 mode 在调用 Runtime 前失败。若 Runtime 已完成 Store 提交、`io.write()` 随后抛错，输出错误
+原样上抛，但 session 不回滚；模型与持久化已经是事实，屏幕或输出 sink 属于呈现边界。
 
-```text
-runMode(runtime, mode, prompt, io)
-  validate mode
-  result = await runtime.prompt(prompt)
-  if mode === "json":
-    output = JSON.stringify({ reason, steps, messages }) + "\n"
-  else:
-    output = 最后一条 assistant 的 textOf()
-  await io.write(output)
-  return structuredClone(result)
-```
+当前 Mode 只是最小 adapter。它没有版本号、sequence、stderr、exit code、配置解析或完整
+交互 UI，这些也不属于本章 10 项测试。
 
-**运行：**
+:::lab title="实践 13.4 · 让三个 Mode 共用 Runtime.prompt"
+这一 Lab 的施工范围只有 `finalAssistantText()` 与 `runMode()`；Agent、Store、Resource
+Catalog 和 Extension Host 继续使用现有 Runtime 提供的对象。
+
+运行：
 
 ```bash
 npm run build -w @pi/course
@@ -904,177 +600,122 @@ node --test --test-name-pattern="Lab 13.4" \
   packages/pi-course/dist/test/13-*.test.js
 ```
 
-**通过后记录：**
-
-```text
-interactive prompt calls: 1
-print prompt calls: 1
-json prompt calls: 1
-unknown mode prompt calls: 0
-json trailing newline: true
-IO error preserved: true
-Lab 13.4: 2/2
-```
-
-**常见误区：**
-
-- mode 内 `new Agent()`；
-- JSON mode 绕过 Runtime 直接调用 model；
-- 为 interactive 写第二套 session 持久化；
-- 先调用 prompt，再验证 mode；
-- catch 输出错误后返回一个伪造的 Agent error；
-- 在这一段顺手加入 wire version、seq、config doctor 和进程退出码。
+`2/2` 要证明：interactive 与 print 每次只调用一次 prompt 并写最终 assistant 文本；JSON
+只改变呈现并带尾随换行；未知 mode 的 prompt 次数为零；输出 sink 的原始 Error 不被包装。
 :::
 
-## 本章验收
+## 十项测试固定了哪些边界
 
-先做黑盒验收，跑本章全部 10 项：
+| Lab | 数量 | 可观察事实 |
+|---|---:|---|
+| 13.1 | 2 | 空 session、显式 leaf、活动路径深复制、唯一 Runtime/control |
+| 13.2 | 3 | 临时 suffix、预算投影、tools/signal 与输入隔离 |
+| 13.3 | 3 | resources/extension 接线、串行 Store 提交、suffix、poison、flush/dispose |
+| 13.4 | 2 | 最终文本、JSON 换行、未知 mode、输出错误 |
+
+全章运行：
 
 ```bash
 npm run build -w @pi/course
 node --test packages/pi-course/dist/test/13-*.test.js
 ```
 
-预期分段：
-
-```text
-Lab 13.1  2/2
-Lab 13.2  3/3
-Lab 13.3  3/3
-Lab 13.4  2/2
-total      10/10
-```
-
-再跑当前练习目录里的全部课程测试：
+再运行当前练习目录全部课程测试：
 
 ```bash
 node --test packages/pi-course/dist/test/*.test.js
 ```
 
-最后做三项结构检查：
+这 `10/10` 把课程 Runtime 固定在三个范围内：
 
-```bash
-rg -n "interactive|print|json|runMode" \
-  packages/pi-course/src/agent.ts \
-  packages/pi-course/src/agent-loop.ts
+- 每个实例用一条队列向调用者提供的 Store 提交 suffix。跨进程协调、fsync 与崩溃耐久
+  取决于更外层的 Store 实现。
+- Context adapter 使用本章的确定性 token 估算器，并信任 composition root 维护 message
+  prefix 与 active path 对齐；测试直接检查 count 范围，没有逐条复核这个前缀不变量。
+- Runtime 只管理当前 session、已加载的 ExtensionHost 和三种最小输出 Mode。Session
+  切换、Extension reload、自动 compaction 与完整 CLI/RPC 协议属于下一层产品生命周期。
 
-rg -n "buildContext|wrapExecutor|session\\.append" \
-  packages/pi-course/src/composition.ts
+## 课程 Runtime 与真实 Pi 的关系
 
-git diff -- \
-  packages/pi-course/src/agent.ts \
-  packages/pi-course/src/composition.ts
-```
+:::pi title="Pi 对照 · 生产对象图拆在 AgentSession 与 AgentSessionRuntime 中"
+固定提交 `8479bd8` 中，课程 `Runtime` 的职责没有集中在一个同名类里。
 
-第一条应没有结果。第二条应把 context、extension 和 persistence 的接线都定位在
-composition root。第三条用来确认 `agent.ts` 只有 `initialMessages` 接缝，没有混进
-session 或 mode 分支。
+`AgentSession` 持有 Agent、SessionManager、ResourceLoader 与 ExtensionRunner。它从
+ResourceLoader 重建 system prompt 与 skills/context files，把 Extension 的
+`tool_call/tool_result` hooks 接入 Agent，并在 `message_end` 事件到达时调用
+`SessionManager.appendMessage()`。因此生产实现是消息完成一条便持久化一条，不采用课程
+“Agent run 完成后切 suffix，再逐条 append”的教学结构。
 
-本章 10 项公开测试锁住：
+`AgentSessionRuntime` 主要拥有当前 `AgentSession` 及其 cwd-bound services。它在
+new/resume/fork/import 时先发送 shutdown、失效旧 session，再用同一个 factory 创建并绑定
+新 session；`dispose()` 也先通知 Extension，再释放当前 session。它不是课程
+`Runtime.prompt()` 队列与 poison 状态机的逐行对应物。
 
-```text
-13.1  空 session 的唯一 Runtime 外壳
-13.1  显式 leaf、活动路径与历史深复制
-13.2  未持久化 suffix 接到活动路径
-13.2  固定成本与完整 interaction 裁剪
-13.2  tools / signal 传递与输入隔离
-13.3  resources、extension、串行 resolve 与 parent chain
-13.3  只追加新 suffix，失败后 poison
-13.3  flush / dispose 的已接受工作边界
-13.4  interactive / print 只写最终文本
-13.4  JSON 呈现、未知 mode 与 IO 故障
-```
-
-:::checkpoint title="Checkpoint 13 · 一个 Runtime 拥有恢复、投影和落盘"
-**完成状态：** 非空 session 必须显式选择 leaf；Agent 从该路径恢复。每次模型请求都由
-adapter 把未持久化 suffix 接到当前活动路径，再调用唯一 `buildContext()`。Runtime
-串行接受 prompt，等新增消息全部 append 后才返回；append 失败后 fail-closed。
-
-**观察证据：** Lab 13.1–13.4 按 `2/2 → 3/3 → 3/3 → 2/2` 全绿；resources 出现在
-配置 prompt 之后；inactive Skill 正文不可见；extension 真正包住核心 executor；
-dispose 等待已经接受的 prompt。
-
-**恢复：** 从 target
-`1caf1082b3f92504346bbeda969e4cfbb0f8f636` 对照本章。若只撤销本章，Agent、session、
-context、resources 和 extension 仍能独立工作，但系统失去统一的恢复、投影和落盘
-负责人。
+课程把 leaf 选择、context adapter、suffix 持久化和三种 Mode 压进 10 项黑盒测试，是为了
+清楚观察唯一负责人和完成时点。迁移到生产 Pi 时应保留这些问题的答案，而不是复制课程
+的类名和私有 helper。
 :::
 
-## 和陪练 Agent 一起复盘
+## 完整对象图与本章验收
 
-不要让陪练直接展示整个 target diff。让它按下面的顺序和你核对，每次只看一个函数：
+本章验收不仅是一行 `pass`。用同一个 prompt 复述：
 
-1. 让你先说 `activeLeafId` 为 `null` 时，空 session 和非空 session 各会怎样；
-2. 对照 `AgentOptions` 与 constructor，只检查历史是否深复制；
-3. 对照 `createContextProjectingModel()`，画出 persisted prefix 与 temporary suffix；
-4. 对照 `RuntimeImpl.prompt()`，找出 `beforeCount` 的读取位置和 resolve 时机；
-5. 对照 `persist()`，解释为什么 append 成功后才推进 leaf；
-6. 对照 `dispose()`，列出调用前已接受和调用后新到达的两类 prompt；
-7. 最后才看 `runMode()`，确认它没有任何核心构造权。
+1. `activeLeafId: "old-assistant"` 为什么只恢复该祖先链；
+2. 第一次 model request 为什么包含临时 user，第二次为什么还包含 call/result；
+3. `BASE SYSTEM`、resource context 和 Extension-wrapped executor 分别接在哪里；
+4. `beforeCount` 为什么在 operation 开始时读取；
+5. 四条新 message 怎样形成从旧 leaf 到 `entry-4` 的 parent chain；
+6. 为什么 `Agent.prompt()` 完成后，Runtime 仍要等待第四次 append；
+7. dispose 前已排队的 prompt 与 dispose 后到达的 prompt 有什么不同。
 
-如果某项测试失败，先记录四行：
+验收记录可写成：
 
 ```text
-输入是什么：
-预期第一件事：
-实际第一件事：
-最先违反的不变量：
+Lab 13.1: 2/2
+Lab 13.2: 3/3
+Lab 13.3: 3/3
+Lab 13.4: 2/2
+fault injection: poison test red
+fault restored: Lab 13.3 green
+chapter total: 10/10
 ```
 
-这比从报错行开始随手补条件可靠。比如第二个并发 prompt 重复写历史，根因通常不在
-`session.append()`，而在 `beforeCount` 读取得太早。
+:::checkpoint title="Checkpoint 13 · prompt 完成意味着 Store 已接受新事实"
+**完成状态：** 非空 session 显式选择 leaf，Agent 从该路径恢复。每次模型请求把未持久化
+suffix 临时接到当前 path，并通过唯一 `buildContext()` 投影。
 
-一周后再回来，只做一道复现题：
+**提交状态：** Runtime 串行接受 prompt，只追加本轮 suffix；Store 成功后才推进 leaf；
+全部新增消息被当前 SessionStore 接受后才 resolve。跨进程恢复需要调用者提供持久 Store，
+这里没有增加 fsync 或崩溃耐久保证。Persist 失败保存同一 poison cause，后续模型与 Store
+不再运行。
 
-> 第一次 prompt 的模型已经返回，session 正在写第二条消息。此时又调用 prompt，然后
-> 调用 dispose。请按时间顺序说明两个 prompt、flush、dispose 分别何时完成；再说明第二
-> 条 append 失败后，哪些调用必须得到同一个错误。
+**入口状态：** `flush()` 等待当前队列；`dispose()` 关闭新入口并等待已接受任务；三种
+Mode 只调用一次 Runtime.prompt，只改变输出编码。
 
-能把这条时间线讲清楚，就已经抓住了本章，而不是只记住了一个 Promise 写法。
+**公开证据：** `2/2 → 3/3 → 3/3 → 2/2`，共 `10/10`。
 
-## 可选迁移练习
+**恢复：** 回到 parent `03541892bcd533444af599d1813401f79807de3c` 后，Agent、session、
+context、resources 与 extension 仍可独立运行，但不再有统一的恢复、投影和提交负责人。
+:::
 
-这次不让你面对空文件。目标是增加一个 library adapter：它不写 stdout，只返回调用者
-需要的摘要。核心代码保持不动。
+:::transfer title="迁移练习 · 增加一个不写 stdout 的 library adapter"
+完成 `10/10` 后，在独立练习文件写 `runLibrary(runtime, prompt)`。它只调用一次
+`runtime.prompt()`，返回 `{ reason, text }`，其中 text 来自最后一条 assistant。
 
-:::transfer title="有脚手架的迁移 · 增加一个内存消费者"
-先复制这个脚手架到单独的练习文件：
-
-```ts
-interface LibraryResult {
-  reason: AgentRunResult["reason"];
-  text: string;
-}
-
-export async function runLibrary(
-  runtime: Runtime,
-  prompt: string,
-): Promise<LibraryResult> {
-  // 只允许调用一次 runtime.prompt()
-  // 从结果中找最后一条 assistant
-  // 返回 reason 与 textOf(assistant)
-}
-```
-
-按三步完成：
-
-1. 先用 fake Runtime 记录 prompt 次数，只写断言 `calls === 1`；
-2. 再让 fake 返回两条 assistant，断言只取最后一条；
-3. 最后让 `runtime.prompt()` 抛出原始 Error，断言 adapter 不改写它。
-
-陪练每次只给你当前一步的一个断言，不给完整函数。验收时检查
-`agent.ts`、`agent-loop.ts`、`session.ts` 和 `composition.ts` 都没有 diff。这个练习
-只是在已有 Runtime 外面增加一个消费者，不是在核心里增加第四种 mode。
+用 fake Runtime 固定三个例子：正常结果只调用一次；两条 assistant 只取最后一条；prompt
+抛出的原始 Error 不被改写。核心 `agent.ts`、`session.ts` 与 `composition.ts` 都不增加
+library 分支。
 :::
 
 ## 小结
 
-- Composition root 只负责接线和生命周期，不重写已有部件。
-- 非空 session 必须显式选择 active leaf，物理最后一行不代表用户意图。
-- Agent 只增加 `initialMessages` 深复制接缝，session 恢复仍归 Runtime。
-- Model adapter 在每次请求前把未持久化 suffix 接到当前路径，并调用唯一
-  `buildContext()`。
-- Runtime 只追加本轮新消息；prompt 等落盘后返回，并发调用按队列串行。
-- append 失败后 Runtime 保留同一 poison cause，不再继续模型或存储操作。
-- dispose 拒绝新 prompt，但等待调用前已经接受的任务。
-- interactive、print 和 JSON 只借用 `Runtime.prompt()`，只改变输出形式。
+开篇 prompt 从 `old-assistant` leaf 恢复，经过两次 context projection 和一次完整工具
+往返，最终产生四条新消息。Runtime 逐条 append，并把 active leaf 推进到 `entry-4`；最后
+一条确认后，调用者才拿到成功结果。
+
+Context adapter 让同一 run 中尚未持久化的 user、call 与 result 也能进入下一次模型请求。
+资源文字、Extension executor、Agent 和 Session Store 都只接入这一份对象图。并发 prompt
+按队列串行，持久化失败后 Runtime fail-closed，dispose 则等完已接受工作。
+
+Interactive、print 和 JSON 只是这个 Runtime 的三种消费者。第 14 章将从更外层准备案例、
+执行完整 Agent、收集证据并判断结果，不再进入 Runtime 内部替它补生命周期规则。
