@@ -234,7 +234,20 @@ const calls = assistant.content.filter(
 ```
 
 当前数组只有 `readCall`。loop 先发出 `tool_start`，再把 call、signal 和进度回调交给
-executor：
+executor。这里调用的是本章局部的 `ToolExecutor`：
+
+```ts
+const executeToolCall: ToolExecutor =
+  options.executeToolCall ??
+  ((call, context) =>
+    executeCoreToolCall(call, options.tools, context));
+```
+
+第 06 章导出的 `executeCoreToolCall` 接收 `(call, registry, context)`；这个局部 adapter
+已经闭包捕获 `options.tools`，所以它的第二个参数才是 execution context。测试也可以通过
+`options.executeToolCall` 注入遵守同一签名的 probe。
+
+调用处因此只传 call 与 context：
 
 ```ts
 const result = await executeToolCall(readCall, {
