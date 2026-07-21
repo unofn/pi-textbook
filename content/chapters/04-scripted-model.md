@@ -4,8 +4,8 @@ slug: scripted-model
 part: foundations
 partTitle: 第一部 · 建立可执行语言
 chapter: "04"
-title: ScriptedModel：把模型行为写成可执行规格
-summary: 用按轮消费的确定性脚本生成模型事件，稳定验证请求快照、事件顺序、终态和失败。
+title: ScriptedModel：同一个实例怎样依次播放两个回合
+summary: 跟踪同一个 ScriptedModel 的两次调用，看清请求快照、cursor、microtask 和消息到事件的投影。
 minutes: 100
 difficulty: 核心
 artifact: packages/pi-course/src/scripted-model.ts
@@ -14,62 +14,151 @@ terms: test double, executable specification, deterministic trace, recorded requ
 upstream: packages/ai/src/providers/faux.ts
 ---
 
-## 你将得到什么
+## 两次调用，各自拿到哪一轮
 
-前两章已经定义了消息和事件流，但还没有组件负责生产模型事件。如果现在直接连接
-真实 LLM，网络、鉴权、费用、限流和随机输出会同时进入测试。测试失败时，你很难
-判断究竟是 Agent 协议写错了，还是远端服务临时发生了变化。
+第 02 章的 `EventStream<T, R>` 已经能运送事件并返回结果；第 03 章又定义了
+`AssistantMessageEventStream` 和 `AssistantMessage`。现在还差一个对象把最终消息
+一件件放进流里。
 
-本章处理一个新问题：如何构造一个遵守真实模型边界、行为又完全确定的事件生产者。
-你将实现 `ScriptedModel`。它按轮读取预先写好的脚本，记录每次传入的 context，
-并把成功、错误和预先取消都转换成统一的模型事件。
+下面这个 `model` 预先装了两个 turn。turn 是“一次模型调用准备播放的最终结果”。同一个
+`model` 连续接收两个 context，第一次调用应播放 `turns[0]`，第二次调用应播放
+`turns[1]`。
 
-本章不变量是：
+```ts
+const model = new ScriptedModel([
+  assistantMessage([text("先看")]),
+  assistantMessage([text("第二轮")]),
+]);
 
-> `ScriptedModel` 和真实 adapter 都满足同一个 `Model.stream()` 契约。上层代码
-> 只消费模型事件，不需要判断当前接入的是脚本模型还是真实服务。
+const firstContext = { messages: [userMessage("请求一")] };
+const firstStream = model.stream(firstContext);
+firstContext.messages.push(userMessage("事后追加"));
 
-重新练习时，运行 `npm run practice -w @pi/course -- 04 <新目录>`。练习目录会
-保留第 03 章实现，只移除本章的 `scripted-model.ts`，并注入第 04 章聚焦测试。
+const firstTypes: string[] = [];
+for await (const event of firstStream) firstTypes.push(event.type);
 
-## 先建立全景
+const secondStream = model.stream({ messages: [userMessage("请求二")] });
+const secondTypes: string[] = [];
+for await (const event of secondStream) secondTypes.push(event.type);
 
-`ScriptedModel` 是一种 test double，也就是专门替代外部依赖的测试实现。它和一个
-随便返回 `"hello"` 的 mock 不同：脚本描述的是某一轮模型最终应产生什么消息，
-`ScriptedModel` 仍要按照真实协议生成中间事件和终态。
-
-```text
-AgentContext
-    │
-    ▼
-ScriptedModel.stream(context, { signal })
-    ├─ 立即返回 AssistantMessageEventStream
-    ├─ 保存 context 在调用时的快照
-    └─ 在 microtask 中读取一个 ScriptedTurn
-          TextContent → text_delta
-          ToolCall    → toolcall_delta → toolcall_end
-          正常消息    → done
-          错误或取消  → error
+console.log(firstTypes.join(" → "));
+console.log(textOf(await firstStream.result()));
+console.log(secondTypes.join(" → "));
+console.log(textOf(await secondStream.result()));
+console.log(model.requests.length);
+console.log(model.requests[0]?.messages.length);
 ```
 
-microtask 是“当前同步代码结束后立刻执行”的小任务。`stream()` 先把流返回给调用者，
-再由 microtask 发送事件。这样消费者可以先拿到流并开始等待；认证、模型运行或网络
-阶段发生的失败，也能统一通过流内的 `error` 终态报告。
+```text
+start → text_delta → done
+先看
+start → text_delta → done
+第二轮
+2
+1
+```
 
-:::predict title="运行前先判断"
-如果 `requests` 直接保存传入的 `context` 引用，调用者随后向
-`context.messages` 追加一条消息，`requests[0]` 记录的是调用发生时的输入，
-还是修改后的输入？
+最后两个数字值得停一下。`requests` 保存了两次调用，所以长度是 `2`。第一次调用之后，
+原来的 `firstContext` 被追加了一条消息；保存下来的第一份请求仍然只有一条消息。
+
+这里暂时用两个纯文本 turn，把 cursor、请求快照和事件时序单独看清。后面会把第一轮
+换回第 03 章熟悉的 `read("README.md")` tool call。`ScriptedModel` 只按调用次数
+播放脚本，不会替 Agent 追加 tool result；真正的两轮工具往返要到第 07 章才接起来。
+
+:::predict title="如果 requests 保存原对象"
+把实现中的 `structuredClone(context)` 改成 `context`。`stream()` 返回以后，调用者向
+`firstContext.messages` 追加“事后追加”。此时 `model.requests[0].messages.length`
+会是 `1` 还是 `2`？
 ---answer
-它会跟着原对象一起变化，因此记录的是修改后的输入。调用时应保存
-`structuredClone(context)`。只有快照固定下来，测试才能准确回答“这一轮模型
-当时看到了什么”。
+会是 `2`。数组里保存的是同一个 context 对象的引用，后续修改会从两个入口同时看到。
+`structuredClone(context)` 创建独立快照，才会保留调用发生时的输入。
 :::
 
-## 先固定 Model 的唯一入口
+## cursor 只是一个数组下标
 
-第 03 章已经在 `types.ts` 中定义了 `Model` 和 `ModelStream`。本章不修改这些接口，
-只实现它们：
+先把模型和事件流放在一边。按顺序取两个 turn，只需要一个数组和一个数字：
+
+```ts
+const turns = ["先看", "第二轮"];
+let cursor = 0;
+
+console.log(turns[cursor++]);
+console.log(turns[cursor++]);
+console.log(cursor);
+console.log(turns[cursor++]);
+```
+
+```text
+先看
+第二轮
+2
+undefined
+```
+
+`cursor++` 会先用当前值取数组元素，再把 cursor 加一。因此第一次取下标 `0`，第二次取
+下标 `1`。第三次访问下标 `2`，数组里已经没有元素。`ScriptedModel` 把这个
+`undefined` 解释为“脚本耗尽”，而不是凭空重复上一轮。
+
+## 引用和快照记录的是两个时间点
+
+普通赋值只增加一个访问同一对象的名字。`structuredClone` 创建一份独立数据：
+
+```ts
+const context = { messages: [userMessage("请求一")] };
+const direct = context;
+const snapshot = structuredClone(context);
+
+context.messages.push(userMessage("事后追加"));
+
+console.log(direct.messages.length);
+console.log(snapshot.messages.length);
+```
+
+```text
+2
+1
+```
+
+`direct` 回答“这个对象现在是什么样”。`snapshot` 回答“调用发生时，模型看到了什么”。
+`ScriptedModel.requests` 是测试探针，需要回答第二个问题，所以保存 snapshot。
+
+## microtask 把返回和生产分成两个时刻
+
+再看一个不含模型代码的最小顺序：
+
+```ts
+console.log("1. 调用函数");
+
+queueMicrotask(() => {
+  console.log("3. 生产事件");
+});
+
+console.log("2. 函数已经返回");
+```
+
+```text
+1. 调用函数
+2. 函数已经返回
+3. 生产事件
+```
+
+`queueMicrotask` 没有立刻执行回调。当前同步代码走完后，JavaScript 才运行回调。
+`ScriptedModel.stream()` 利用这个顺序，先把 `AssistantMessageEventStream` 交给调用者，
+随后向这个流写入事件。
+
+这里有两条时间线，不能混在一起：
+
+```text
+同步阶段：创建 stream → 保存 context 快照 → 用 cursor 取 turn → 返回 stream
+microtask：检查取消/耗尽 → 投影 content block → 写入 done 或 error
+```
+
+cursor 在同步阶段已经选定当前 turn。microtask 负责播放选中的 turn，不负责决定这是第
+几轮。
+
+## ScriptedTurn 保存最终结果
+
+第 03 章已经定义了 `Model` 的唯一入口。本章实现它，不另建一套测试接口：
 
 ```ts
 export interface Model {
@@ -84,8 +173,8 @@ export interface ModelStream extends AsyncIterable<ModelEvent> {
 }
 ```
 
-脚本中的一个回合有两种写法。正常回合直接提供最终 `AssistantMessage`；错误回合
-提供停止原因、错误说明和可选的部分文本：
+正常 turn 直接使用 `AssistantMessage`。显式失败 turn 只写停止原因、诊断和已经生成的
+部分文本：
 
 ```ts
 export type ScriptedTurn =
@@ -97,69 +186,17 @@ export type ScriptedTurn =
     };
 ```
 
-`ScriptedTurn` 记录脚本预先规定的最终结果，不直接保存 `ModelEvent[]`。
-`ScriptedModel` 仍要先发送 `start`，再按 content block 的顺序生成事件，最后根据
-stop reason 发送 `done` 或 `error`。因此，测试验证的是事件生成边界，而非简单
-回放一组预置事件。
+`ScriptedTurn` 没有预存 `ModelEvent[]`。一条最终消息可能含多个 content block；
+`ScriptedModel` 要按第 03 章的协议把这些 block 投影成 `start`、delta、end 和终态。
+同一份最终消息因而同时决定事件轨迹和 `result()`。
 
-:::rebuild title="Checkpoint 04 · 让脚本回合满足真实模型边界"
-**模式：** 重建。从 03 的 target 开始，只加入确定性事件生产者。
+这类专门替代外部模型、又遵守真实接口的对象叫 test double。脚本把输入对应的行为
+固定下来，因此也是 executable specification：测试运行的不是一句自然语言描述，而是
+一条能被代码消费的确定轨迹。
 
-**起终点：** parent 是本章开始时的起点快照；target 是聚焦测试通过的终点快照。
+## `stream()` 的同步部分
 
-**怎么使用这张卡：** 先把它当作路线图。读完上面的全景和接口，再从实践 4.1
-开始写代码。
-
-**教学文件：** `packages/pi-course/src/scripted-model.ts`
-
-**动手前只需知道：** 一个 turn 表示一轮模型的最终结果；请求快照记录
-`stream()` 被调用时的输入；microtask 让方法先返回流，再发送事件。
-
-**第一次红灯：** 首次 build 只报告 TS2307：找不到
-`../src/scripted-model.js`。这说明本章只缺一个源文件。
-
-**第一步：**
-1. 运行 build，确认上面的 TS2307。
-2. 定义 `ScriptedTurn`、请求记录和按轮读取所需的 cursor。
-3. 完成实践 4.1，只运行名称含“脚本消息”的第一项测试。
-4. 完成实践 4.2，再运行本章全部测试。
-
-**聚焦测试：** `packages/pi-course/test/04-scripted-model.test.ts`
-
-**定位命令：** `npm run checkpoint -w @pi/course -- 04`
-
-**练习目录：** `npm run practice -w @pi/course -- 04`
-
-**聚焦运行：** `npm run build -w @pi/course`，然后 `node --test packages/pi-course/dist/test/04-*.test.js`
-
-**通过证据：** 3 项聚焦测试覆盖事件顺序与载荷、累计 partial、两个 turn 的消费
-顺序、请求快照、显式错误回合、脚本耗尽和预取消。调用者使用
-`ScriptedModel` 或真实 `Model` 时，无需编写两套消费逻辑。
-
-第一次尝试禁止查看完整答案。若事件顺序不清楚，陪练只指出当前 content block
-应该产生的下一个事件。
-:::
-
-## 播放一个成功回合
-
-先看第一项测试中的脚本。它包含一个 text block 和一个 tool call，所以完整事件
-顺序应为：
-
-```text
-start
-text_delta
-toolcall_delta
-toolcall_end
-done
-```
-
-`start` 携带空 content 的 partial message。处理每个 block 时，先把当前增量应用到
-partial，再发送事件。这样 `text_delta` 的 partial 已经包含当前文本；
-`toolcall_delta` 的 partial 既保留前面的文本，也包含正在生成的 tool call；
-`toolcall_end` 再把完整参数写入同一位置。播放结束后，终态直接提交脚本中的最终
-消息，不从事件文本重新拼装一次。
-
-可以先写出类的外框：
+类的外框把刚才三个小例子放到一起：
 
 ```ts
 export class ScriptedModel implements Model {
@@ -177,69 +214,172 @@ export class ScriptedModel implements Model {
     const turn = this.turns[this.cursor++];
 
     queueMicrotask(() => {
-      // 先处理不会播放的分支，再投影一个有效 turn。
+      // 在这里把 turn 投影成事件。
     });
+
     return stream;
   }
 }
 ```
 
-第一阶段仍要让整个测试文件通过 TypeScript 编译。你可以先声明完整
-`ScriptedTurn` 联合。在 microtask 内先判断三种暂不播放的情况：signal 已取消、
-turn 不存在，或者 turn 没有 `role` 字段。前两项是失败入口，第三项代表显式错误
-turn。遇到它们时，先临时抛出 `"not implemented in lab 4.1"`。通过这些判断后，
-TypeScript 也能确认剩下的 turn 就是 `AssistantMessage`。局部测试只提供正常
-turn，不会执行临时分支。
+调用者拿到的是刚创建的 `stream`。`requests` 里增加的是 context 快照。局部变量
+`turn` 固定了这一轮要播放的值，cursor 则已经指向下一轮。microtask 稍后闭包读取的
+仍是这个局部变量。
 
-:::lab title="实践 4.1 · 投影成功消息并保存请求快照"
-**目标：** 让一条混合消息产生确定事件，同时固定调用时的 context。
+## 纯文本消息怎样进入流
+
+先只看 `assistantMessage([text("先看")])`。最终消息已经含有完整文本，但消费者需要
+按流协议依次观察三个状态：
+
+```text
+start
+  partial.content = []
+
+text_delta
+  contentIndex = 0
+  delta = "先看"
+  partial.content = [text("先看")]
+
+done
+  reason = "stop"
+  message.content = [text("先看")]
+```
+
+`partialFrom(message)` 克隆最终消息，然后把 `content` 清空，并把播放中的
+`stopReason` 设为 `"stop"`。这个空 partial 随 `start` 发出。遇到 text block 时，
+实现先把 block 加进 partial，再推送 `text_delta`；所以事件携带的 partial 已经包含
+本次 delta。
+
+最后一个 `done` 携带脚本原先给出的完整消息。`AssistantMessageEventStream` 看到
+`done` 后，让 `result()` resolve 这条消息；调用者不需要再从若干 delta 重建一次结果。
+此时流已经进入终态。target 随后调用的 `end(message)` 不负责生成 `done`，也不是
+`result()` 完成的前提；它只执行幂等关闭，并唤醒仍在等待结束信号的消费者。
+
+:::rebuild title="Checkpoint 04 · 让两个脚本回合走真实模型边界"
+**模式：** 重建。从 03 的 target 开始，只加入确定性事件生产者。
+
+**起终点：** parent 是本章开始时的起点快照；target 是聚焦测试通过的终点快照。
+
+**教学文件：** `packages/pi-course/src/scripted-model.ts`
+
+**动手前只需知道：** `turns[cursor++]` 选中本轮结果，`structuredClone(context)` 保存
+调用时的输入，`queueMicrotask` 让事件生产发生在 stream 返回之后。
+
+**第一次红灯：** 首次 build 只报告 TS2307：找不到
+`../src/scripted-model.js`。第 03 章的消息和事件流仍然可用，当前只缺这个源文件。
+
+**第一步：** 先不看 target diff。运行 build 确认 TS2307，再声明 `ScriptedTurn`、
+`requests`、`cursor` 和 `stream()` 外框。完成实践 4.1 后只跑第一项测试；完成实践
+4.2 后再跑全部三项。
+
+**聚焦测试：** `packages/pi-course/test/04-scripted-model.test.ts`
+
+**定位命令：** `npm run checkpoint -w @pi/course -- 04`
+
+**练习目录：** `npm run practice -w @pi/course -- 04`
+
+**聚焦运行：** `npm run build -w @pi/course`，然后
+`node --test packages/pi-course/dist/test/04-*.test.js`
+
+**通过证据：** 3 项聚焦测试覆盖事件顺序与载荷、累计 partial、两个 turn 的消费
+顺序、请求快照、显式错误回合、脚本耗尽和预取消。target 只增加
+`packages/pi-course/src/scripted-model.ts`。
+:::
+
+## 第一轮再加一个 tool call
+
+纯文本路径清楚以后，把开头 `model` 的第一轮扩成测试里的真实值：
+
+```ts
+const firstTurn = assistantMessage([
+  text("先看"),
+  {
+    type: "toolCall",
+    id: "c1",
+    name: "read",
+    arguments: { path: "README.md" },
+  },
+], "toolUse");
+
+const secondTurn = assistantMessage([text("第二轮")]);
+const model = new ScriptedModel([firstTurn, secondTurn]);
+```
+
+第一次 context 仍然只取 `firstTurn`，第二次 context 仍然只取 `secondTurn`。变化只发生在
+第一轮的 content：下标 `0` 是 text，下标 `1` 是 tool call。
+
+第一轮完整事件如下：
+
+```text
+start
+text_delta      contentIndex=0  delta="先看"
+toolcall_delta  contentIndex=1  delta='{"path":"README.md"}'
+toolcall_end    contentIndex=1
+done            reason="toolUse"
+```
+
+模型生成工具参数时，真实 provider 往往先给字符串片段。课程实现一次发出完整的
+`rawArguments`，但仍保留 delta 形状：
+
+```ts
+{
+  type: "toolCall",
+  id: "c1",
+  name: "read",
+  arguments: {},
+  rawArguments: '{"path":"README.md"}',
+}
+```
+
+这是 `toolcall_delta.partial.content[1]` 的值。空对象表示结构化参数还没有结束，
+`rawArguments` 保存当前收到的 JSON 文本。紧接着的 `toolcall_end` 用完整 tool call
+替换同一位置：
+
+```ts
+{
+  type: "toolCall",
+  id: "c1",
+  name: "read",
+  arguments: { path: "README.md" },
+}
+```
+
+两个事件的 `contentIndex` 都是 `1`。它们的 partial 也都保留下标 `0` 的
+`text("先看")`。因此 partial 表示“播放到当前事件以后，已经形成的消息”，而不是只放
+当前 block。
+
+:::lab title="实践 4.1 · 播放两个正常 turn 并保存请求快照"
+**目标：** 让第一轮的 text 与 tool call 形成完整事件轨迹，让第二轮由同一个实例继续
+播放，并固定两次调用时的 context。
 
 **文件：** `packages/pi-course/src/scripted-model.ts`
 
 **动作：**
-1. 声明完整 `ScriptedTurn`，并建立 `requests`、`cursor` 和构造器。
-2. `stream()` 先克隆 context，再取出当前 turn，然后立即返回新事件流。
-3. 在 microtask 中先判断预取消、脚本耗尽和没有 `role` 的错误 turn；这三个分支
-   暂时抛出明确异常。
-4. 把判断后剩下的正常消息转换成 `start`、block 事件和 `done`。
-5. text block 产生一个 `text_delta`；它的 `contentIndex` 指向当前 block，
-   `delta` 是本段文字，`partial` 已经包含这段文字。
-6. tool call 先产生 `toolcall_delta`，再产生 `toolcall_end`。两个事件都保留
-   前面已经播放的 block；end 事件还要携带完整 tool call。
-7. 让模型连续播放两个正常 turn，确认 cursor 每次只前进一格。
-8. 只运行第一项测试。
+1. 声明完整 `ScriptedTurn`，加入 `requests`、`cursor` 和构造器。
+2. `stream()` 同步创建流、克隆 context、取得 `turns[cursor++]`，然后返回流。
+3. 在 microtask 中为正常消息创建空 content 的 partial，并推送 `start`。
+4. text block 先更新 partial，再推送一个 `text_delta`。
+5. tool call 先推送含 raw JSON 的 `toolcall_delta`，再用完整 tool call 推送
+   `toolcall_end`。
+6. 正常消息最后推送 `done`，并让流以同一条最终消息结束。
+7. 为了让整个测试文件能编译，先声明错误 turn 的完整联合；预取消、耗尽和显式错误
+   分支可暂时抛出清楚的 `"not implemented in lab 4.1"`。
+8. 只运行名称含“脚本消息”的测试。
 
 **运行：** `npm run build -w @pi/course`，然后
 `node --test --test-name-pattern="脚本消息" packages/pi-course/dist/test/04-*.test.js`
 
-**预期：** 局部测试 `1/1`。事件名称、delta、content index、tool call 和累计
-partial 都与脚本一致；两个 turn 按声明顺序播放。调用后再修改原 context，
-`model.requests[0].messages` 仍只有调用时的那一条消息。
+**预期：** 局部测试 `1/1`。第一轮事件类型是
+`start → text_delta → toolcall_delta → toolcall_end → done`；第二次调用得到“第二轮”；
+第一次调用后修改原 context，不会改变 `requests[0]`。
 :::
 
-## 按轮消费，并把失败放回流里
+## 三种失败仍然结束同一个流
 
-同一个模型实例会被 Agent 多次调用。cursor 每次只前进一个 turn：
+成功路径已经说明了 cursor、快照和事件投影。失败路径复用同一个
+`AssistantMessageEventStream`，但终态从 `done` 变成 `error`。
 
-```ts
-const model = new ScriptedModel([
-  assistantMessage([
-    text("我先读取文件。"),
-    {
-      type: "toolCall",
-      id: "c1",
-      name: "read",
-      arguments: { path: "README.md" },
-    },
-  ], "toolUse"),
-  assistantMessage([text("项目用于学习 Agent。")], "stop"),
-]);
-```
-
-第一次调用产生工具请求，第二次调用给出最终回答。第 07 章会把这两个回合接入
-Agent loop。本章只负责模型边界，不负责把上一轮消息写进下一轮 context。
-
-脚本还必须能稳定表达失败：
+显式错误 turn 可以保留已经生成的文本：
 
 ```ts
 {
@@ -249,104 +389,111 @@ Agent loop。本章只负责模型边界，不负责把上一轮消息写进下�
 }
 ```
 
-这条 turn 应产生：
+helper 先把它转换成 canonical `AssistantMessage`：content 含 `text("正在")`，
+`stopReason` 是 `"error"`，`errorMessage` 是 `"rate limited"`。随后它走普通 content
+投影，所以消费者看到：
 
 ```text
 start
-text_delta "正在"
-error reason=error
+text_delta  delta="正在"
+error       reason="error"
+
 result.stopReason = "error"
 result.errorMessage = "rate limited"
 ```
 
-`result()` 仍然 resolve 一条 canonical assistant message。上层因此可以同时读取
-部分文本和错误说明。它不会把错误伪装成普通 `stop`，也不会迫使调用者额外处理
-一个同步 throw 分支。
+`error` 既是事件，也是终态。`result()` resolve 这条错误消息，不会 reject；上层可以从
+同一个结果同时读取 partial text 与诊断。
 
-脚本耗尽时，`ScriptedModel` 自己构造 `stopReason: "error"` 的消息；播放开始前，
-如果 signal 已处于 `aborted` 状态，就构造 `stopReason: "aborted"` 的消息。
-这两个分支都只发送 `error` 终态，不发送 `start`，也不播放原 turn。所有分支都在
-microtask 内完成，所以 `stream()` 始终先返回事件流。
+另外两种失败发生在 content 播放之前：
+
+```text
+turn 不存在       → error(reason="error", errorMessage="ScriptedModel 没有更多响应")
+signal 已预取消   → error(reason="aborted", errorMessage="Request was aborted")
+```
+
+这两种流只有一个 `error` 事件，没有 `start`。检查发生在 microtask 内，因此
+`stream()` 已经把流返回给调用者。当前实现会在同步阶段先保存请求并执行
+`turns[cursor++]`，然后才在 microtask 检查预取消；所以预取消调用也会记录请求并消费
+一个 turn。这是当前代码的具体顺序，不应把它概括成所有 provider 的通用规则。
 
 :::lab title="实践 4.2 · 补齐错误、耗尽和预取消"
-**目标：** 让三类失败也遵守同一个流协议。
+**目标：** 让三类失败都通过流内 `error` 终态完成。
 
 **文件：** `packages/pi-course/src/scripted-model.ts`
 
 **动作：**
-1. 写一个 helper，把正常 turn 克隆为最终消息，把错误 turn 转成带 partial text
-   和 `errorMessage` 的最终消息。
-2. 删除 Lab 4.1 的临时异常。
-3. signal 已处于 `aborted` 状态时，发送对应的 `error` 事件并结束本次播放。
-4. turn 不存在时，发送错误说明为
-   `"ScriptedModel 没有更多响应"` 的 `error` 事件。
-5. 显式错误 turn 仍先发送 `start` 和已有文本，最后发送 `error`。
-6. 运行完整聚焦测试。
+1. 写 `terminalMessage()`：正常 turn 返回深拷贝；错误 turn 转成带 partial text 与
+   `errorMessage` 的 `AssistantMessage`。
+2. 删除实践 4.1 的临时异常。
+3. signal 已经 aborted 时，推送 `reason: "aborted"` 的 `error`，再结束流。
+4. turn 不存在时，推送诊断为 `"ScriptedModel 没有更多响应"` 的 `error`，再结束流。
+5. 显式错误 turn 先投影已有 content，最后推送 `reason: "error"` 的终态。
+6. 运行全部聚焦测试。
 
 **运行：** `npm run build -w @pi/course`，然后
 `node --test packages/pi-course/dist/test/04-*.test.js`
 
-**预期：** 3 项测试全部通过。每项流测试都设有一秒超时；遗漏终态会明确失败，
-不会让练习一直等待。
+**预期：** `3/3`。显式错误保留“正在”；耗尽和预取消都只产生一个 `error`。每项测试
+设有一秒超时，漏掉终态时会直接暴露未完成的流。
 :::
 
-:::mechanism title="确定性模型负责控制变量"
-以后测试 Agent loop 时，可以用脚本精确规定“先请求 read，再给出回答”。模型行为
-固定后，测试中只剩 loop 或 tool 发生变化，失败位置就容易判断。真实服务用于验证
-兼容性；需要稳定证明控制流时，仍应使用确定输入和确定事件。
+:::mechanism title="固定模型行为，才能单独观察控制流"
+以后测试 Agent loop 时，可以让第一轮稳定请求 `read`，第二轮稳定回答“第二轮”。模型
+输出不再随网络和采样变化，测试失败时就能集中检查 loop 怎样追加消息、执行工具和发起
+下一次调用。真实模型用于验证接入兼容性；`ScriptedModel` 用于给控制流提供可重复证据。
 :::
 
-:::note title="这三项测试没有证明什么"
-本章没有测试播放中途取消、多个并发 `stream()` 调用、事件之间的实际时间间隔、
-调度时机或背压。`requests` 也只是测试探针，不是生产日志；长期进程不能让它无限增长，
-更不能用它记录密钥。真实 transport 的中途取消会在下一章测试。
+:::failure title="预期失败 · 脚本耗尽时同步 throw"
+临时把 turn 不存在的判断移到 `queueMicrotask()` 外，并执行
+`throw new Error("script exhausted")`。运行全部聚焦测试。第三项会在调用者拿到流之前
+失败，也就无法观察预期的 `error` 事件和 `result()`。把判断放回 microtask，恢复流内
+`error`，再确认 `3/3`。
+:::
+
+:::note title="三项测试的边界"
+本章没有测试播放中途取消、多个并发 `stream()` 调用、事件之间的实际时间间隔、调度时机
+或背压。测试也没有断言预取消是否消费 cursor。`requests` 只是短期测试探针，不是
+生产日志；长期进程不应让它无限增长，也不应向它写入密钥。下一章会验证真实 transport
+的中途取消。
 :::
 
 :::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/ai/src/providers/faux.ts` 提供了更丰富的确定性
-provider，可以生成内容、usage、错误和取消事件。课程版只保留按轮脚本和请求快照。
-两者的共同点是遵守真实 provider 使用的流协议，让上层保持同一种消费方式。
+固定提交 `8479bd8` 的 `packages/ai/src/providers/faux.ts` 提供更丰富的确定性 provider，
+可以生成内容、usage、错误和取消事件。课程版把范围缩到两个对象：按 cursor 消费的
+`ScriptedTurn[]`，以及按调用保存的 `requests[]`。两者都遵守真实 provider 使用的流
+协议，因此上层消费者不需要 `if (model is fake)` 分支。
 :::
 
-## 故意把它弄坏
+## Checkpoint 04 验收
 
-一种常见错误是在脚本耗尽时，从 `stream()` 同步抛出异常：
-
-```ts
-stream(): ModelStream {
-  throw new Error("script exhausted");
-}
-```
-
-这样调用者还没拿到流，就被迫处理另一条失败通道。
-
-:::failure title="预期失败 · 让脚本耗尽同步抛错"
-临时把“turn 不存在”的判断移到 `queueMicrotask()` 外，并直接 throw。运行完整
-聚焦测试，第三项测试应立即失败，因为 `stream()` 没有返回事件流。把判断移回
-microtask，恢复为流内 `error` 终态，再确认 3/3 通过。
-:::
-
-## 本章验收
-
-:::checkpoint title="Checkpoint 04 · 模型行为成为可执行规格"
+:::checkpoint title="Checkpoint 04 · 两次调用形成可执行轨迹"
 运行 `npm run build -w @pi/course`，再运行
-`node --test packages/pi-course/dist/test/04-*.test.js`，结果应为 3/3。确认本章
-只新增 `scripted-model.ts`。你要能解释 turn 如何变成事件、为什么 context 必须
-保存快照，以及为什么脚本耗尽和预取消都通过流内终态报告。下一章会保留这套模型
-协议，只把 turn 的来源替换成 OpenAI-compatible transport。
+`node --test packages/pi-course/dist/test/04-*.test.js`，结果应为 `3/3`。确认本章相对
+parent 只增加 `packages/pi-course/src/scripted-model.ts`。
+
+你应能沿同一个实例说清这条链：第一次 context 被克隆进 `requests[0]`，cursor 取
+`turns[0]`；第二次 context 被克隆进 `requests[1]`，cursor 取 `turns[1]`；每次调用先
+返回 stream，microtask 再把选中的最终消息投影成事件。正常消息以 `done` 结束，显式
+错误、脚本耗尽和预取消以 `error` 结束。
 :::
 
 ## 可选迁移练习
 
-:::transfer title="迁移 · 连续播放两个成功回合"
-在独立测试中构造两个 turn：第一轮产生 `toolUse`，第二轮产生普通 `stop`。依次调用
-两次 `stream()`，检查每轮事件和结果都来自对应 turn，并确认 `requests` 保存两次
-调用时的 context 快照。不要读取私有 cursor，也不要为测试增加 `isFake` 分支。
+:::transfer title="迁移 · 两个 text block 的 contentIndex"
+在独立测试中创建一个 turn，content 依次为 `text("A")`、`text("B")`。收集事件并验证
+两个 `text_delta` 的 `contentIndex` 分别为 `0`、`1`；第二个 delta 的 partial 同时包含
+`A` 和 `B`；`result()` 的文本为两行 `A`、`B`。这个练习检验的是“partial 累计到当前
+位置”，不要读取私有 cursor，也不要修改事件协议。
 :::
 
 ## 小结
 
-`ScriptedModel` 是模型协议的一种确定性实现。它把脚本 turn 转成真实事件，保存
-请求发生时的 context，并让成功、错误、脚本耗尽和预取消走同一条流。Agent 上层
-由此获得了稳定的测试基座。下一章接入真实 provider 时，只需证明 adapter 产生
-相同的边界行为，无需另建一套模型接口。
+`ScriptedModel` 的核心对象没有很多：`turns[]` 保存未来结果，cursor 指向下一轮，
+`requests[]` 保存调用时的输入快照，`AssistantMessageEventStream` 接收 microtask 产生
+的事件。两次 `stream()` 调用把 cursor 从 `0` 推到 `2`，同时留下两份互不受后续修改
+影响的 context。
+
+一条纯文本消息先形成 `start → text_delta → done`。加入 tool call 后，中间多出
+`toolcall_delta → toolcall_end`。加入错误后，终态改为 `error`。下一章保留这些模型
+事件，只把 turn 的来源从内存脚本换成 OpenAI-compatible transport。
