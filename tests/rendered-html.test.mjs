@@ -52,7 +52,8 @@ test("章节页暴露真实 commit、parent、测试与陪学协议", async () =
   assert.equal(response.status, 200);
   const html = await response.text();
 
-  assert.match(html, /先观察一次完整的 Agent 运行/);
+  assert.match(html, /一次 README 读取请求怎样走完 Agent 闭环/);
+  assert.match(html, /七个里程碑/);
   assert.match(html, /REAL CHECKPOINT/);
   assert.match(html, /course\/build-your-own-pi/);
   assert.match(html, /f9798b7c/);
