@@ -26,6 +26,10 @@ upstream: packages/ai/src/api/openai-completions.ts
 参数，依次经过 SSE payload、`ProviderChunk`、`ModelEvent`，最后形成 assistant 中的
 tool call。
 
+`call-1` 是 Chapter 05 聚焦测试使用的 Provider fixture id；序章离线轨迹写作 `call_1`，
+两者不是同一次运行。跨章保持不变的是 `read("README.md")` 这项动作，以及同一轮内 id 从
+Provider 输出一直进入 assistant 的配对关系。
+
 ```text
 AgentContext("读取 README.md") → ProviderRequest → HTTP
 AssistantMessage(call-1) ← ModelEvent ← ProviderChunk(index 0) ← SSE payload
