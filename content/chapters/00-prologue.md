@@ -40,18 +40,17 @@ upstream: packages/coding-agent/src/main.ts
 
 ## 七个里程碑
 
-课程中的离线演示固定产生下面七行：
+课程中的离线演示固定产生下面七条记录。`owner` 直接写在每条记录上：
 
 ```text
-01 user_message       "读取 README.md，并概括项目"
-02 model_start
-03 assistant_message  stopReason=toolUse
-   toolCall           id=call_1 name=read arguments={"path":"README.md"}
-04 tool_start         id=call_1
-05 tool_result        id=call_1 isError=false content="# tiny-pi ..."
-06 model_start
-07 assistant_message  stopReason=stop
-   text               "这是一个用于学习 Agent 内核的 TypeScript 项目。"
+01 user_message       owner=user   detail="读取 README.md，并概括项目"
+02 model_start        owner=model  detail="turn=1"
+03 assistant_message  owner=model  detail="stopReason=toolUse name=read"
+   toolCallId=call_1
+04 tool_start         owner=loop   detail="name=read" toolCallId=call_1
+05 tool_result        owner=tool   detail="README fixture" toolCallId=call_1
+06 model_start        owner=model  detail="turn=2"
+07 assistant_message  owner=model  detail="stopReason=stop"
 ```
 
 ### 01 · 用户消息确定本次目标
@@ -80,8 +79,9 @@ assistant message，也没有环境动作发生。
 
 ### 05 · 工具结果成为新的环境事实
 
-`tool_result` 继续使用 `call_1`，并带回 README 的内容。`isError=false` 表示这次读取
-成功。只有这条结果出现以后，后续模型调用才有依据使用文件内容。
+`tool_result` 继续使用 `call_1`，并带回固定的 README 观察结果。下文把它写进 canonical
+transcript 时，会用 `isError=false` 标出读取成功，并把文件内容放进消息。只有这条结果
+出现以后，后续模型调用才有依据使用文件内容。
 
 这一章播放的是固定 fixture。README 的结果已经写在演示数据中，固定 fixture 不执行
 真实的文件读取，也不会修改你的工作区。真实系统到了同一位置时，`read` 工具才会访问
@@ -105,21 +105,21 @@ assistant message，也没有环境动作发生。
 什么。最终文本即使看起来正确，也不能代替缺失的环境事实。
 :::
 
-## 谁产生了这些记录
+## Owner 回顾：三条容易混淆的记录
 
-每条演示事件都有一个 `owner`。`owner` 表示这条事件记录所代表的事实属于谁，不等于
-外层函数调用的发起者。
+轨迹中的 `user_message` 和 `assistant_message` 已经直观标出消息来自用户还是模型。下面
+三条更容易混淆，因为发起调用、调度动作和访问环境分别由不同对象完成：
 
-| 里程碑 | owner | 这条记录表示什么 |
+`owner` 表示这条事件记录所对应的动作来自谁，不等于最外层调用的发起者。
+
+| 记录 | owner | 当前可观察到的动作 |
 |---|---|---|
-| `user_message` | `user` | 用户给出了目标 |
-| 两个 `model_start` | `model` | 一次模型生命周期开始 |
-| 两个 `assistant_message` | `model` | 模型产生了工具请求或最终文本 |
-| `tool_start` | `loop` | 循环开始调度工具调用 |
-| `tool_result` | `tool` | 工具返回了环境观察结果 |
+| `model_start` | `model` | 一次模型生命周期开始 |
+| `tool_start` | `loop` | 循环开始调度 `call_1` |
+| `tool_result` | `tool` | 工具返回 `call_1` 的环境观察结果 |
 
-例如，loop 发起一次模型调用，但 `model_start` 仍记录模型生命周期；模型提出 `read`，
-但 `tool_start` 记录的是 loop 的调度动作；`tool_result` 才属于工具返回的观察结果。
+loop 发起模型调用时，`model_start` 记录的仍是模型生命周期。模型提出 `read` 后，
+`tool_start` 只说明 loop 已开始调度；README 内容要等 `tool_result` 才出现。
 
 `model_start` 和 `tool_start` 都是运行轨迹事件，不是之后会保存进 transcript 的
 `AgentMessage`。它们适合显示进度，却不会成为下一轮模型必须读取的长期事实。
@@ -152,24 +152,32 @@ assistant
 日志前缀和折叠状态不属于消息语义，所以 transcript 保存结构化消息，不保存终端渲染
 后的字符串。
 
-后续章节会逐步实现这些消息以及运送它们的部件。现在只需记住这条重复路径：
+后续章节会逐步实现这些消息以及运送它们的部件。无论内部代码怎样展开，README 请求
+仍沿着同一条可观察路径前进：
 
 ```text
-用户目标
-  → AgentContext
-  → Model.stream()
-  → EventStream<ModelEvent, AssistantMessage>
-  → tool call
-  → 工具执行与 tool result
-  → 更新 AgentContext
-  → 下一次 Model.stream()
-  → stop
+用户给出读取目标
+  → 模型开始第一轮并提出 read
+  → loop 把 call_1 交给工具
+  → 工具返回 README 内容
+  → call_1 的结果加入对话
+  → 模型在第二轮读到新增结果
+  → 模型给出最终回答
 ```
+
+后续代码会给其中几项动作加上组件名。它们与上面的轨迹逐项对应：
+
+| README 请求中的动作 | 后续代码中的名字 |
+|---|---|
+| 汇集当前 system prompt 和有序消息，形成一次模型调用的输入 | `AgentContext` |
+| 让模型开始产生回复 | `Model.stream()` |
+| 逐项交付生成事件，并保留最终 assistant message | `EventStream` |
+| 根据模型的结束原因决定执行工具还是结束运行 | Agent loop |
 
 第 01–05 章会建立消息、事件流、离线模型和 Provider 边界；第 06–08 章接入工具与 Agent
 loop；第 09–11 章让运行可取消、可保存、可恢复，并按预算重建 context；第 12–14 章
-再加入资源、产品入口和系统评测。每一部分都会回到这条主链，只把其中一个位置换成你
-亲手写出的实现。
+再加入资源、产品入口和系统评测。每一部分都会回到这次 README 请求，把其中一个固定
+部件换成可以运行的实现。
 
 :::rebuild title="Checkpoint 00 · 观察固定离线轨迹"
 **模式：** 观察
@@ -208,7 +216,7 @@ Chapter 00 的 practice 会导出 target 供你观察，不要求从空白重写
 **运行：** `npm run build -w @pi/course`，然后运行
 `node --test --test-name-pattern="离线轨迹" packages/pi-course/dist/test/00-*.test.js`
 
-**预期：** 局部测试 `1/1`。轨迹恰好有七项，owner 顺序与上表一致，格式化输出包含
+**预期：** 局部测试 `1/1`。轨迹恰好有七项，owner 顺序与开头轨迹一致，格式化输出包含
 `07 assistant_message`。
 :::
 
@@ -246,17 +254,17 @@ Chapter 00 的 practice 会导出 target 供你观察，不要求从空白重写
 运行 `npm run build -w @pi/course`，再运行
 `node --test packages/pi-course/dist/test/00-*.test.js`，结果应为 `2/2`。
 
-合上正文后，画出 `user → model → tool call → tool result → model → stop`。为每一步标出
-owner，并分别指出谁提出 `read`、谁调度 `read`、谁提供 README 内容。最后说明
-`call_1` 怎样把工具请求和工具结果连在一起。做到这些，你就已经拥有后续十四章会反复
-扩展的系统地图。
+合上正文后，重新写出七条记录并保留每条的 owner。圈出会进入 transcript 的消息，划线
+连接第 03 条 tool call 与第 05 条 tool result，再说明 `model_start` 和 `tool_start`
+为什么只留在运行轨迹中。完成这三项观察，就能区分事实来源、过程事件和下一轮仍需
+读取的消息。
 :::
 
 ## 小结
 
-一次 README 读取请求经过了七个可见里程碑。用户消息给出目标；模型先提出带
-`call_1` 的 `read` 请求；循环开始调度；工具结果把 README 内容变成环境事实；第二次
-模型调用据此给出最终回答。
+同一条 README 请求提供了两种观察角度。`owner` 标出当前事实由谁产生；canonical
+transcript 则保留下一轮仍要读取的 user message、完整 assistant message 和 tool
+result。`model_start` 与 `tool_start` 适合显示进度，不需要进入长期消息。
 
-运行轨迹显示过程，canonical transcript 保存下一轮仍需要的事实。接下来的章节会从
-这条固定轨迹出发，逐件写出消息、事件流、模型、工具、循环和持久化边界。
+`call_1` 把模型的读取意图与工具返回的环境事实配成一对。后续章节会继续使用这条固定
+轨迹，逐件换入消息、事件流、模型、工具、循环和持久化实现。
