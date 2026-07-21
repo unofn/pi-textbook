@@ -607,19 +607,14 @@ node --test packages/pi-course/dist/test/10-*.test.js
 重复 id、缺 parent 与环；JSONL 能区分 committed bad line 和非空白 unterminated tail；一次
 可能半写的 I/O 失败会让当前 writer 停止。
 
-它们没有证明：
+这些证据把 Store 固定在三个范围内：
 
-- 多个实例或多个进程可以安全写同一文件；
-- `appendFile()` 返回后已经 `fsync` 到物理介质；
-- 任意文件系统会原子追加整行；
-- 断尾可以自动备份、截断或修复；
-- 所有未选中分支都通过了整棵树完整性检查；
-- session 已自动接入 `Agent.run_end`；本章只提供 Store 与恢复函数；
-- compaction、token budget 或上下文裁剪已经实现；
-- 超大文件、恶意深度和磁盘配额已有资源限制。
-
-“同一文件只有一个 writer”是调用者的前置条件。`tainted` 也不是修复机制；它只阻止
-当前实例在磁盘状态不确定时继续扩大损坏。
+- JSONL writer 面向单实例、单 writer 使用。`appendFile()` 完成表示操作系统接受了写入，
+  不增加跨进程锁、整行原子追加或 fsync 保证。
+- 恢复函数保留已提交前缀，并把非空白断尾报告给调用者。`tainted` 只让当前 writer 停止
+  追加；备份、截断和修复仍是调用者的恢复决策。
+- `pathTo()` 验证指定 leaf 的祖先链，不扫描所有未选分支，也不承担超大文件的资源治理。
+  Agent 接线、compaction 与 token budget 会在后续章节加入。
 
 :::pi title="与上游 Pi 的固定提交对照"
 
@@ -629,8 +624,8 @@ node --test packages/pi-course/dist/test/10-*.test.js
 
 课程 checkpoint 没有照搬上游全部容错细节。该固定提交会跳过部分无法解析的行，路径
 构造也不负责诊断重复 id、缺 parent 或环。本章采用自己的可执行契约：换行结束的坏行
-立即失败，指定路径必须可验证，公开返回值使用深副本。不要把课程测试固定的保证写成
-上游已经提供的保证。
+立即失败，指定路径必须可验证，公开返回值使用深副本。这些保证属于课程契约，不代表
+固定上游提交已经提供同样行为。
 
 :::
 
