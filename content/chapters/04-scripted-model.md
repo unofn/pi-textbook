@@ -62,8 +62,10 @@ start → text_delta → done
 原来的 `firstContext` 被追加了一条消息；保存下来的第一份请求仍然只有一条消息。
 
 这里暂时用两个纯文本 turn，把 cursor、请求快照和事件时序单独看清。后面会把第一轮
-换回第 03 章熟悉的 `read("README.md")` tool call。`ScriptedModel` 只按调用次数
-播放脚本，不会替 Agent 追加 tool result；真正的两轮工具往返要到第 07 章才接起来。
+换成第 03 章熟悉的 `read("README.md")` 动作。Chapter 04 的聚焦测试把这次调用局部命名为
+`c1`；它不是序章 `call_1` 的跨章延续，只复用相同的 read 动作与 call/result 配对形状。
+`ScriptedModel` 只按调用次数播放脚本，不会替 Agent 追加 tool result；真正的两轮工具往返
+要到第 07 章才接起来。
 
 :::predict title="如果 requests 保存原对象"
 把实现中的 `structuredClone(context)` 改成 `context`。`stream()` 返回以后，调用者向
@@ -306,6 +308,9 @@ const secondTurn = assistantMessage([text("第二轮")]);
 const model = new ScriptedModel([firstTurn, secondTurn]);
 ```
 
+这里的 `c1` 直接对应本章测试 fixture。下一章会切换到 Provider fixture 的 `call-1`，并让
+同一个 id 从 SSE 一直进入最终 assistant；两章观察的是不同边界，不共享一次运行实例。
+
 第一次 context 仍然只取 `firstTurn`，第二次 context 仍然只取 `secondTurn`。变化只发生在
 第一轮的 content：下标 `0` 是 text，下标 `1` 是 tool call。
 
@@ -484,7 +489,7 @@ parent 只增加 `packages/pi-course/src/scripted-model.ts`。
 在独立测试中创建一个 turn，content 依次为 `text("A")`、`text("B")`。收集事件并验证
 两个 `text_delta` 的 `contentIndex` 分别为 `0`、`1`；第二个 delta 的 partial 同时包含
 `A` 和 `B`；`result()` 的文本为两行 `A`、`B`。这个练习检验的是“partial 累计到当前
-位置”，不要读取私有 cursor，也不要修改事件协议。
+位置”。验收只读取公开 events 与 `result()`；私有 cursor 和事件协议保持原样。
 :::
 
 ## 小结
