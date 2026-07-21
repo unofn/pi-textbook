@@ -132,7 +132,7 @@ for await (const event of events) {
 queue = []
 waiting = []
 done = false
-result = pending
+finalResult = pending
 ```
 
 生产者先交出第一项：
@@ -148,7 +148,7 @@ events.push({ type: "delta", value: "A" });
 queue = [delta "A"]
 waiting = []
 done = false
-result = pending
+finalResult = pending
 ```
 
 消费者随后调用 `next()`。迭代器先看 queue，从头取出 `delta "A"`，立刻返回：
@@ -159,7 +159,7 @@ next() → { value: delta "A", done: false }
 queue = []
 waiting = []
 done = false
-result = pending
+finalResult = pending
 ```
 
 再让终态事件先于下一次 `next()` 到达：
@@ -175,7 +175,7 @@ events.push({ type: "done", value: "AB" });
 queue = [done "AB"]
 waiting = []
 done = true
-result = fulfilled("AB")
+finalResult = fulfilled("AB")
 ```
 
 现在内部已经是 `done = true`，queue 却还有一项。因此迭代器每次循环要按照固定顺序
@@ -290,7 +290,7 @@ queue = []
 waiting = [resolve next #1]
 done = false
 pending = pending
-result = pending
+finalResult = pending
 ```
 
 `waiting` 中的这一个 resolve 就是一名 waiter。它代表一项具体请求：“请把下一条
