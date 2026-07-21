@@ -16,7 +16,8 @@ upstream: packages/agent/src/types.ts, packages/agent/src/agent-loop.ts
 
 ## 你将得到什么
 
-第 05 章结束时，模型已经能提出一条完整的 `ToolCall`。现在固定其中一条：
+第 05 章结束时，模型已经能提出一条完整的 `ToolCall`。这一章切换到局部的 echo fixture，
+用最短工具观察 schema、Registry 和 executor：
 
 ```ts
 const echoCall: ToolCall = {
@@ -31,7 +32,8 @@ const echoCall: ToolCall = {
 ```
 
 这条对象记录了模型的请求：调用 `echo`，把 `"Pi"` 交给它。`id: "call-1"` 会一路
-进入执行结果，让下一轮模型知道结果回答的是哪次调用。
+进入执行结果，让下一轮模型知道结果回答的是哪次调用。它不延续第 05 章的 README
+Provider 运行；两章只复用“结果沿用原 call id”这条配对规则。
 
 完成这一章后，下面的调用会正常返回：
 
@@ -467,6 +469,17 @@ node --test --test-name-pattern="Registry" \
 ## executor 按固定顺序完成 echoCall
 
 schema 与 Registry 准备好后，`executeToolCall()` 负责一次完整调用：
+
+```ts
+export async function executeToolCall(
+  call: ToolCall,
+  registry: ToolRegistry,
+  context: Omit<ToolContext, "callId"> = {},
+): Promise<ToolResultMessage>
+```
+
+开篇的 `executeToolCall(echoCall, tools)` 省略第三个参数，所以 `context` 使用空对象。调用者
+要传取消或进度回调时，它才携带 `signal` 与 `reportProgress`。
 
 ```text
 1. registry.get(call.name)
