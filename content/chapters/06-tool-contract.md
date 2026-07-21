@@ -97,7 +97,7 @@ const echoSchema = objectSchema({
   value: stringValue,
 });
 
-const echo: Tool<{ value: string }> = {
+const echo: Tool<{ value: string }, { source: string }> = {
   name: "echo",
   description: "Echo one value",
   schema: echoSchema,
@@ -116,7 +116,29 @@ const tools = new ToolRegistry([echo]);
 Schema。真正执行时，程序从同一个 Registry 中找到 `echo`，调用
 `echo.schema.parse()`，再把解析后的值交给 `echo.execute()`。
 
-`Tool` 接口把这两面放在同一个对象里：
+`echo.execute()` 除了参数，还会收到本次调用的身份与控制信号；它返回给 executor 的对象
+则同时携带模型正文和程序细节。先把这两个对象写完整：
+
+```ts
+export interface ToolContext {
+  callId: string;
+  signal?: AbortSignal;
+  reportProgress?(content: TextContent[]): void;
+}
+
+export interface ToolOutput<D = unknown> {
+  content: TextContent[];
+  details?: D;
+  isError?: boolean;
+}
+```
+
+执行开头的 `echoCall` 时，`ToolContext.callId` 是 `"call-1"`。`signal` 与
+`reportProgress` 由调用者按需提供。echo 返回的 `content` 是 `[text("Pi")]`，`D` 则把
+`details` 的类型固定为 `{ source: string }`；省略 `isError` 表示 executor 最后写入
+`false`。
+
+`Tool` 把 Provider 可见的描述、运行时 schema 和本地函数放在同一个对象里：
 
 ```ts
 export interface Tool<P, D = unknown> {
@@ -130,8 +152,9 @@ export interface Tool<P, D = unknown> {
 }
 ```
 
-`P` 是工具真正接收的参数类型。模型生成的 `ToolCall.arguments` 仍是 `unknown`；只有
-`schema.parse()` 成功后，executor 才得到 `P`。
+`P` 是工具真正接收的参数类型，`D` 是 `details` 的类型。模型生成的
+`ToolCall.arguments` 仍是 `unknown`；只有 `schema.parse()` 成功后，executor 才得到
+`P`，也只有 `execute()` 返回后才得到 `ToolOutput<D>`。
 
 这条调用要保持一个配对规则：executor 收到 `call-1/echo`，无论成功还是失败，返回的
 消息都继续使用 `toolCallId: "call-1"` 和 `toolName: "echo"`。结果可以报告错误，但
@@ -218,9 +241,21 @@ echoSchema.parse({
 `parse()` 只遍历 schema 声明的字段，因此 `ignored` 被过滤。原始 arguments 没有被
 修改。`echo.execute()` 只会看到返回的新对象。
 
-### validator 是一个带元数据的函数
+### validator 是可调用函数，也是带元数据的对象
 
-最小的 `stringValue` 既能调用，也保存自己的 JSON Schema：
+`echoSchema` 的 shape 写成 `{ value: stringValue }`。`objectSchema()` 既要调用
+`stringValue` 检查实际字段，也要读取它的 JSON Schema 和可选标记。`Validator<T>` 因而
+是函数类型与元数据对象的交叉类型：
+
+```ts
+export type Validator<T> = ((value: unknown) => T) & {
+  jsonSchema?: Record<string, unknown>;
+  optional?: boolean;
+};
+```
+
+`&` 表示同一个值同时满足两边：它可以像函数一样接收 `unknown` 并返回 `T`，也可以通过
+属性暴露 `jsonSchema` 与 `optional`。`stringValue` 就是这样一个值：
 
 ```ts
 export const stringValue: Validator<string> = Object.assign(
@@ -234,8 +269,37 @@ export const stringValue: Validator<string> = Object.assign(
 );
 ```
 
-`Object.assign()` 把函数和元数据放到同一个值上。`objectSchema()` 可以调用这个函数
-检查字段，也可以读取 `stringValue.jsonSchema` 生成 Provider 定义。
+连续观察它的三个表面：
+
+```ts
+console.log(stringValue("Pi"));
+console.log(JSON.stringify(stringValue.jsonSchema));
+console.log(stringValue.optional);
+```
+
+```text
+Pi
+{"type":"string"}
+undefined
+```
+
+第一行执行 validator，得到经过检查的字符串。第二行读取同一个值上的 Provider 描述。
+第三行是 `undefined`，所以 `objectSchema()` 会把 `value` 放进 `required`。
+
+类型推导也从这份 shape 开始。把实现体折叠后，`objectSchema()` 的签名逐个取得
+validator 的 `ReturnType`：
+
+```ts
+export declare function objectSchema<
+  TShape extends Record<string, Validator<unknown>>,
+>(shape: TShape): Schema<{
+  [TKey in keyof TShape]: ReturnType<TShape[TKey]>;
+}>;
+```
+
+对 `{ value: stringValue }` 来说，键仍是 `value`，而
+`ReturnType<typeof stringValue>` 是 `string`，所以 `echoSchema.parse()` 的结果类型是
+`{ value: string }`。这正是前面 `Tool<{ value: string }>` 中的参数类型。
 
 课程还提供两个可选字段 validator：
 
@@ -248,8 +312,8 @@ const requestSchema = objectSchema({
 ```
 
 `optionalString` 接受字符串或 `undefined`。`optionalPositiveInteger` 接受大于等于 1 的
-整数或 `undefined`。它们带有 `optional: true`，所以 `label` 和 `limit` 不进入 JSON
-Schema 的 `required` 数组。
+整数或 `undefined`。两者的 `.optional` 都是 `true`，所以 `label` 和 `limit` 不进入
+JSON Schema 的 `required` 数组；它们的返回类型也分别进入最终对象。
 
 用测试中的完整值调用 `parse()`：
 
@@ -275,8 +339,8 @@ requestSchema.parse({
 省略可选字段时，返回对象保留字段名，值为 `undefined`。`null`、数组、`value: 1` 和
 `limit: 0` 分别在对象检查或字段 validator 中被拒绝。
 
-`objectSchema()` 的泛型会根据每个 validator 的返回类型推导结果字段。实现部分只需
-完成运行时遍历和 JSON Schema 生成，不用重写这段映射类型。
+这时推导结果是 `{ value: string; label: string | undefined; limit: number | undefined }`。
+练习脚手架已经声明上述类型关系；Lab 6.1 只需完成运行时遍历和 JSON Schema 生成。
 
 :::predict title="模型已经看过 schema，parse 还能省略吗"
 Provider 请求带有 `additionalProperties: false`，模型仍返回
@@ -354,19 +418,16 @@ tools
 ]
 ```
 
-Registry 不会自己接入模型。组合代码要显式把这些定义放进本轮 context：
+Registry 不会自己调用模型。本章已有的 `tools` 可以先交出这份 Provider 输入：
 
 ```ts
-const stream = model.stream({
-  systemPrompt: options.context.systemPrompt,
-  messages,
-  tools: options.tools.definitions(),
-});
+const availableTools = tools.definitions();
 ```
 
-到了第 05 章的 Provider adapter，`context.tools` 才由
-`toProviderTools(context.tools)` 翻译进请求。这段连接代码不在本章的 4 项聚焦测试里；
-它只是说明 Registry 的输出怎样抵达上一章已经写好的边界。
+`availableTools` 就是上面显示的数组，类型为 `ToolDefinition[]`。它可以直接成为第 05 章
+`AgentContext.tools` 的值，再由 Provider adapter 翻译成 wire tools。第 07 章会用同一个
+`tools` 构造实际模型请求；这里先固定 Registry 交出的对象，不提前引入尚未出现的
+`model`、`options` 或局部消息数组。
 
 `tools.get("echo")` 则返回完整的 echo 对象，包括同一份 schema 和 `execute()`。模型
 可见的定义与 executor 能找到的实现由同一张表产生。
@@ -565,25 +626,13 @@ execute；工具抛错后仍返回同 id/name 的错误消息。
 progress、details、显式领域错误和有限 timestamp。
 :::
 
-## 四种结果放在一起看
+:::note title="本章固定的执行范围"
+4 项聚焦测试把三道边界固定下来：validator 生成 schema 并过滤字段；Registry 从同一组
+工具产生 Provider 定义和本地实现；执行器按 `lookup → parse → execute → result` 返回
+配对消息，并把 signal、progress callback 与 details 交到约定位置。
 
-沿着同一条执行顺序，可以定位每种结果第一次分开的地方：
-
-| 输入变化 | lookup | parse | execute | 结果 |
-|---|---:|---:|---:|---|
-| 合法 echo | 找到 | 成功并过滤字段 | 运行 | `isError=false` |
-| `value: 1` | 找到 | 失败 | 不运行 | echo 的配对错误 |
-| `name: missing` | 未找到 | 不运行 | 不运行 | missing 的配对错误 |
-| echo 抛出 `exploded` | 找到 | 成功 | 进入后抛错 | echo 的配对错误 |
-
-`failedResult()` 让后三行拥有相同消息外壳。失败阶段不同，原调用的 id 与 name 始终
-保留。下一轮模型既能看到动作失败，也能知道失败属于哪次请求。
-
-:::note title="四项测试覆盖到哪里"
-聚焦测试覆盖 validator、Registry、成功执行、未知工具、参数错误、工具异常和显式
-领域错误。它们证明 signal 与 progress callback 会传到工具，没有证明工具会及时响应
-取消，也没有规定多个工具的并发顺序。测试没有覆盖 Registry 的跨运行生命周期、预取消
-或完整脱敏策略。
+signal 到达工具，只能说明控制信息已经传递。这没有证明工具会及时响应取消；单次
+`executeToolCall()` 也不定义多个工具的并发顺序。
 :::
 
 :::pi title="与当前上游 Pi 对照"
@@ -621,14 +670,17 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/06-*.test.js
 ```
 
-结果应为 `4/4`。测试之外，再用开头的 `echoCall` 说明六个值：
+结果应为 `4/4`。测试之外，把开头的 `echoCall` 写成一行可检查的执行记录：
 
-1. Provider 从 `definitions()` 看到了哪些字段；
-2. `parse()` 收到什么，交给 `execute()` 的对象又是什么；
-3. Registry 怎样限定这次运行可查找的工具名；
-4. 参数错误为什么不会增加 execution count；
-5. content 与 details 分别交给谁使用；
-6. 成功、未知工具、参数错误与工具异常为什么都保留原 id/name。
+```text
+echoCall.arguments
+  → echoSchema.parse() 得到 { value: "Pi" }
+  → echo.execute() 返回 content 与 details
+  → ToolResultMessage 保留 call-1/echo
+```
+
+再把 `value` 改成 `1`，标出执行记录第一次分开的步骤，并确认 execution count 不增加。
+这两条记录分别验收正常路径和“非法参数不会进入工具”这项执行边界。
 
 `npm run checkpoint -w @pi/course -- 06` 可以重新定位 parent 与 target；
 `npm run practice -w @pi/course -- 06 <新目录>` 会从同一 parent 创建隔离练习目录。
@@ -647,10 +699,9 @@ executor。
 
 ## 小结
 
-一条 `echoCall` 先用 name 在 Registry 中找到工具。schema 的 `jsonSchema` 描述模型
-应该生成的参数，`parse()` 检查实际 arguments，并过滤未声明字段。executor 只把解析
-成功的新对象交给 `execute()`。
+同一个 `Tool` 是两条路径的共同来源：`definitions()` 取出模型可见的名称、说明与
+JSON Schema，executor 则取得本地 schema 和 `execute()`。Registry 决定本次运行允许
+哪组 Tool 进入这两条路径。
 
-工具返回的 content 会进入下一轮模型上下文，details 留给程序使用。成功、参数错误、
-未知工具和工具异常都变成 `ToolResultMessage`，并继续使用原调用的 id 与 name。下一章
-会把这些配对结果按顺序写回完整反馈回路。
+executor 把 lookup、parse 与 execute 的不同结局收束成一种 `ToolResultMessage`，因此
+第 07 章可以始终按 call id 写回结果，再继续 Agent Loop。
