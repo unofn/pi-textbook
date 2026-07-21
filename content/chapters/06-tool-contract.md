@@ -644,8 +644,9 @@ progress、details、显式领域错误和有限 timestamp。
 工具产生 Provider 定义和本地实现；执行器按 `lookup → parse → execute → result` 返回
 配对消息，并把 signal、progress callback 与 details 交到约定位置。
 
-signal 到达工具，只能说明控制信息已经传递。这没有证明工具会及时响应取消；单次
-`executeToolCall()` 也不定义多个工具的并发顺序。
+`signal` 传入工具后，执行器完成的是控制信息的交接。工具何时检查 signal、能否及时停下，
+由工具实现决定。`executeToolCall()` 只描述一次调用；多个工具怎样排队或并行，由调用它的
+loop 负责。
 :::
 
 :::pi title="与当前上游 Pi 对照"
