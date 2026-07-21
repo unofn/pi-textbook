@@ -14,84 +14,87 @@ terms: history, context projection, token budget, interaction boundary, compacti
 upstream: packages/coding-agent/src/core/compaction/compaction.ts
 ---
 
-## 你将得到什么
+## 同一段历史会产生一份更短的模型输入
 
-第 10 章已经把完整消息保存成一棵追加式历史树。它可以一直增长，但模型窗口不会一起
-增长。如果为了省 token 直接删除旧记录，分支、恢复和审计都会失去事实依据。
+第 10 章最后得到的是一条 active path。这里沿用这个输入接口，但换成一组便于手算预算
+的九条 message entries。表中最后一列是测试估算器给每条消息返回的 token 数，不是真实
+provider 的 tokenizer 结果。
 
-本章只增加一种复杂性：**从不改写的历史中，派生本次模型真正要看的有限上下文。**
-完成后，你会得到：
+| entry id | message | 估算 token |
+|---|---|---:|
+| `u1` | user：检查 session 恢复逻辑 | 3 |
+| `a1` | assistant：活动路径只恢复选中分支 | 4 |
+| `u2` | user：确认 JSONL 写入边界 | 3 |
+| `a2` | assistant：换行提交，未提交尾部只读恢复 | 4 |
+| `u3` | user：读取实现并运行聚焦测试 | 3 |
+| `calls` | assistant：调用 `read-1` 和 `test-1` | 3 |
+| `r-test` | toolResult(`test-1`)：14 tests passed | 3 |
+| `r-read` | toolResult(`read-1`)：context.ts loaded | 3 |
+| `a3` | assistant：实现与测试一致 | 3 |
 
-- `CompactionSessionEntry`：把一份结构化摘要追加到 session；
-- `groupInteractions()`：按用户回合和工具 `callId` 组成不可拆分的交互；
-- `buildContext()`：先扣除 system、输出预留和安全余量，再选择最近的完整交互；
-- `createCompactionEntry()`：只创建一条新的摘要记录，不修改历史，也不偷偷写 Store；
-- 可重复的恢复规则：只使用活动路径上最新摘要，再接上它要求保留的消息后缀。
+`calls` 先声明 `read-1`，随后声明 `test-1`。测试先完成，所以 `r-test` 在路径中排在
+`r-read` 前面。每个 result 仍可通过 `toolCallId` 找回自己的 call。
 
-本章只有一个总原则：
-
-> 历史回答“发生过什么”；上下文回答“这次模型需要看到什么”。压缩改变后者，不改写
-> 前者。
-
-## 为什么第 11 章放在这里
-
-上下文压缩必须晚于 session。没有第 10 章的稳定身份和活动路径，所谓“删掉旧消息”
-既无法说明删的是哪条分支，也无法在重启后得到同一结果。
-
-它又必须早于资源和扩展。第 12 章会把项目说明、Skill 和扩展提供的提示加入 system
-prompt；这些内容同样占模型窗口。先把预算入口固定下来，后续资源才能作为明确输入接
-进来，而不是在各处自行裁剪消息。
+`groupInteractions()` 以 user 消息为起点，把这九条记录分成三组：
 
 ```text
-第 10 章：选中一条真实、可恢复的历史路径
-        ↓
-第 11 章：从这条路径派生有限上下文
-        ↓
-第 12 章：把本轮资源提示加入同一个预算入口
+group 1 = [u1, a1]
+group 2 = [u2, a2]
+group 3 = [u3, calls, r-test, r-read, a3]
 ```
 
-## 开始动手
+第三组包含 user、两个 tool call、两个 result 和最终 assistant。它是预算可以整体保留
+或整体丢弃的最小单位。result 的出现顺序不影响配对，也不会把这一组拆开。
 
-仍然在教学历史仓库中生成隔离练习：
+现在把这条活动路径交给 `buildContext()`。例子中的 `maxTokens` 是 31；system prompt
+占 3，回答预留 4，安全余量占 2。消息还剩 22。三组成本依次为 7、7、15，所以函数从
+最新一组向前选择，结果正好保留第二、三组：
 
-```bash
-cd <你的工作区>/pi-course
-npm run practice -w @pi/course -- 11 <新目录>
-cd <新目录>
-npm install
+```ts
+{
+  systemPrompt: "sys",
+  keptEntryIds: [
+    "u2", "a2",
+    "u3", "calls", "r-test", "r-read", "a3",
+  ],
+  reason: "trimmed",
+  tokens: {
+    maxTokens: 31,
+    system: 3,
+    messages: 22,
+    reservedOutput: 4,
+    safetyMargin: 2,
+    availableForMessages: 22,
+    total: 31,
+  },
+}
 ```
 
-本章只修改：
+`u1` 和 `a1` 仍在 session 中，只是没有进入这次模型请求。这里的有限消息数组叫
+context projection，也就是从历史派生出的临时视图。换一个模型窗口或预留量，同一段
+历史可以得到另一份视图。
 
-```text
-packages/pi-course/src/session.ts
-packages/pi-course/src/context.ts
-```
+:::rebuild title="Checkpoint 11 · 从固定 transcript 派生有限上下文"
+**模式：** 重建
 
-`session.ts` 保留第 10 章的完整实现，只把 compaction 的类型和运行时解析留给你。
-`context.ts` 已固定分组、预算、创建摘要和恢复所需的公共签名。不要复制旧版
-`safeTail()`、`compact()` overload 或自动 summarizer；它们不属于本章契约。
-
-:::rebuild title="Checkpoint 11 · 分五步从历史派生有限上下文"
-**模式：** 重建。从 10 的 `target` 开始，历史仍然追加，模型视图开始受到预算约束。
-
-**起终点：** `parent` 是本章开始时的起点快照；`target` 是 14 项聚焦测试通过的
-终点快照。
+**起终点：** `parent` `555162636bf0a8fd6e667e366d0103891cef1d6c` 是第 10 章完成后的起点；
+`target` `5fb517c2012d8e6227c0e17ee65e530e18ac13e6` 是 compaction 记录、上下文投影和
+14 项聚焦测试完成后的终点。
 
 **教学文件：** `packages/pi-course/src/session.ts`、
 `packages/pi-course/src/context.ts`
 
-**学习脚手架：** 两个文件都能编译。`session.ts` 只缺 compaction 运行时分支；
-`context.ts` 的每项公共函数都在对应 Lab 抛出明确异常。
+**学习脚手架：** parent 中还没有 `context.ts`。practice 会加入
+`starters/11-context.ts`，并用 `starters/11-session.ts` 保留第 10 章能力。公共类型和
+函数签名已经固定；五个 Lab 的分支分别抛出明确异常。
 
-**动手前只需知道：** 一个 interaction 从 user 消息开始，到下一个 user 消息之前
-结束。该段中的每个 tool call 都必须有同 `callId` 的唯一 toolResult。预算只能在
-interaction 之间裁剪。
+**动手前只需知道：** user message 开始一个 interaction，直到下一条 user message；
+组内每个 tool call 都由 `toolCallId` 找到唯一 result。预算只在这些完整组之间裁剪。
 
-**第一步：** 先让 `parseSessionEntry()` 识别严格的 compaction entry，并确认两种
-Store 都能写入和重新打开它。暂时不要写预算算法。
+**第一步：** 先不看 target diff，让 `parseSessionEntry()` 收窄一条正常的 compaction
+记录，并让两种 Store 写入、读回它。预算选择留到后面的 Lab。
 
-**第一次红灯：** 初始 build 应通过；首次只运行 Lab 11.1 时，三项都应准确显示
+**第一次红灯：** 初始 build 可以通过。只运行 Lab 11.1 时，三项测试都停在
 `Lab 11.1 compaction entry 尚未实现`。
 
 **聚焦测试：** `packages/pi-course/test/11-context-compaction.test.ts`
@@ -101,66 +104,18 @@ Store 都能写入和重新打开它。暂时不要写预算算法。
 **练习目录：** `npm run practice -w @pi/course -- 11`
 
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
-`node --test packages/pi-course/dist/test/11-*.test.js`。
+`node --test packages/pi-course/dist/test/11-*.test.js`
 
-**通过证据：** 14 项测试按 `3/3 → 3/3 → 3/3 → 2/2 → 3/3` 检查摘要记录、完整
-交互、预算投影、纯创建和重复恢复。
-
-第一次尝试先不看 target diff。卡住时，让陪练只画当前 Lab 的数据流。不要在写分组时讨论摘要，也不要在写摘要时
-引入真实模型。
+**通过证据：** 14 项测试按 `3/3 → 3/3 → 3/3 → 2/2 → 3/3` 覆盖记录解析、
+交互分组、预算投影、摘要创建和重复恢复。
 :::
 
-## 先建立全景
+## 摘要先成为 session 中的一条普通事实
 
-先分清历史和上下文。
-
-一次请求的数据流是：
-
-```text
-SessionEntry 全集
-  → pathTo(entries, leafId)
-  → active path                       历史层在这里结束
-  → 最新 compaction + 保留后缀
-  → 完整 interaction 分组
-  → system / output / margin 预算
-  → BuildContextResult                本轮模型输入
-```
-
-Session Store 拥有写入权。`buildContext()` 只有读取权；它不选择 leaf，也不把结果写回
-session。相同历史可以针对不同模型窗口生成不同上下文，只要过程确定且来源可追踪，
-这并不表示历史互相矛盾。
-
-调试时也按这条边界排查：
-
-1. 事实不在 active path：检查写入或分支选择；
-2. 事实在 active path、没有进入结果：检查 compaction 或预算；
-3. 事实已经进入结果、模型仍答错：再检查模型行为。
-
-:::predict title="预算只够三条消息时，能不能直接取尾部"
-最后五条消息是 user、assistant(call c1)、toolResult(c1)、assistant(done)，再加上一条
-更早的 assistant。若预算只够三条，直接 `slice(-3)` 会得到什么？它还能作为合法模型
-上下文吗？
----answer
-它会从 toolResult 开始，模型看不到声明 c1 的 assistant，也不知道这条结果回答了哪次
-调用。预算选择必须先把 user 开始的完整 interaction 组成一组，再整组保留或整组
-丢弃；如果最新一组单独就超限，也要完整返回并报告 `single_group_overflow`。
-:::
-
-## 第一步：让摘要成为可持久化事实
-
-课程只保留一套结构化摘要：
+当较早的消息以后不再原样进入模型窗口，session 需要留下它们的结构化摘要。摘要不是
+对原记录的覆盖；它是一条追加到当前 leaf 后面的 `CompactionSessionEntry`：
 
 ```ts
-interface CompactionSummary {
-  goal: string;
-  constraints: string[];
-  completed: string[];
-  decisions: string[];
-  changedFiles: string[];
-  unresolved: string[];
-  next: string[];
-}
-
 interface CompactionSessionEntry {
   id: string;
   parentId: string;
@@ -172,34 +127,44 @@ interface CompactionSessionEntry {
 }
 ```
 
-每个字段都有单一含义。`firstKeptEntryId` 指向摘要之后仍要原样保留的第一个
-interaction；`tokensBefore` 记录创建摘要时的估算规模，用于诊断，不参与树结构。
+继续使用开篇路径，可以创建 `compact-1`，让它的 `parentId` 指向当前末尾 `a3`。
+`firstKeptEntryId: "u2"` 表示恢复时从第二组开始保留原消息。`tokensBefore` 由调用者
+写入，用来记录压缩前的估算规模；parser 只检查它是非负有限数，不会重新估算并核对该值。
 
-compaction 必须有 parent，因为它总结的是一条已经存在的活动路径。`tokensBefore`
-必须是非负有限数。七个摘要字段全部必填；不要接受旧版 `files`、`nextSteps`、
-`invariants`，也不要保留两套 schema 再相互转换。
+`summary` 的七个字段分别保存目标、约束、已完成事项、决策、变更文件、未解决事项和
+下一步：
 
-`parseSessionEntry()` 继续承担外部数据边界。实现顺序如下：
+```ts
+interface CompactionSummary {
+  goal: string;
+  constraints: string[];
+  completed: string[];
+  decisions: string[];
+  changedFiles: string[];
+  unresolved: string[];
+  next: string[];
+}
+```
 
-1. 增加严格的 `summaryAt()`，拒绝缺字段、多余字段和非字符串数组；
-2. 在 entry 判别分支中加入 `type === "compaction"`；
-3. 复用第 10 章的非空字符串、有限数和普通 JSON 对象检查；
-4. 返回新对象，不与输入 summary 数组共享引用。
+`parseSessionEntry()` 逐字段读取外部对象。`goal`、`parentId` 和
+`firstKeptEntryId` 不能为空；数组中的每一项都是字符串；`tokensBefore` 是非负有限数。
+解析器返回新对象，因此调用者之后修改 summary 数组也不会改动 Store 中的记录。
 
-两种 Store 不需要新增特殊逻辑。它们都通过 `parseSessionEntry()` 取得快照，所以 union
-和解析器正确后，内存与 JSONL 自然能够保存新记录。
+第 10 章的两个 Store 已经统一通过 `parseSessionEntry()` 获取写入快照。union 和解析
+分支补齐后，`InMemorySessionStore` 与 `JsonlSessionStore` 不需要新增 compaction 专用
+写入代码。JSONL 重新打开时，同一条解析路径会恢复 `compact-1`。
 
-:::lab title="实践 11.1 · 持久化一条严格的 compaction 记录"
-**目标：** 让摘要使用唯一 schema，并能跨 JSONL 重开。
+:::lab title="实践 11.1 · 保存并重开一条 compaction 记录"
+**目标：** 让结构化摘要经过运行时收窄后进入两种 Store，并保持副本隔离。
 
 **文件：** `packages/pi-course/src/session.ts`
 
 **动作：**
-1. 加入 `CompactionSummary`、`CompactionSessionEntry` 和 union 分支。
-2. 逐字段收窄七项摘要内容。
-3. 要求非空 `parentId`、非空 `firstKeptEntryId` 和非负有限 `tokensBefore`。
-4. 拒绝缺字段、多余字段、旧字段和错误数组成员。
-5. 验证解析结果与输入不共享 summary 数组。
+1. 确认 `CompactionSummary`、`CompactionSessionEntry` 和 `SessionEntry` union 的形状。
+2. 为七个 summary 字段实现严格解析。
+3. 在 `parseSessionEntry()` 中读取非空 parent、first kept 和非负有限 tokens。
+4. 让解析结果与输入的 summary、数组都不共享引用。
+5. 用测试中的正常记录检查内存写入、JSONL 写入和重新打开。
 6. 删除 Lab 11.1 的显式异常，只运行本段测试。
 
 **运行：**
@@ -210,47 +175,41 @@ node --test --test-name-pattern="Lab 11.1" \
   packages/pi-course/dist/test/11-*.test.js
 ```
 
-**预期：** `3/3`。第三项会把记录依次写入内存和 JSONL Store，再重新打开文件；不是
-只检查 TypeScript 类型。
+**预期：** `3/3`。第三项确实关闭并重新打开 JSONL Store，不只检查 TypeScript 类型。
 :::
 
-## 第二步：预算不能拆开一次完整交互
+## 两个 tool result 仍属于 `u3` 开始的同一组
 
-按“最后 N 条消息”裁剪会留下孤立工具结果：
+`groupInteractions()` 接收活动路径中的 message entries。它遇到 `u1` 时创建第一组，
+遇到 `u2` 时结束第一组并创建第二组，遇到 `u3` 时做同样的事。路径结尾再结算第三组。
+
+组内的工具事实靠 id 核对。处理 `calls` 时，函数记录 `read-1` 和 `test-1`；处理
+`r-test`、`r-read` 时，它读取各自的 `toolCallId`。所以结果反序出现仍然合法，返回的
+entries 保持原路径顺序：
 
 ```text
-user(u)
-assistant(call c1, call c2)
-toolResult(c2)             完成顺序可以反过来
-toolResult(c1)
-assistant(done)
+[u3, calls, r-test, r-read, a3]
 ```
 
-这五条属于同一个 interaction。判断依据不是数组相邻，而是：
+分组函数不会把 `r-test` 重排到 `r-read` 后面。它只在同一 user group 内建立 callId
+集合配对：call id 唯一、result id 存在且唯一、每个 call 最终有 result。它不验证完整
+工具时序。`a3` 在这个 fixture 中是终态回答，因此也留在同一组中。
 
-- user 开始新组；
-- assistant 中的每个 tool call id 在本组唯一；
-- toolResult 用 `toolCallId` 找到本组内的 call；
-- 到下一个 user 或路径结束时，每个 call 都有且只有一个 result。
+预算层之所以使用 group，而不是直接使用 message，是因为裁剪位置只能落在 `a1/u2`
+或 `a2/u3` 之间。落在 `calls/r-test`、`r-test/r-read` 或 `r-read/a3` 之间都会丢掉一次
+工具往返的一部分。
 
-因此要拒绝四类损坏：第一个 user 之前出现消息、孤立 result、重复 call/result、缺失
-result。错误必须带上相关 entry 或 `callId`，否则预算层只会在更晚的位置报出难懂
-错误。
-
-`groupInteractions()` 返回记录副本，而不是直接引用输入。后面的预算选择和测试故障
-注入都不能改写 session 历史。
-
-:::lab title="实践 11.2 · 用 callId 组成完整 interaction"
-**目标：** 得到预算可以安全保留或丢弃的最小单位。
+:::lab title="实践 11.2 · 用 user 边界和 callId 组成 interaction"
+**目标：** 把开篇 transcript 分成三个可整体选择的组，同时保留工具结果的实际顺序。
 
 **文件：** `packages/pi-course/src/context.ts`
 
 **动作：**
-1. user 消息开始一个新组；结束上一组前先验证工具配对。
-2. 收集 assistant 中的 tool call id。
-3. 用 `toolCallId` 配对结果，允许结果记录反序出现。
-4. 拒绝 user 前消息、orphan、duplicate 和 missing tool fact。
-5. 返回深副本。
+1. user message 到达时结算上一组并开始新组。
+2. 从 assistant content 中收集本组的 tool call id。
+3. 用 `toolCallId` 配对 result，不依赖相邻位置或完成顺序。
+4. 组结束时确认 call/result 完整且唯一。
+5. 通过 `parseSessionEntry()` 或等价严格边界返回深副本。
 6. 删除 Lab 11.2 的显式异常，只运行本段测试。
 
 **运行：**
@@ -261,54 +220,59 @@ node --test --test-name-pattern="Lab 11.2" \
   packages/pi-course/dist/test/11-*.test.js
 ```
 
-**预期：** `3/3`。一项覆盖普通分组，一项证明反序 result 仍按 id 配对，另一项集中
-检查损坏输入。
+**预期：** `3/3`。正常分组与反序 result 各有一项；第三项集中检查损坏的工具事实。
 :::
 
-## 第三步：先扣固定成本，再选择最近的完整组
+## 31 个 token 怎样留下第二、三组
 
-本章不假装实现某家模型的精确 tokenizer。调用者注入同一个
-`estimateTokens(value)`，测试用确定性数字固定选择结果。预算公式是：
+`buildContext()` 不负责从整棵 session tree 选择 leaf。调用者先用第 10 章的 `pathTo()`
+得到活动路径，再把这条路径和预算选项传进来：
 
-```text
-messages 可用额度
-  = maxTokens
-  - system prompt
-  - reservedOutput
-  - safetyMargin
+```ts
+buildContext(activePath, {
+  maxTokens: 31,
+  systemPrompt: "sys",
+  reservedOutput: 4,
+  safetyMargin: 2,
+  estimateTokens,
+});
 ```
 
-`reservedOutput` 给本轮回答留空间，`safetyMargin` 吸收估算误差。三者都必须是非负
-有限数，估算器返回负数或非有限数也要拒绝。
+这个例子的扣除过程可以直接列成表：
 
-选择算法从最新 interaction 向前累加：
+| 项目 | token | 扣除后的消息额度 |
+|---|---:|---:|
+| `maxTokens` | 31 | 31 |
+| system prompt | 3 | 28 |
+| `reservedOutput` | 4 | 24 |
+| `safetyMargin` | 2 | 22 |
 
-```text
-先完整保留最新组
-  → 它单独超限：仍完整返回，reason=single_group_overflow
-  → 没超限：继续尝试加入前一组
-  → 下一组放不下：停在组边界，reason=trimmed
-  → 全部放下：reason=within_budget
-```
+`reservedOutput` 给本轮 assistant 回复留空间，`safetyMargin` 吸收估算误差。四个配置数值
+和估算器的每次返回值都要是非负有限数。固定成本超过总窗口时，消息额度降到 0，不会
+变成负数。
 
-单组超限时不能从中间切开工具往返。显式返回 overflow，让上层决定是否生成摘要、压缩
-超大工具结果或换模型。
+剩下的 22 从最新组向前使用。第三组成本 15，放得下；加上第二组正好是 22；再加第一
+组会变成 29，于是选择停在 `u2`。`keptEntryIds` 记录原始 entry 的来源，返回的
+`messages` 则是这些 entry 中消息的深副本。计入预算的 `systemPrompt` 也随结果返回，
+第 13 章可以把两者一起交给模型。
 
-结果必须同时返回 `systemPrompt` 和 `messages`。system prompt 既然计入预算，就不能
-只用于统计后丢掉；第 12、13 章会把这份完整投影直接交给模型。
+另一个边界仍使用开篇第三组。假设消息额度只有 10，而第三组单独需要 15，函数仍返回
+完整的 `[u3, calls, r-test, r-read, a3]`，并把 reason 设为
+`single_group_overflow`。结果允许超过 `maxTokens`，因为当前函数不能安全地从组内剪掉
+call、result 或终态回答。上层看到这个 reason 后再决定摘要、缩短工具输出或换模型。
 
-:::lab title="实践 11.3 · 在完整组边界选择预算后缀"
-**目标：** 让每项固定成本可见，并且任何结果都保持工具协议完整。
+:::lab title="实践 11.3 · 在完整 group 边界选择消息后缀"
+**目标：** 让固定成本和消息选择都能从返回值中核对，最新超限组仍保持完整。
 
 **文件：** `packages/pi-course/src/context.ts`
 
 **动作：**
-1. 检查 max、输出预留、安全余量和估算值。
-2. 计算 system 成本和 messages 可用额度。
-3. 调用 `groupInteractions()`，从最新组向前累加。
-4. 单个最新组超限时完整保留并返回 `single_group_overflow`。
-5. 返回 `systemPrompt`、消息深副本、保留的 entry id、原因和分项 token。
-6. 不修改 active path 或估算器收到的消息对象。
+1. 收窄 max、输出预留、安全余量和估算器返回值。
+2. 计算 system 成本与 `availableForMessages`。
+3. 调用 `groupInteractions()`，从最新组向前累加成本。
+4. 最新组单独超限时完整保留，并返回 `single_group_overflow`。
+5. 返回 system prompt、消息副本、来源 id、reason 和各项 token 数。
+6. 确认估算器收到的是消息副本，返回结果也不引用 active path。
 7. 删除 Lab 11.3 的显式异常，只运行本段测试。
 
 **运行：**
@@ -319,44 +283,47 @@ node --test --test-name-pattern="Lab 11.3" \
   packages/pi-course/dist/test/11-*.test.js
 ```
 
-**预期：** `3/3`。三项分别检查固定成本、单组超限和多组边界。
+**预期：** `3/3`。三项分别固定预算扣除、最新单组超限和多组裁剪边界。
 :::
 
-## 第四步：创建摘要记录，不替调用者写入
+## `compact-1` 记录摘要与保留起点
 
-`createCompactionEntry(activePath, input)` 只做一件事：返回一条经过验证、可以交给
-Store 的新记录。
+开篇的预算结果丢弃了第一组，但 `buildContext()` 只读，不会自动生成摘要。调用者准备好
+结构化 summary 后，再调用：
 
-```text
-activePath 最后一条 id
-  → 新 compaction.parentId
-
-input.firstKeptEntryId
-  → 必须是 activePath 中某个 interaction 的第一条 user message
+```ts
+const compact1 = createCompactionEntry(activePath, {
+  id: "compact-1",
+  timestamp: 100,
+  summary,
+  firstKeptEntryId: "u2",
+  tokensBefore: 29,
+});
 ```
 
-函数不能接受组内的 assistant 或 toolResult 作为切点。它也不调用 Store：
-`SessionStore.append()` 是唯一写入者，上层可以先展示摘要、请求确认或记录审计，再决定
-是否追加。
+函数从 `activePath.at(-1)` 得到 `parentId: "a3"`。parent 不由调用者重复传入，因而不会
+出现“记录追加在 a3 后面，字段却指向另一条 leaf”的两份答案。
 
-创建过程可以复用已经写好的边界：
+`firstKeptEntryId` 的含义和 parent 不同。它是恢复上下文时保留原消息的起点，只能指向
+一组的首条 user message。`u2` 合法；`a2`、`calls`、`r-test` 都位于组内，不能成为
+切点。函数复用 `groupInteractions()` 找到这些组首，再把候选对象交给
+`parseSessionEntry()` 做最后一次运行时校验和复制。
 
-1. 用 `groupInteractions()` 找出所有合法组首；
-2. 用 active path 最后一项推导 parent，不让调用者另传一份可能冲突的 parent；
-3. 构造候选 compaction；
-4. 交给 `parseSessionEntry()` 完成严格校验与深复制。
+返回 `compact1` 以后，active path 仍保持原样。函数也不接收 Store。调用者可以展示
+summary、记录审计或请求确认，最后再显式调用 `store.append(compact1)`。写入权仍由
+Session Store 持有。
 
-:::lab title="实践 11.4 · 纯函数创建 compaction entry"
-**目标：** 让摘要记录只有一个 parent 来源，并且切点一定安全。
+:::lab title="实践 11.4 · 创建记录，但不替调用者写 Store"
+**目标：** 从活动路径推导唯一 parent，并只允许 interaction 起点成为 first kept。
 
 **文件：** `packages/pi-course/src/context.ts`
 
 **动作：**
-1. 拒绝空路径和重复 id。
-2. 从路径末尾推导 `parentId`。
-3. 只接受 interaction 首条 message 作为 `firstKeptEntryId`。
-4. 用 parser 校验 summary、timestamp 和 tokens。
-5. 证明输入路径、input 与返回值不共享可变引用。
+1. 拒绝空路径，以及与路径中现有 entry 重复的新 id。
+2. 从路径最后一项推导 `parentId`。
+3. 复用分组结果，只接受每组第一条 message 的 id。
+4. 用 parser 校验 summary、timestamp 和 `tokensBefore`。
+5. 修改输入 summary 或返回记录，active path 都应保持不变。
 6. 删除 Lab 11.4 的显式异常，只运行本段测试。
 
 **运行：**
@@ -367,48 +334,56 @@ node --test --test-name-pattern="Lab 11.4" \
   packages/pi-course/dist/test/11-*.test.js
 ```
 
-**预期：** `2/2`。一项检查 parent 与所有权，另一项集中撞击不安全切点。
+**预期：** `2/2`。第一项观察 parent 和副本；第二项检查空路径、重复 id 与组内切点。
 :::
 
-## 第五步：恢复时只认活动路径上的最新摘要
+## 恢复时把最新摘要接在保留后缀前面
 
-追加 compaction 后，旧消息仍在历史中：
+`compact-1` 追加以后，九条原消息一条也没有删除：
 
 ```text
-u1 → a1 → u2 → a2 → cmp1 → u3 → a3
-                 ↑
-          firstKeptEntryId=u2
+u1 → a1 → u2 → a2 → u3 → calls → r-test → r-read → a3 → compact-1
+              ↑                                           │
+              └──── firstKeptEntryId = u2 ────────────────┘
 ```
 
-构建上下文时：
+新的 `u4 → a4` 可以继续追加在 `compact-1` 后面。下一次调用 `buildContext()` 时，函数从
+活动路径末尾向前找到最新 compaction，然后完成三件事：
 
-1. 从 active path 末尾向前找到最新 compaction；
-2. 把它的结构化 summary 转成格式固定的 synthetic user message；
-3. 从 `firstKeptEntryId` 开始收集原消息，跳过 metadata 和 compaction 记录；
-4. 再按 interaction 分组和预算选择；
-5. 返回摘要消息加选中的完整后缀。
+1. 把七字段 summary 按固定顺序转换成一条 synthetic user message；
+2. 从 `u2` 收集原消息，并继续收集 compaction 之后的 `u4`、`a4`；
+3. 跳过 metadata 与 compaction entry，再对消息后缀分组并应用预算。
 
-如果路径还有更早的 compaction，只使用最新一条。最新摘要已经承担了接续更早事实的
-责任；同时塞入多份摘要会重复甚至冲突。
+合成的摘要消息位于返回 messages 的最前面，它有自己的 token 成本。这个成本先从消息
+额度中扣除，余量才交给完整 groups。`keptEntryIds` 只列原 session 中保留的 message
+entries，不为合成消息制造虚假 id。
 
-重复调用 `buildContext()` 必须得到深相等结果。修改第一次返回的摘要或工具参数，
-不能影响第二次构建。再次压缩也只会创建新的 compaction entry，旧摘要和原消息仍留在
-session。
+路径中若已经有 `compact-2`，恢复只读取它。`compact-1` 及更早消息仍在 session 中，
+但不会再生成第二份摘要消息。最新摘要负责接续此前事实；把所有摘要同时放入模型窗口会
+重复内容，也可能让旧决策和新决策互相冲突。
 
-:::lab title="实践 11.5 · 用最新摘要恢复并再次压缩"
-**目标：** 让重启、重复构建和第二次压缩得到同一套确定规则。
+第二次 compaction 使用同一个创建函数。假设 `compact-2` 保留 `u3`，它会追加在当时的
+leaf 后面。后续 `buildContext()` 先读取 `compact-2`，再从 `u3` 收集原消息。预算选择
+仍从最新组向前进行，工具组仍不会被拆开。
+
+在确定性、无状态的估算器下，相同 active path 与 options 应得到深相等结果。每次结果
+又是独立副本：修改第一次返回的摘要文字或工具参数，不会影响第二次构建，也不会改写
+session entries。
+
+:::lab title="实践 11.5 · 从最新摘要恢复并再次压缩"
+**目标：** 让重启、重复构建和第二次 compaction 遵循同一条确定路径。
 
 **文件：** `packages/pi-course/src/context.ts`
 
 **动作：**
-1. 查找活动路径上最新的 compaction。
-2. 验证 `firstKeptEntryId` 位于该 compaction 之前，且是 interaction 起点。
-3. 用固定字段顺序生成 synthetic user message。
-4. 从 first kept 收集消息，随后复用 Lab 11.2、11.3。
-5. 忽略更早摘要与 metadata。
-6. 证明重复构建和返回副本隔离。
-7. 用恢复后的路径再创建一条 compaction，确认预算仍只截完整组。
-8. 删除 Lab 11.5 的显式异常，运行本段与全章测试。
+1. 从活动路径末尾向前找到最新 compaction。
+2. 确认 first kept 位于该 compaction 之前，并且是完整组的 user 起点。
+3. 按固定字段顺序生成 synthetic user message。
+4. 从 first kept 收集消息，跳过 metadata 和所有 compaction entries。
+5. 先扣摘要消息成本，再复用分组和预算选择。
+6. 重复调用并修改第一次结果，第二次结果与 active path 都应不变。
+7. 在恢复后的路径上创建第二条 compaction，再验证完整组边界。
+8. 删除 Lab 11.5 的显式异常，运行本段和全章测试。
 
 **运行：**
 
@@ -422,76 +397,104 @@ node --test packages/pi-course/dist/test/11-*.test.js
 **预期：** 本段 `3/3`，全章 `14/14`。
 :::
 
-## 故意把它弄坏
+## 损坏记录在进入预算前就会被拒绝
 
-临时把 Lab 11.3 的组选择替换成按消息数量取尾部，例如
-`messages.slice(-3)`。
+正常路径已经闭合以后，再看输入边界会更清楚。
 
-:::failure title="让上下文从孤立 toolResult 开始"
-只运行 Lab 11.3。多工具 fixture 会让结果从某个 toolResult 或 assistant 终态开始，
-它对应的 user 和 tool call 已经被切掉。测试应在 context 层直接失败，而不是等
-provider 报错。
+`parseSessionEntry()` 只接受上面展示的七字段 summary。缺字段、多字段、数组中混入非
+字符串、空 parent、负数或无限 `tokensBefore` 都会报错。早期草案中出现过 `files`、
+`nextSteps`、`invariants` 和 `compactedEntryIds`；target 不迁移这些旧字段，也不在运行
+时维护两套 schema。
 
-恢复“先分组，再在组边界选择”后，Lab 11.3 回到 `3/3`，全章回到 `14/14`。
+`groupInteractions()` 同样会在分组结束时核对事实：第一条消息必须是 user；每个
+toolResult 都能在本组找到 call；同一个 `callId` 不会出现重复 call 或重复 result；每个
+call 最终都有 result。这是 user 边界内的 id 集合配对，不会检查 result 的 `toolName`
+是否等于 call name、result 是否出现在 call 之后，也不要求 group 以终态 assistant 结束。
+错误文字带 entry id 或 call id，使问题停在历史边界，不会伪装成稍后的 token 选择错误。
+
+:::failure title="预期失败 · 按三条消息截取工具组"
+临时把 Lab 11.3 的组选择改成 `messages.slice(-3)`，然后只运行 Lab 11.3。开篇第三组会
+被截成 `r-test、r-read、a3`；`u3` 和声明两个 call 的 `calls` 消失。
+
+聚焦测试期望最新超限组完整返回五条记录，因此 `keptEntryIds` 和角色序列都会立即失败。
+恢复“从最新 group 向前选择”后，Lab 11.3 应回到 `3/3`，全章回到 `14/14`。
 :::
 
-## 本章没有证明什么
+## 14 项测试固定到哪里
 
-14 项测试没有规定：
+这些测试固定了课程实现的确定性规则：严格 compaction schema、两个 Store 的重开、
+user 分组、call/result 配对、固定成本、完整组裁剪、最新组超限、纯创建、最新摘要恢复、
+二次压缩和公开副本隔离。
 
-- 某家 provider tokenizer 的精确计数；
-- tool schema、图片、缓存或网络层的额外 token 成本；
-- 真实模型怎样生成高质量摘要；
-- 摘要是否完整保留了所有业务事实；
-- 单个超大 interaction 应该压缩工具输出、换模型还是停止；
-- 何时自动触发 compaction；
-- Store 是否应该自动写入 `createCompactionEntry()` 的结果；
-- 多个并发压缩任务如何协调。
+它们没有证明：
 
-课程使用结构化摘要和确定性格式，是为了测试恢复规则，不是宣称摘要质量已经解决。
+- 测试估算器等于任一 provider 的 tokenizer；
+- tool schema、图片、缓存和传输协议的额外成本已经计入；
+- 真实模型能生成完整、正确的 summary；
+- `tokensBefore` 已经由函数重新估算并与真实压缩前规模核对；
+- summary 自身超过可用消息预算时应采用哪一种 reason 或保留策略；
+- 有状态或非确定性估算器重复调用时仍得到相同结果；
+- toolResult 的 name 与 call name 一致、result 位于 call 之后，或 interaction 以终态
+  assistant 结束；
+- 单个超大 interaction 应采用哪一种产品策略；
+- compaction 应在什么时刻自动触发；
+- 多个并发摘要任务可以安全写同一条 session；
+- summary 中的业务事实能够无损还原成原消息。
+
+`single_group_overflow` 只报告当前投影无法安全放入窗口。它没有替上层选择截短工具输出、
+生成专用摘要、换模型或停止运行。
 
 :::pi title="与上游 Pi 的固定提交对照"
-固定提交 `8479bd8` 的 coding-agent 也把 compaction 追加到 session，并保存
-`firstKeptEntryId` 与 `tokensBefore`；重建时使用活动路径上最新的摘要和保留后缀。
+固定提交 `8479bd8` 的 coding-agent 也把 compaction 作为 session entry 追加，记录
+`firstKeptEntryId` 和 `tokensBefore`。`buildContextEntries()` 沿当前 leaf 取最新
+compaction，把摘要消息与保留后缀交给模型；早期摘要和已概括前缀仍留在 session。
 
-该固定提交的产品摘要主体是字符串，课程则使用七字段结构化对象。这是为了让学习者能
-分别验证目标、约束、文件和下一步，不是对上游格式的逐行复刻。上游还包含自动触发、
-模型摘要和更复杂的超限策略，本章没有声称实现这些能力。
+上游该提交的 `summary` 主体是字符串，并且产品压缩代码还能为超大 turn 生成前缀摘要。
+课程使用七字段对象，并把整个 user interaction 设为不可拆分单位。课程的严格 parser、
+确定性估算器和 `single_group_overflow` 是教学契约，不能当作上游实现的逐行复刻。
 :::
 
 ## 本章验收
 
-:::checkpoint title="Checkpoint 11 · 有限窗口下仍不改写历史"
-在隔离目录运行 build 与 14 项测试，并向陪练展示：
+:::checkpoint title="Checkpoint 11 · 固定 transcript 能被分组、裁剪和恢复"
+在隔离 practice 目录运行：
 
-1. JSONL 重开后 compaction 的七个字段、first kept 和 tokens 均保持；
-2. 两个工具结果反序出现时，仍由 call id 组成一个完整 interaction；
-3. system、输出预留和安全余量先扣除，裁剪只发生在组边界；
-4. 单组超限时完整返回并给出明确 reason；
-5. 追加摘要前后，旧 session entries 完全不变；
-6. 恢复只使用最新摘要，重复构建结果深相等。
+```bash
+npm run build -w @pi/course
+node --test packages/pi-course/dist/test/11-*.test.js
+```
 
-最后指出 `systemPrompt` 与 `messages` 如何一起进入下一章的唯一上下文入口。做到这些，
-本章通过。
+结果应为 `14/14`。随后用开篇九条记录说明以下四段数据流：
+
+1. `groupInteractions()` 为什么得到 `[u1,a1]`、`[u2,a2]` 和包含完整工具往返的第三组；
+2. 31 token 预算怎样先扣 system、输出预留和安全余量，再保留第二、三组；
+3. `compact-1` 为什么以 `a3` 为 parent、以 `u2` 为 first kept，并且不修改旧记录；
+4. 恢复为什么只生成最新摘要消息，再从 first kept 接上原消息后缀。
+
+还要修改一次 `buildContext()` 返回的工具参数，证明 active path 不变；再创建第二条
+compaction，证明下一次恢复只使用最新摘要。重新定位可运行
+`npm run checkpoint -w @pi/course -- 11`；重做时新建 practice 目录，不复用已改过的
+脚手架。
 :::
 
 ## 可选迁移练习
 
-:::transfer title="陪练迁移 · 为单个超大 interaction 制定策略"
-不要先写实现。让旁边的 Agent 只帮你列出行为测试：完整保留 call/result、原 session
-不变、来源 id 可追踪、摘要失败可诊断。然后任选一种策略：缩短超大工具结果，或生成
-该 interaction 的专用摘要。
+:::transfer title="陪练迁移 · 记录每个 group 的预算去向"
+在不改变 `BuildContextResult` 的前提下，先写一个纯函数，输入
+`InteractionGroup[]` 和同一个估算器，返回每组的 entry ids、token 成本和
+`kept | trimmed | overflow` 状态。
 
-比较策略前后的事实损失，并明确至少一项无法从摘要恢复的信息。不要把这个可选策略
-塞回本章的 `buildContext()` 主路径。
+至少覆盖开篇三组、最新工具组超限和没有工具的单组路径。函数只读输入，不能重新定义
+`buildContext()` 的选择规则。
 :::
 
 ## 小结
 
-Session 保存不可改写的事实，context 是每次请求前重新计算的临时视图。先用
-`callId` 把消息组成完整 interaction，再扣除 system、输出预留和安全余量，从最近的
-完整组向前选择。
+开篇九条消息始终留在 session 中。`groupInteractions()` 把它们分成三个 user
+interactions，第三组完整保存两个 call、反序到达的两个 result 和终态 assistant。
+`buildContext()` 扣除固定成本后，从最新组向前选择，因此 31 token 的例子只把第二、
+三组交给模型。
 
-Compaction 是一条新历史记录，不是删除动作。它保存结构化摘要、first kept 和创建时
-规模；恢复只使用活动路径上的最新摘要，再接保留后缀。下一章会把项目资源和受信扩展
-生成的提示接入同一个 `systemPrompt`，而不会创建第二套 context builder。
+compaction 把摘要、first kept 和压缩前规模追加成一条新记录。恢复读取活动路径上的
+最新摘要，再接上完整消息后缀；第二次压缩仍然只追加，不删除旧事实。第 12 章会把项目
+资源产生的提示加入这里返回的 `systemPrompt`，继续使用同一个上下文入口。
