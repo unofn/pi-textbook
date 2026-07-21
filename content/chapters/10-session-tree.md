@@ -99,8 +99,8 @@ leaf 无损恢复为模型消息？**
 active path → AgentMessage[]
 ```
 
-第 11 章才会从这条真实路径派生较短的模型上下文。当前 checkpoint 只有 `message` 和
-`metadata` 两种 entry；不要提前加入 compaction entry。
+第 11 章才会从这条真实路径派生较短的模型上下文。当前 checkpoint 的 entry union 因此
+只有 `message` 和 `metadata` 两种成员；compaction entry 留到下一章，由压缩需求引入。
 
 练习在教学历史仓库 `pi-course` 中运行：
 
@@ -438,7 +438,7 @@ node --test --test-name-pattern="Lab 10.3" \
 3. 已提交行的 JSON 或 schema 错误必须失败，并包含物理行号。
 4. 最后一段含有非空白内容且没有换行时，无论它看似完整还是残缺，都忽略并报告
    `unterminated_tail`。
-5. 跳过空白行，但不要压缩后续错误的行号。
+5. 跳过空白行，同时保留它占用的物理行号。
 6. 删除 Lab 10.4 的显式异常。
 
 **运行：**
