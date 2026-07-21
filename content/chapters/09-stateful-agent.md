@@ -167,8 +167,8 @@ run 2 开始以后，run 1 的事件仍可能迟到。若状态中的 `activeRun
 `run_start`；这个过滤只覆盖当前实现中的 `loop` 与 `run_end`。
 
 TypeScript 对嵌套联合有时不会继续保留收窄结果。确认 `event.type === "loop"` 后，
-把 `event.event` 保存为 `const loop = event.event`，再按 `loop.type` 分支；不要用 `as any`
-绕过收窄。
+把 `event.event` 保存为 `const loop = event.event`，再按 `loop.type` 分支。这个局部变量让
+编译器继续携带已经取得的类型证据，代码不需要用 `as any` 跳过检查。
 
 :::lab title="实践 9.1 · 派生 run 1 的状态"
 **目标：** 让同一组生命周期事件总能得到同一份状态，并忽略旧运行迟到的事件。
@@ -206,9 +206,9 @@ Agent 中已经完成的历史
 ```
 
 随后它创建 `ActiveRun(1)`，发布 `run_start`，并把同一份局部副本交给
-`runAgentLoop()`。不要在发布 `run_start` 后回读 `this.state.messages`。
-回调重入产生的 `run_start` 事件可能仍在 FIFO 队列中，reducer 未必已经把当前用户
-消息写入公开状态；循环的输入应来自发布事件前已经完成的局部快照。
+`runAgentLoop()`。这份局部副本就是本轮输入；若发布事件后再回读
+`this.state.messages`，回调重入产生的 `run_start` 可能仍在 FIFO 队列中，reducer 还没
+把当前用户消息写入公开状态。发布前完成的快照避开了这个时序差。
 
 循环返回后，顺序固定为：
 
@@ -258,8 +258,8 @@ run 1 因此用局部变量保留自己创建的 `ActiveRun`，清理时核对�
 2. 实现最小可用的 `subscribe()`、`getState()` 与 `emit()`；每个事件先经过 reducer。
 3. `prompt()` 在发布 `run_start` 前构造局部消息副本和新的 `ActiveRun`。
 4. 把 model、tools、signal、context、`onEvent` 和队列回调交给 `runAgentLoop()`。
-5. 脚手架已经把 `runAgentLoop` 作为值导入。不要改成 `import type`，否则编译后的
-   调用位置没有这个函数。
+5. 脚手架把 `runAgentLoop` 作为值导入；它会在运行时被调用，因此不能变成只在编译期
+   存在的 `import type`。
 6. 在 loop 内把模型请求异常转换为 error assistant，并保留当前 `messages`。
 7. 用对象身份清理本次运行，再发布唯一的 `run_end`。
 8. 删除 Lab 9.2 的显式异常，只运行本段测试。
@@ -405,9 +405,9 @@ run。取消检查一定先于队列消费；以 `error` 或 `aborted` 结束后
 运行。`turn_end` 一发布，`acceptingInput` 已经是 `false`，新的 `steer()` 和
 `followUp()` 会明确拒绝。
 
-不要把规则扩大到 `maxSteps`。现有测试没有规定 steering 或 follow-up 恰好在最后一个
-允许回合到达时应该写入还是丢弃，当前实现也可能先取队列再返回 `maxSteps`。在策略和
-测试补齐前，调用者不能依赖这一边界行为。
+这条队列规则只覆盖 `stop/error/aborted` 等完整终态。steering 或 follow-up 若恰好在
+最后一个允许回合到达，现有测试没有规定它应写入还是丢弃；当前实现也可能先取队列，
+随后才返回 `maxSteps`。因此 `maxSteps` 边缘仍是未定的产品策略。
 
 :::lab title="实践 9.5 · 在完整边界消费两条队列"
 **目标：** 固定 steering 与 follow-up 的取出顺序，并阻止终止运行的队列泄漏到 run 2。
