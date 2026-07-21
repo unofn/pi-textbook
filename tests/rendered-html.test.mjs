@@ -74,7 +74,7 @@ test("章节页暴露真实 commit、parent、测试与陪学协议", async () =
   assert.match(html, /npm run checkpoint -w @pi\/course -- 00/);
   assert.match(html, /npm run practice -w @pi\/course -- 00/);
   assert.match(html, /本章重建入口/);
-  assert.match(html, /parent 是本章开始时的起点快照/);
+  assert.match(html, /起终点.*parent.*起点.*target.*终点/s);
   assert.match(html, /可选迁移练习/);
 });
 
