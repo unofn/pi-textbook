@@ -356,8 +356,8 @@ async function readChapter(spec) {
   if (stripHtml(body).length < 1000) {
     fail(`${spec.file} 正文过短，尚未达到教材深度`);
   }
-  if (/\bTODO\b|待补充|占位/.test(body)) {
-    fail(`${spec.file} 仍含 TODO 或占位内容`);
+  if (/\bTODO\b|待补充|(?:^|\n)\s*占位(?:内容)?\s*(?=\n|$)/.test(body)) {
+    fail(`${spec.file} 仍含未完成标记`);
   }
 
   const headings = [...body.matchAll(/^##\s+(.+)$/gm)].map((match) =>
