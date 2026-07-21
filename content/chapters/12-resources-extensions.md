@@ -621,12 +621,12 @@ after 失败后停止后续 observer，或把 core 原对象直接交给 Extensi
 | before deny/throw/timeout | before policy | core 执行 |
 | after throw/timeout | diagnostic 后继续 | 重跑 core 或替换结果 |
 
-这里的信任策略属于调用者注入的 `isTrusted()`。`loadExtension()` 的测试只证明它返回
-`false` 时 import 次数为零；测试没有证明策略本身判断正确、source path 已 canonicalize，
-也没有排除 trust 判断之后文件内容又发生变化。
+这里的信任策略来自调用者注入的 `isTrusted()`。`loadExtension()` 能固定的链条是：判定
+为 `false`，随后就不会 import。source path 是否已经 canonicalize，以及信任判断与随后
+import 看到的是否仍是同一份文件，属于调用者和文件系统层的契约。
 
-这张表把“安全”拆成可观察事实。测试不是证明系统绝对安全，而是证明每条边界上的顺序与
-结果符合本章契约。
+这张表把“安全”拆成可观察的控制流：每项测试固定一条边界上的动作顺序和结果。这些局部
+契约合起来，也不等于对整个运行环境作出“绝对安全”的承诺。
 
 ## 故意破坏 trust 与 import 的顺序
 
