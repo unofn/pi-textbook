@@ -17,8 +17,8 @@ upstream: packages/ai/src/providers/faux.ts
 ## 两次调用，各自拿到哪一轮
 
 第 02 章的 `EventStream<T, R>` 已经能运送事件并返回结果；第 03 章又定义了
-`AssistantMessageEventStream` 和 `AssistantMessage`。现在还差一个对象把最终消息
-一件件放进流里。
+`AssistantMessageEventStream` 和 `AssistantMessage`。现在还差一个事件生产者：它选中
+一条预设的最终消息，把其中的 content blocks 投影成一串 `ModelEvent`，再逐条推入流。
 
 下面这个 `model` 预先装了两个 turn。turn 是“一次模型调用准备播放的最终结果”。同一个
 `model` 连续接收两个 context，第一次调用应播放 `turns[0]`，第二次调用应播放
@@ -252,8 +252,9 @@ done
 
 最后一个 `done` 携带脚本原先给出的完整消息。`AssistantMessageEventStream` 看到
 `done` 后，让 `result()` resolve 这条消息；调用者不需要再从若干 delta 重建一次结果。
-此时流已经进入终态。target 随后调用的 `end(message)` 不负责生成 `done`，也不是
-`result()` 完成的前提；它只执行幂等关闭，并唤醒仍在等待结束信号的消费者。
+事件生产函数随后执行 `stream.end(message)`。前一行 `stream.push(done)` 已经识别终态并
+完成 `result()`；`end()` 只做幂等关闭，并唤醒仍在等待结束信号的消费者。两个动作由
+`ScriptedModel` 依次发起，职责并不相同。
 
 :::rebuild title="Checkpoint 04 · 让两个脚本回合走真实模型边界"
 **模式：** 重建。从 03 的 target 开始，只加入确定性事件生产者。
@@ -452,10 +453,9 @@ signal 已预取消   → error(reason="aborted", errorMessage="Request was abor
 :::
 
 :::note title="三项测试的边界"
-本章没有测试播放中途取消、多个并发 `stream()` 调用、事件之间的实际时间间隔、调度时机
-或背压。测试也没有断言预取消是否消费 cursor。`requests` 只是短期测试探针，不是
-生产日志；长期进程不应让它无限增长，也不应向它写入密钥。下一章会验证真实 transport
-的中途取消。
+三项测试把 `ScriptedModel` 固定成单进程里的确定性事件生产者：请求在调用时快照，turn
+按 cursor 选取，事件在 microtask 中播放。`requests` 只是观察这条链的测试探针，不是
+生产日志。网络中的时间间隔、背压和中途取消会由下一章的 transport 接手。
 :::
 
 :::pi title="与当前上游 Pi 对照"
