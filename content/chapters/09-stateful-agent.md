@@ -14,137 +14,101 @@ terms: stateful agent, lifecycle, abort, steering, follow-up, reentrancy
 upstream: packages/agent/src/agent.ts
 ---
 
-## 你将得到什么
+## 同一个 Agent 连续完成两次运行
 
-第 07 章的 `runAgentLoop()` 能完成一次运行。调用结束后，它不会替你保存下一次
-运行需要的消息历史，也不知道界面何时发来了取消、新指令或后续任务。
+第 08 章结束时，`runAgentLoop()` 已经能用 read、write、edit 和 bash 完成一次任务。
+它返回完整的 `AgentRunResult`，随后函数里的局部变量便结束了。下一条用户输入若要继续
+上一段对话，调用者得自己保存消息、阻止两个循环同时运行，还要把运行中的新指令交到
+正确的模型回合。
 
-本章只增加一种复杂性：**由一个 Agent 对象持有跨运行状态**。完成后，它会提供：
-
-- `prompt()`：开始一次运行，并把结果留给下一次 `prompt()`；
-- `subscribe()`：让界面或日志观察生命周期事件；
-- `abort()`：向当前运行发出取消信号；
-- `steer()`：让当前任务在下一次模型决策前考虑一条新指令；
-- `followUp()`：在当前回答自然结束后继续一段工作。
-
-这些方法不会重新实现模型和工具循环。`runAgentLoop()` 仍然决定一次运行如何
-前进；`Agent` 负责保存跨运行状态、限制并发运行，并在规定的时机把排队消息交给
-循环。
-
-## 为什么第 09 章放在这里
-
-有状态 Agent 不能早于 Agent Loop。否则对象里会混进模型流、工具执行和消息配对，
-你无法判断错误发生在单次运行还是跨运行管理中。
-
-它也不能放到会话持久化之后。第 10 章要保存已经完成的消息历史。如果当前运行由谁
-拥有、怎样取消、队列何时取出都没有定下来，写持久化层时就不得不自行决定哪些临时
-状态应该写入文件。这会把运行时状态和长期历史混在一起。
-
-因此顺序是：
+这一章在循环外增加一个长期存在的 `Agent` 对象。下面的时间线始终使用同一个实例：
 
 ```text
-第 07–08 章：一次运行怎样正确结束
-        ↓
-第 09 章：多次运行由谁管理
-        ↓
-第 10 章：完成后的历史怎样跨进程保存
+t0  agent.prompt("检查 README")                         run 1 开始
+t1  assistant 提出两个工具调用
+t2  agent.steer("先检查测试")
+t3  agent.steer("再更新说明")                           两条消息进入 run 1 的队列
+t4  两个工具都形成配对结果
+t5  两条 steering 按 FIFO 进入 transcript，模型继续回答
+t6  run 1 结束，Agent 保存完成后的 messages
+t7  agent.prompt("提交结论")                            run 2 开始
+t8  run 2 的模型请求看到 run 1 全部消息和新的用户输入
 ```
 
-## 先建立全景
-
-`Agent` 与 `runAgentLoop()` 的边界如下：
+run 1 的第二次模型请求会看到这样的尾部：
 
 ```text
-Agent（跨运行）
-  ├─ state.messages
-  ├─ 订阅回调集合
-  ├─ 当前运行
-  │    ├─ id
-  │    ├─ AbortController
-  │    ├─ steering[]
-  │    └─ followUps[]
-  └─ prompt()
-       └─ runAgentLoop()（一次运行）
-            ├─ 模型回合
-            ├─ 工具批次
-            └─ AgentRunResult
+assistant(toolCall slow, toolCall fast)
+toolResult(slow)
+toolResult(fast)
+user("先检查测试")
+user("再更新说明")
 ```
 
-`Agent` 不驱动模型协议，也不自己执行工具。它把已有的 `model`、`tools`、
-`signal` 和队列回调交给 `runAgentLoop()`，再把少量已经归一化的循环事件转换成
-界面可以读取的状态。
+工具可以反序完成，两个 `toolResult` 仍按原始 call 顺序写入。steering 排在完整工具批次
+之后，所以它不会切进一对 call/result 中间。run 1 自然结束以后，run 2 再把
+`user("提交结论")` 追加到这份已完成的历史后面。
 
-:::predict title="运行中再次调用 prompt 应该发生什么"
-第一个 `prompt()` 还在等待 `Bash` 工具返回。此时调用者又执行
-`agent.prompt("顺便更新 README")`。应该并行启动、自动改为调用 `steer()`，
-还是拒绝？
----answer
-应该明确拒绝，并让调用者选择 `steer()` 或 `followUp()`。两个循环并行改写同一
-份消息历史会破坏消息顺序；如果系统悄悄把第二个 `prompt()` 改成 `steer()` 或
-`followUp()`，调用者也无法判断这个 API 到底做了什么。
-:::
+这里出现了两种时间尺度。`runAgentLoop()` 只拥有一次运行里的模型回合和工具批次；
+`Agent` 活得更久，保存两次运行之间仍需存在的消息与配置。第 10 章才会把完成后的
+消息写入磁盘。本章的控制器、流式文字和输入队列仍只存在于内存中。
 
-## 开始动手：先进入正确的仓库
+## Agent 保存状态，ActiveRun 保存临时所有权
 
-练习命令必须在教学历史仓库 `pi-course` 中运行，不是在工作区根目录，也
-不是教材站点目录。先进入这个仓库，并确认当前路径的最后一段是
-`pi-course`：
+`Agent` 内部的数据可以按寿命分成两层：
 
-```bash
-cd <你的工作区>/pi-course
-pwd
-npm run practice -w @pi/course -- 09 <新目录>
-cd <新目录>
-npm install
+| 数据 | 存活时间 | 用途 |
+|---|---|---|
+| `state.messages` | 跨多次 `prompt()` | 下一次运行的 transcript 起点 |
+| subscribers | 与 `Agent` 实例相同 | 观察每次运行的事件 |
+| `ActiveRun` | 一次 `prompt()` | 标识当前运行并持有控制器和队列 |
+| `streamingText`、`pendingToolCallIds` | 当前运行期间 | 给界面提供临时状态 |
+
+每次 `prompt()` 都创建一份新的 `ActiveRun`：
+
+```ts
+interface ActiveRun {
+  id: number;
+  controller: AbortController;
+  steering: UserMessage[];
+  followUps: UserMessage[];
+  acceptingInput: boolean;
+}
 ```
 
-生成器会保留第 08 章的实现，加入第 09 章测试，并用两份练习脚手架替换对应源文件：
+`id` 区分 run 1 和 run 2；控制器只取消这一轮；两条数组保存运行中到达的用户消息。
+`acceptingInput` 在循环发布 `turn_end` 时变成 `false`，避免终态已经形成后仍接收一条
+永远不会被读取的消息。
 
-- `agent.ts` 已经写好公共类型和方法签名，等待你实现 reducer、运行清理、订阅和
-  两条消息队列；
-- `agent-loop.ts` 保留前两章完成的循环，只把本章新增的错误处理、数据复制、
-  取消检查和队列取出留给你实现。
+`Agent` 不接管第 07、08 章的模型与工具状态机。它把 context、signal、事件回调和两
+个取队列函数交给 `runAgentLoop()`。循环返回后，`Agent` 先释放本次 `ActiveRun`，
+再用 `run_end` 让 reducer 保存结果并通知订阅者；此后 run 2 才能开始。不能被破坏的
+不变量是：任何时刻同一个实例最多只有一份有效的 `ActiveRun`，并且旧运行只能清理
+自己创建的那一份。
 
-本章只修改：
+:::rebuild title="Checkpoint 09 · 让同一个 Agent 管理两次运行"
+**模式：** 重建
 
-```text
-packages/pi-course/src/agent.ts
-packages/pi-course/src/agent-loop.ts
-```
-
-每个 Lab 都会明确指出要改哪个文件。不要修改 `coding-tools.ts`，也不要切换到
-包含最终实现的 `target` 快照。
-
-本章要守住三个不变量：
-
-1. 同一个 `Agent` 同时至多有一个正在运行的任务；旧运行只能清理自己创建的资源；
-2. `getState()`、订阅事件和 `prompt()` 返回值不能与内部状态共享可变引用；
-3. steering 只能在完整的工具批次或文本回答之后取出，follow-up 只在自然
-   `stop` 之后取出。
-
-:::rebuild title="Checkpoint 09 · 分五步建立跨运行所有权"
-**模式：** 重建。从 08 的 `target` 开始，用一个 `Agent` 对象管理多次循环。
-
-**起终点：** `parent` 是本章开始时的起点快照；`target` 是 11 项聚焦测试通过的
-终点快照。
+**起终点：** `parent` `6b3b1b77` 是第 08 章完成后的起点；`target` `d055d832` 是
+两份教学文件完成、11 项聚焦测试通过后的终点。
 
 **教学文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/agent-loop.ts`
 
-**学习脚手架：** `agent.ts` 已声明 `AgentOptions`、`AgentState`、`AgentEvent`、
-`reduceAgentState()` 和 `Agent` 的公共方法。`agent-loop.ts` 保留第 08 章已经
-学过的循环，只标出第 09 章需要实现的位置。两份文件都能编译，但没有本章答案。
+**学习脚手架：** practice 目录会用 `starters/09-agent.ts` 和
+`starters/09-agent-loop.ts` 覆盖这两份教学文件。`agent.ts` 固定公共状态、事件和方法
+签名；`agent-loop.ts` 保留前两章的循环，并标出本章施工位。两份脚手架都能编译，
+但没有本章答案。
 
-**动手前只需知道：** reducer 接收旧状态和一个事件，返回新状态；
-`ActiveRun` 至少保存自己的 `id`、`AbortController`、steering 队列和
-follow-up 队列。`Agent` 负责创建和清理 `ActiveRun`；一次运行内部的模型与工具
-状态机仍由 `runAgentLoop()` 负责。
+**动手前只需知道：** `AgentEvent` 记录 `run_start`、带 `runId` 的 `loop` 事件和
+`run_end`。reducer 根据事件派生公开状态；`ActiveRun` 则由 `prompt()` 创建和清理，
+它不是 transcript 的一部分。
 
-**第一步：** 只实现 reducer。先处理 `run_start`；处理 `loop` 和 `run_end`
-时，忽略 `runId` 不等于当前运行的迟到事件。
+**第一步：** 先不看 target diff，只实现纯函数 `reduceAgentState()`。先处理
+`run_start`，再用当前 `activeRunId` 过滤迟到的 `loop` 与 `run_end`。
 
-**第一次红灯：** 脚手架可以通过 TypeScript 编译；首次只运行 Lab 9.1 时，应看到
-`Lab 9.1 reducer 尚未实现`，而不是缺少模块或一串隐式 `any`。
+**第一次红灯：** 脚手架初始 build 可以通过。只运行 Lab 9.1 时，首个可见失败是
+`Lab 9.1 reducer 尚未实现`，不是缺模块或隐式 `any`。
 
 **聚焦测试：** `packages/pi-course/test/09-stateful-agent.test.ts`
 
@@ -153,19 +117,15 @@ follow-up 队列。`Agent` 负责创建和清理 `ActiveRun`；一次运行内�
 **练习目录：** `npm run practice -w @pi/course -- 09`
 
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
-`node --test packages/pi-course/dist/test/09-*.test.js`。
+`node --test packages/pi-course/dist/test/09-*.test.js`
 
-**通过证据：** 11 项测试按 `2/2 → 2/2 → 2/2 → 2/2 → 3/3` 检查 reducer、
-单次运行的生命周期、订阅与数据副本、取消传播，以及 steering/follow-up 的取出
-时机。
-
-第一次尝试时，禁止查看完整答案。卡住时，让陪练只画当前 Lab 的状态时间线，不要
-一次给出整个 `Agent` 类。
+**通过证据：** 五段局部测试依次得到 `2/2`、`2/2`、`2/2`、`2/2`、`3/3`。它们
+分别观察状态派生、两次顺序运行、公开副本、取消传播和队列取出时机。
 :::
 
-## 第一步：先写纯 reducer
+## `run_start` 把 run 1 投影成公开状态
 
-`AgentState` 是某一时刻的快照：
+`AgentState` 是某一时刻给界面读取的快照：
 
 ```ts
 interface AgentState {
@@ -179,50 +139,47 @@ interface AgentState {
 }
 ```
 
-事件说明“刚发生了什么”，reducer 负责根据事件计算新状态：
+reducer 接收旧状态和一个 `AgentEvent`，返回新状态。run 1 的三个阶段对应三种事件：
 
 ```text
-run_start(7)
-  → status=running
-  → activeRunId=7
-  → 追加本轮用户消息
+run_start(1)
+  → status = running
+  → activeRunId = 1
+  → messages 追加 "检查 README"
 
-loop(7, text_delta/tool_start/tool_end/assistant_message)
+loop(1, text_delta | tool_start | tool_end | assistant_message)
   → 更新 streamingText 或 pendingToolCallIds
 
-run_end(7)
-  → status=idle
-  → 保存完成后的 messages 与 reason
-  → 清空临时显示状态
+run_end(1)
+  → status = idle
+  → messages = run 1 的完整结果
+  → lastReason = stop
 ```
 
-如果当前 `activeRunId` 是 8，却收到运行 7 的 `text_delta` 或 `run_end`，就原样
-返回当前状态。旧事件不能覆盖新运行的流式文本，也不能让新运行提前变回 `idle`。
+reducer 不拥有输入对象。`run_start` 要深复制原有 `state.messages` 和
+`event.message`；`run_end` 同样要深复制 `result.messages`。调用者稍后改动事件或
+结果时，已经派生出的状态不会随之变化。
 
-reducer 不修改传入的状态或数组。`run_start` 要深复制原有的
-`state.messages` 和 `event.message`，再组成新的 `messages` 数组；`run_end`
-同样要深复制 `result.messages`。只改变标量字段的分支可以继续引用未改动的数组，
-迟到事件则直接返回原状态。这样，调用者稍后修改事件或结果时，不会反过来改写
-`Agent` 的内部状态。
+run 2 开始以后，run 1 的事件仍可能迟到。若状态中的 `activeRunId` 已是 2，
+`loop(1, ...)` 和 `run_end(1)` 都原样返回当前状态。测试没有规定乱序到达的
+`run_start`；这个过滤只覆盖当前实现中的 `loop` 与 `run_end`。
 
-:::lab title="实践 9.1 · 派生生命周期状态"
-**目标：** 让同一组事件总能得到同一份状态，并忽略旧运行迟到的事件。
+TypeScript 对嵌套联合有时不会继续保留收窄结果。确认 `event.type === "loop"` 后，
+把 `event.event` 保存为 `const loop = event.event`，再按 `loop.type` 分支；不要用 `as any`
+绕过收窄。
+
+:::lab title="实践 9.1 · 派生 run 1 的状态"
+**目标：** 让同一组生命周期事件总能得到同一份状态，并忽略旧运行迟到的事件。
 
 **文件：** `packages/pi-course/src/agent.ts`
 
 **动作：**
-1. 实现 `run_start`，记录 `runId`、用户消息和 `running` 状态；状态中的消息必须
-   来自原有消息与当前用户消息的深副本。
+1. 实现 `run_start`，记录运行 id、用户消息与 `running` 状态，并深复制两部分消息。
 2. 处理 `text_delta`、`tool_start`、`tool_end`、`tool_skipped` 与
    `assistant_message`。
-3. 实现 `run_end`，保存消息副本与终止原因。
-4. 在处理 `loop` 和 `run_end` 前核对当前 `status` 与 `runId`。
-5. 不修改传入的状态、事件或其中的数组。
-6. 删除 Lab 9.1 的显式异常，只运行本段测试。
-
-如果 TypeScript 没有继续收窄嵌套的 `event.event`，先在确认
-`event.type === "loop"` 后写 `const loop = event.event`，再根据 `loop.type`
-分支。不要用 `as any` 绕过收窄。
+3. 实现 `run_end`，保存结果消息的深副本、结束原因和 `idle` 状态。
+4. 在处理 `loop` 和 `run_end` 前核对当前状态与 `runId`。
+5. 删除 Lab 9.1 的显式异常，只运行本段测试。
 
 **运行：**
 
@@ -232,101 +189,78 @@ node --test --test-name-pattern="Lab 9.1" \
   packages/pi-course/dist/test/09-*.test.js
 ```
 
-**预期：** `2/2`。第一项覆盖主要状态迁移，并确认输入没有被修改；第二项证明旧
-运行的 `loop` 事件和 `run_end` 都不会污染当前运行。
+**预期：** `2/2`。第一项检查主要状态迁移和输入副本；第二项证明 run 1 的迟到事件
+不会覆盖 run 2。
 :::
 
-## 第二步：让每次 `prompt()` 拥有自己的 `ActiveRun`
+## `prompt()` 先结算 run 1，再开放 run 2
 
-并发保护不能只靠一个可能被任意回调改写的布尔值。每次 `prompt()` 都要创建一份
-独立的运行记录：
-
-```ts
-type ActiveRun = {
-  id: number;
-  controller: AbortController;
-  steering: UserMessage[];
-  followUps: UserMessage[];
-  acceptingInput: boolean;
-};
-```
-
-后续的 `abort()`、`steer()` 和 `followUp()` 都只访问这份记录。下一次
-`prompt()` 必须创建新的记录和新的控制器。循环发出 `turn_end` 时，先把
-`acceptingInput` 改成 `false`。此后即使 `run_end` 还没有发布，`steer()` 和
-`followUp()` 也必须拒绝新消息，不能先接受再悄悄丢掉。
-
-`prompt()` 开始时，先从 `this.state.messages` 中已经完成的历史和当前用户消息
-构造并深复制本轮起始消息的局部副本。设置本轮 `ActiveRun` 后发布 `run_start`，
-随后把同一份局部副本交给 `runAgentLoop()`。不要在发布 `run_start` 后回读
-`this.state.messages`：重入调用产生的 `run_start` 事件可能仍在 FIFO 队列中，
-reducer 尚未把本轮用户消息写入状态。
-
-最容易写错的是结束顺序。下面的顺序会让旧运行清掉新运行：
+run 1 开始时，`prompt("检查 README")` 从两份数据构造局部 `contextMessages`：
 
 ```text
-错误顺序
-运行 1 发布 run_end
-  → 订阅回调同步启动运行 2
-  → 运行 1 的 finally 才开始清理
-  → 运行 2 的控制器和队列被旧运行清掉
+Agent 中已经完成的历史
++ 当前用户消息 "检查 README"
+= run 1 的 contextMessages 深副本
 ```
 
-正确顺序是：
+随后它创建 `ActiveRun(1)`，发布 `run_start`，并把同一份局部副本交给
+`runAgentLoop()`。不要在发布 `run_start` 后回读 `this.state.messages`。
+回调重入产生的 `run_start` 事件可能仍在 FIFO 队列中，reducer 未必已经把当前用户
+消息写入公开状态；循环的输入应来自发布事件前已经完成的局部快照。
+
+循环返回后，顺序固定为：
 
 ```text
-运行 1 得到结果
-  → 清理运行 1 自己的 ActiveRun
-  → 发布 run_end，状态变回 idle
-  → 订阅回调现在可以启动运行 2
+run 1 得到 AgentRunResult
+  → 按身份清理 ActiveRun(1) 和两条队列
+  → emit run_end(1)
+      → reducer 先保存完整 transcript
+      → 再通知全部 listeners
+  → 返回一份结果副本
 ```
 
-关键不在于把 `finally` 移到哪一行，而在于每次 `prompt()` 都用局部变量保存本次
-创建的 `ActiveRun`。清理时先比较 `this.activeRun` 与这个局部对象；只有两者仍是
-同一个对象，旧运行才能清除它。这样即使以后加入新的异步回调，旧运行也碰不到新
-运行创建的记录。
+这时 `prompt("提交结论")` 才创建 `ActiveRun(2)`。run 2 的
+`contextMessages` 由 run 1 已经完成的历史和当前用户消息组成，所以第二次模型请求能
+看到前一次输入、工具结果、steering 和最终回答。
 
-这里还有两个容易漏掉的边界。
+### 同一实例拒绝两个并行循环
 
-第一，回调重入产生的新事件不能插队。假设订阅回调 A 收到 `run_end(1)` 后立即
-启动运行 2，订阅回调 B 应该先收到 `run_end(1)`，再收到 `run_start(2)`。所以
-`emit()` 要把回调中产生的新事件放进 FIFO 队列，等当前事件通知完所有订阅回调后
-再分发。否则，两个订阅回调会看到不同的生命周期顺序。
+如果 `ActiveRun(1)` 仍存在，第二个 `prompt()` 会以 `Agent is busy` 拒绝。调用者
+可以把运行中的修正交给 `steer()`，把自然结束后的追加工作交给 `followUp()`；
+`prompt()` 本身不会猜测第二条输入属于哪一种语义。
 
-第二，模型可能在第二轮请求时直接抛错。此时工具也许已经修改了文件。只有
-`runAgentLoop()` 持有包含工具调用和工具结果的本轮消息历史。因此，它必须把异常
-转换成一条 `stopReason` 为 `error` 的 `assistant` 消息，并把它追加到当前
-`messages` 后再结束运行。如果只在 `Agent.prompt()` 外层捕获异常，外层拿不到
-本轮新增的工具调用和结果，这些已经发生的事实会从记录中消失。
+结束阶段还要处理订阅回调的重入。run 1 的 `run_end` 回调可以同步启动 run 2。
+run 1 因此用局部变量保留自己创建的 `ActiveRun`，清理时核对对象身份，并在发布
+`run_end` 前完成清理。旧运行不能在回调返回后无条件清除 `this.activeRun`，否则它会
+删掉 run 2 刚创建的控制器与队列。
 
-Lab 9.2 会先实现最小可用的 `subscribe()`、`getState()` 和事件 FIFO，让测试能
-观察 `run_start` 与 `run_end`。下一段再加入订阅回调的失败隔离和深拷贝。
+回调重入产生的新事件不能插队。`emit()` 把新事件放进 FIFO，当前事件通知完所有
+订阅者后才继续分发。两个订阅者因而都看到 `start1 → end1 → start2 → end2`，不会有
+一个先看到 `start2`、另一个还停在 `end1`。
 
-:::lab title="实践 9.2 · 管理一次完整运行"
-**目标：** 拒绝并行 `prompt()`，并在运行清理、回调重入或模型抛错时保持正确的
-状态与事件顺序。
+模型请求抛错也在单次循环内结算。若工具已经执行，第二次模型请求抛错，
+`runAgentLoop()` 仍会保留对应的工具调用和工具结果。它把异常转换成
+`stopReason: "error"` 的 assistant 消息，追加后再返回；`Agent.prompt()` 外层的兜底
+只处理循环之外的意外错误。这样已经发生的副作用不会从 transcript 中消失。
+
+:::lab title="实践 9.2 · 让 run 1 和 run 2 顺序共享 transcript"
+**目标：** 用一个 `Agent` 完成两次顺序运行，拒绝并行 `prompt()`，并让重入回调看到
+稳定的生命周期顺序。
 
 **文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 保存配置、状态、订阅回调集合、`nextRunId` 和可选的 `ActiveRun`。
-2. 实现最小可用的 `subscribe()`、`getState()`，并用 FIFO 分发事件：先运行
-   reducer，再通知订阅回调。
-3. `prompt()` 先检查是否已有运行，再创建局部 `ActiveRun`、当前用户消息和本轮
-   起始消息的深副本。
-4. 发布 `run_start`，并把这份本轮起始消息、`model`、`tools`、`signal` 和
-   `onEvent` 交给 `runAgentLoop()`。
-5. 脚手架已经把 `runAgentLoop` 作为值导入。不要把这项导入改成只有
-   `import type`：类型导入会在编译后消失，真正调用函数时会得到
-   `TS2304: Cannot find name 'runAgentLoop'`。
-6. `runAgentLoop()` 在每次调用模型时捕获异常，复用 `assistantMessage()` 将其
-   转换成一条 `stopReason` 为 `error` 的 `assistant` 消息，并追加到当前
-   `messages`。
-7. `Agent.prompt()` 外层保留兜底异常处理；能由循环处理的模型请求失败必须由
-   `runAgentLoop()` 返回，才能保留已经完成的消息。
-8. 先清理当前 `ActiveRun`，再发布唯一的 `run_end`。
-9. 删除 Lab 9.2 的显式异常，只运行本段测试。
+1. 在 `Agent` 中保存 options、state、订阅集合、事件 FIFO、`nextRunId` 和当前
+   `ActiveRun`。
+2. 实现最小可用的 `subscribe()`、`getState()` 与 `emit()`；每个事件先经过 reducer。
+3. `prompt()` 在发布 `run_start` 前构造局部消息副本和新的 `ActiveRun`。
+4. 把 model、tools、signal、context、`onEvent` 和队列回调交给 `runAgentLoop()`。
+5. 脚手架已经把 `runAgentLoop` 作为值导入。不要改成 `import type`，否则编译后的
+   调用位置没有这个函数。
+6. 在 loop 内把模型请求异常转换为 error assistant，并保留当前 `messages`。
+7. 用对象身份清理本次运行，再发布唯一的 `run_end`。
+8. 删除 Lab 9.2 的显式异常，只运行本段测试。
 
 **运行：**
 
@@ -336,55 +270,45 @@ node --test --test-name-pattern="Lab 9.2" \
   packages/pi-course/dist/test/09-*.test.js
 ```
 
-**预期：** `2/2`。第一项检查并发保护与累积消息历史；当工具已经执行、下一次模型
-请求抛错时，消息历史仍要保留对应的工具调用和工具结果，随后还可以重试。第二项在
-运行 1 的 `run_end` 订阅回调中启动运行 2，再尝试第三个并行 `prompt()`；第三次
-必须得到 `Agent is busy`。另一个订阅回调还会确认事件顺序是
-`start1 → end1 → start2 → end2`。
+**预期：** `2/2`。第一项观察 busy guard、两次顺序运行和模型失败后的完整消息；第二项
+从 run 1 的 `run_end` 回调启动 run 2，确认旧清理没有碰到新运行。
 :::
 
-## 第三步：切断三条可变引用
+## 三个公开出口各自得到一份副本
 
-有三类数据会离开 `Agent`：
+状态已经跨运行保存，接下来要明确谁能修改它。内部消息会从三个出口离开 `Agent`：
 
-| 出口 | 调用者会怎样使用 | 必须隔离什么 |
+| 出口 | 接收者 | 与内部共享引用的后果 |
 |---|---|---|
-| `getState()` | 界面保存或修改快照 | 内部状态 |
-| 订阅事件 | 界面、日志或插件读取事件 | 其他订阅回调与 `prompt()` 结果 |
-| `prompt()` 结果 | 调用者保存、转换或追加消息 | 内部消息历史 |
+| `getState()` | 界面 | 修改快照会改写下一次模型输入 |
+| subscriber event | 界面或日志 | 一个订阅者会污染另一个订阅者 |
+| `prompt()` result | 调用者 | 改返回值会改写 Agent 的历史 |
 
-只复制最外层数组不够。`messages[0].content[0].text` 仍可能指向同一个对象。课程用
-`structuredClone()` 建立深副本，让调用者修改副本时不会碰到内部对象。
+三条路径都使用 `structuredClone()`。只复制 `messages` 数组不够，因为
+`messages[0].content[0]` 仍会指向同一个 block。`emit()` 先用事件更新 state，再把各自
+独立的事件副本交给订阅者；回调在 `run_start` 中调用 `getState()` 时，应该已经看到
+`running` 和当前 `runId`。
 
-不过，`ToolResultMessage.details` 的类型是 `unknown`。自定义工具可能把函数等
-无法被 `structuredClone()` 复制的对象放进去。如果这类结果直接进入消息历史，
-之后复制状态时会抛出 `DataCloneError`。公开状态可能因此停在 `running`，而实际
-运行已经结束。
+单个订阅者抛错不会终止 run 1。`emit()` 把错误文字追加到 `diagnostics`，继续通知其余
+订阅者。`unsubscribe()` 只删除创建它的那个 listener。
 
-为避免这种状态分裂，循环要在发布 `tool_end` 前确认整个工具结果能否被结构化
-复制。无法复制时，循环生成一条标准、可复制的错误结果，保留“这个工具调用失败”
-这一事实，但不让不安全的 `details` 进入 `Agent` 状态。
+`ToolResultMessage.details` 是 `unknown`，其中可能出现函数等不可复制值。循环在结果
+进入 transcript 和 `tool_end` 前尝试复制；不可复制的数据会变成标准、可复制的错误结果。
+工具调用失败的事实仍被保留，`Agent` 也能正常发布 `run_end` 并回到 `idle`。
 
-发布事件时，`emit()` 先调用 reducer 更新状态，再通知订阅回调。因此，订阅回调
-可以在 `run_start` 中读取到 `running` 状态。每个订阅回调都收到自己的事件副本。
-某个回调抛错时，`Agent` 把错误写入 `diagnostics`，然后继续通知其余回调并继续
-当前运行。`unsubscribe()` 只移除对应的回调，不能顺手清空其他订阅。
-
-:::lab title="实践 9.3 · 隔离订阅者与公开副本"
-**目标：** 让所有公开数据都可安全地结构化复制，并与 `Agent` 的内部状态隔离。
+:::lab title="实践 9.3 · 隔离状态、事件和返回值"
+**目标：** 让三个公开出口都与内部状态隔离，并让一个失败订阅者不影响运行。
 
 **文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. `getState()` 返回深副本。
-2. `emit()` 先更新状态，再遍历当前订阅回调的快照。
-3. 每个订阅回调接收独立的事件副本。
-4. 捕获单个订阅回调的异常并追加诊断，不阻断其他回调。
-5. 实现有效的 `unsubscribe()`。
-6. `prompt()` 返回的结果不能与内部状态或 `run_end` 事件共享对象。
-7. 循环在发布工具结果前确认它能否被结构化复制；失败时生成标准的错误结果。
-8. 只运行本段测试。
+1. `getState()` 和 `prompt()` 返回深副本。
+2. `emit()` 先更新 state，再遍历订阅集合的快照。
+3. 给每个订阅者单独复制事件，捕获它自己的异常并记录诊断。
+4. 让 `unsubscribe()` 只删除对应回调。
+5. 在 loop 中把不可结构化复制的工具结果转换成标准错误结果。
+6. 删除 Lab 9.3 的显式异常，只运行本段测试。
 
 **运行：**
 
@@ -394,50 +318,47 @@ node --test --test-name-pattern="Lab 9.3" \
   packages/pi-course/dist/test/09-*.test.js
 ```
 
-**预期：** `2/2`。第一项把会抛错的订阅回调放在正常回调前面，并分别退订两者，
-检查失败隔离和精确退订。第二项分别修改状态快照、两个订阅回调收到的事件和
-`prompt()` 返回值，再确认内部消息历史没有变化。它还会让工具返回不可复制的
-`details`，确认 `Agent` 得到标准、可复制的错误结果并回到 `idle`。
+**预期：** `2/2`。第一项观察状态先更新、坏 subscriber 隔离和精确退订；第二项修改
+三个公开出口，并用不可复制的工具结果检查标准错误与 `idle` 终态。
 :::
 
-## 第四步：取消只属于当前运行
+## `abort()` 只向当前运行发出取消信号
 
-`Agent.abort()` 不直接创建终态。它只对当前 `ActiveRun` 的控制器调用
-`abort()`。同一个 `signal` 会传给循环、模型和工具执行器；这些组件仍要在合适的
-位置主动检查它。
+`Agent.abort()` 不直接制造 `run_end`。它只调用当前 `ActiveRun` 的控制器：
 
 ```text
-Agent.abort()
-  → activeRun.controller.abort()
-      ├─ 模型收到同一个 signal
-      ├─ 工具执行器收到同一个 signal
-      └─ 循环在完整消息边界以 aborted 结束
+agent.abort()
+  → ActiveRun(1).controller.abort()
+      ├─ runAgentLoop 收到 signal
+      ├─ model 收到同一个 signal
+      └─ tool executor 收到同一个 signal
 ```
 
-测试用两种时机区分取消行为。第一种是在 `run_start` 订阅回调中立即调用
-`abort()`：此时控制器已经创建，但循环尚未请求模型，所以模型请求次数应为零。
-第二种是在工具运行期间调用 `abort()`：已经形成的工具调用仍要得到配对结果并写入
-消息历史，然后循环才能以 `aborted` 结束。
+若订阅者在 `run_start(1)` 中立刻取消，控制器已经存在，而循环还没有请求模型。
+`runAgentLoop()` 在循环入口看到 `signal.aborted`，直接以 `aborted` 结算，模型请求数仍是
+零。重复调用 `abort()` 只是重复设置同一个信号。
 
-多次调用 `abort()` 只是重复表达同一个意图。下一次 `prompt()` 使用新的控制器，
-不能继承旧 `signal` 的取消状态。模型也可能忽略 `signal`，最后仍返回普通文本。
-循环必须在收到完整消息后再次检查 `signal`，并优先以 `aborted` 结束。
+若取消发生在工具执行期间，工具调用已经进入 transcript。循环等待执行器形成配对
+`toolResult`，把结果写入消息后再以 `aborted` 结束。run 2 会创建新的控制器；旧 signal
+不能污染下一次运行。
 
-:::lab title="实践 9.4 · 传播并结算取消"
-**目标：** 让模型请求前的取消和工具运行中的取消都只影响当前运行。
+取消是协作协议。模型忽略 `signal` 并返回普通文本时，循环收到完整消息后还要再次
+检查取消状态，并在 `stop` 分支优先以 `aborted` 结束。若模型或工具永久不返回，单个
+`AbortController` 无法强制杀死它。
+
+:::lab title="实践 9.4 · 取消 run 1，不影响 run 2"
+**目标：** 让模型请求前和工具执行中的取消都只结算当前 `ActiveRun`。
 
 **文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 让 `abort()` 只操作当前 `ActiveRun` 的控制器。
-2. 在 `prompt()` 中把同一个 `signal` 交给 `runAgentLoop()`。
-3. 模型请求前取消时，不请求模型，并且只发布一个 `run_end`。
-4. 工具运行中取消时，保留已经产生的工具调用与工具结果。
-5. 模型忽略 `signal` 并返回文本时，循环仍要在 `stop` 分支优先以 `aborted`
-   结束。
-6. 清理后允许下一次 `prompt()` 创建新的 `signal`。
-7. 删除 Lab 9.4 的显式异常，只运行本段测试。
+1. `abort()` 只操作当前运行的控制器，并把同一 signal 交给 loop。
+2. 入口已取消时不请求模型，只发布一次 `run_end`。
+3. 工具执行中取消时，等待现有调用形成配对结果。
+4. 模型忽略 `signal` 时，在文本 `stop` 分支再次检查并返回 `aborted`。
+5. 清理后让下一次 `prompt()` 创建新控制器。
+6. 删除 Lab 9.4 的显式异常，只运行本段测试。
 
 **运行：**
 
@@ -447,71 +368,58 @@ node --test --test-name-pattern="Lab 9.4" \
   packages/pi-course/dist/test/09-*.test.js
 ```
 
-**预期：** `2/2`。第一项检查模型请求前取消、重复调用 `abort()` 和下一次运行；
-第二项直接比较模型与工具收到的 `signal`，检查取消后的配对结果，确认新运行使用
-新的 `signal`，并覆盖“模型忽略取消后仍返回文本”的情况。
+**预期：** `2/2`。第一项检查预取消、重复 abort 和 run 2 的新控制器；第二项比较模型
+与工具收到的 signal，并观察取消后的配对结果和忽略 signal 的文本模型。
 :::
 
-## 第五步：在完整消息边界取出两个队列
+## 队列消息只在完整协议边界进入 transcript
 
-steering 和 follow-up 都会形成用户消息，但它们对执行时机的承诺不同：
+run 1 运行期间，`steer()` 与 `followUp()` 都会创建 `UserMessage`，但它们承诺的时间
+不同：
 
-| 方法 | 意图 | 取出位置 |
+| 方法 | 用户意图 | loop 取出位置 |
 |---|---|---|
-| `steer()` | 当前任务继续，但下一次决策要考虑新指令 | 当前完整的 assistant 回合之后 |
-| `followUp()` | 当前回答自然结束后再继续 | 纯文本 `stop` 之后，且没有待取出的 steering 时 |
+| `steer()` | 修正当前任务的下一次决策 | 完整工具批次后，或纯文本 `stop` 后 |
+| `followUp()` | 当前回答自然结束后继续 | 纯文本自然 `stop` 后，且没有 steering |
 
-“完整的 assistant 回合”有两种形态。
-
-工具回合必须先收齐整批结果，再按工具调用的声明顺序写入消息历史：
-
-```text
-assistant(call slow, call fast)
-  → tool_end(fast)        实际完成顺序可以更早
-  → tool_end(slow)
-  → 消息历史写入 result(slow), result(fast)
-  → user steer 1, user steer 2
-  → 发起下一次模型请求
-```
-
-纯文本回答也要检查 steering：
+开篇的两条 steering 在工具仍执行时进入 FIFO。`fast` 可以先完成，loop 仍等 `slow`
+结束，并按 call 顺序写入两条结果。然后才调用 `takeSteeringMessages()`：
 
 ```text
-assistant(stop)
-  → 若有 steering：追加 steering，继续当前运行
-  → 否则若有 follow-up：追加 follow-up，继续当前运行
-  → 两者都没有：自然 stop
+tool_end(fast)
+tool_end(slow)
+transcript += result(slow), result(fast)
+transcript += user("先检查测试"), user("再更新说明")
+下一次 model.stream(context)
 ```
 
-旧实现只在工具批次后取 steering。因此，如果模型输出期间收到 steering，随后模型
-用纯文本 `stop` 结束，这条尚未取出的 steering 消息会被丢弃。第五步需要同时修正
-`agent-loop.ts` 的工具分支和纯文本分支。
+纯文本也形成完整边界。模型输出 `assistant(stop)` 后，loop 先检查取消，再取 steering；
+没有 steering 才取 follow-up。取到任一批消息都会继续 run 1，而不是开启新的
+`prompt()`。
 
-以 `aborted` 或 `error` 结束时不能消费剩余队列。`Agent` 在清理本次运行时会丢弃
-这些未消费的消息，防止它们进入下一次 `prompt()`。steering 和 follow-up 各自
-保持 FIFO。
+`error` 或 `aborted` 直接结束运行，剩余队列在 `ActiveRun` 清理时丢弃，不会进入下一次
+run。取消检查一定先于队列消费；以 `error` 或 `aborted` 结束后，未消费消息不会进入下一次
+运行。`turn_end` 一发布，`acceptingInput` 已经是 `false`，新的 `steer()` 和
+`followUp()` 会明确拒绝。
 
-这里不要把规则扩大到 `maxSteps`。当前测试没有规定 steering 或 follow-up 恰好
-在最后一个允许回合到达时，是应写入最终消息历史还是丢弃；当前实现也可能先取出
-队列，再返回 `maxSteps`。在产品策略明确、相应测试补齐之前，调用者不能依赖这一
-边界行为。
+不要把规则扩大到 `maxSteps`。现有测试没有规定 steering 或 follow-up 恰好在最后一个
+允许回合到达时应该写入还是丢弃，当前实现也可能先取队列再返回 `maxSteps`。在策略和
+测试补齐前，调用者不能依赖这一边界行为。
 
-:::lab title="实践 9.5 · 固定 steering 与 follow-up 的取出时机"
-**目标：** 让两种排队消息只在协议允许的位置进入消息历史。
+:::lab title="实践 9.5 · 在完整边界消费两条队列"
+**目标：** 固定 steering 与 follow-up 的取出顺序，并阻止终止运行的队列泄漏到 run 2。
 
 **文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/agent-loop.ts`
 
 **动作：**
-1. 在 `ActiveRun` 中保存两条 FIFO 队列；当前没有运行，或已经收到
-   `turn_end` 时，`Agent.steer()` 和 `Agent.followUp()` 都必须拒绝输入。错误消息至少
-   包含 `只在当前 run 尚未结束`，让调用者能够区分“现在不能排队”与其他程序错误。
-2. 把 `takeSteeringMessages()` 与 `takeFollowUpMessages()` 传给循环。
-3. 工具批次先完成全部配对；若已取消则结束，否则再取 steering。
-4. 纯文本 `stop` 先检查取消，再取 steering；没有 steering 时才取 follow-up。
-5. 收到 `turn_end` 后拒绝新的 steering 和 follow-up。
-6. 以 `error` 或 `aborted` 结束后清空未消费队列，不把它们带到下一次运行。
-7. 删除 Lab 9.5 的显式异常，先运行本段，再运行全章测试。
+1. 在 `ActiveRun` 中保存两条 FIFO；idle 或收到 `turn_end` 后拒绝新输入，错误文字包含
+   `只在当前 run 尚未结束`。
+2. 把 `takeSteeringMessages()` 与 `takeFollowUpMessages()` 交给 loop。
+3. 工具批次先写完所有配对结果，再检查取消并取 steering。
+4. 文本 `stop` 先检查取消，再依次尝试 steering 和 follow-up。
+5. error、aborted 与运行清理都不把剩余队列带入 run 2。
+6. 删除 Lab 9.5 的显式异常，先运行本段，再运行全章测试。
 
 **运行：**
 
@@ -522,109 +430,103 @@ node --test --test-name-pattern="Lab 9.5" \
 node --test packages/pi-course/dist/test/09-*.test.js
 ```
 
-**预期：** 本段测试 `3/3`，全章测试 `11/11`。三项测试分别检查工具批次后按
-FIFO 顺序取出的 steering 消息、纯文本 `stop` 期间到达的 steering，以及自然
-`stop` 后的 follow-up。组合场景还会检查两条规则：取消检查一定先于队列消费；
-以 `error` 或 `aborted` 结束后，剩余消息不会进入下一次运行。最后，
-`turn_end` 发布后不再接受新消息。
+**预期：** 局部 `3/3`，全章 `11/11`。三项测试分别观察工具批次后的 FIFO steering、
+文本 stop 期间到达的 steering，以及自然 stop 后的 follow-up；组合场景再检查取消
+优先、终态拒绝和失败队列隔离。
 :::
 
-## 故意把它弄坏
+## 诊断旧运行误删新运行
 
-先保留你已有的清理：它带有身份检查，并且位于 `run_end` 之前。然后在发布
-`run_end` 之后，故意再加一次不带身份检查的清理：
+正常实现会在 `run_end` 之前用身份检查清理当前运行。保留你已有的清理和身份检查，
+然后在发布 `run_end` 之后，故意增加一次不带身份检查的清理：
 
 ```text
 if (this.activeRun === run) this.activeRun = undefined
 emit(run_end)
-this.activeRun = undefined   // 故意加错：可能清掉订阅回调刚创建的新运行
+this.activeRun = undefined   // 故意增加
 ```
 
-注意：不要把原来的清理整体移到 `run_end` 后面。那样订阅回调会因为旧运行仍被
-视为当前运行而无法启动运行 2，Lab 9.2 只会超时，无法复现这里要观察的所有权
-错误。
+不要把原来的清理整体移到 `run_end` 后面。那会使回调启动 run 2 时仍看到 run 1 busy，
+测试只会等待超时。上面的变体先允许回调创建 run 2，再让旧代码把新记录删掉，因而能
+直接观察所有权错误。
 
-只运行 Lab 9.2。第二项测试会在运行 1 的 `run_end` 订阅回调中启动运行 2，然后
-尝试第三个并行 `prompt()`。新增的无条件清理会让运行 1 清除运行 2 的
-`ActiveRun` 记录，于是第三次 `prompt()` 被错误放行。
-
-:::failure title="预期失败 · 让旧运行清理新运行"
-不要改测试，也不要增加 `sleep`。观察第三次 `prompt()` 是否得到
-`Agent is busy`，再核对订阅回调收到的 `run_start`/`run_end` 顺序。删除新增的
-无条件清理，恢复为“只清理当前 `prompt()` 创建且身份匹配的 `ActiveRun`，并在
-`run_end` 前完成清理”后，Lab 9.2 应重新得到 `2/2`，全章回到 `11/11`。
+:::failure title="预期失败 · run 1 清掉了 run 2"
+只运行 Lab 9.2。run 1 的 `run_end` listener 会启动 run 2，随后第三次并行
+`prompt()` 本应得到 `Agent is busy`；新增的无条件清理会错误放行它。删除该行，恢复
+“只清理身份匹配的 ActiveRun，并在 `run_end` 前完成”后，局部测试应回到 `2/2`，全章
+回到 `11/11`。
 :::
 
 ## 本章没有证明什么
 
-11 项测试没有覆盖以下性质：
+11 项测试精确覆盖本章列出的同步单实例行为，但没有证明：
 
-- 异步订阅回调的执行顺序、背压、优先级或并行调度；
-- `run_start` 事件乱序；课程只用 `runId` 防护当前运行的 `loop` 与 `run_end`
-  事件；
-- 模型流事件或工具进度事件中不可复制的临时数据；
-- steering/follow-up 在 `maxSteps` 最后一步到达时的产品策略；
-- 进程崩溃后的运行恢复、跨进程取消或跨设备同步；
-- 消息历史的磁盘持久化、分支、压缩或并发写入；
-- 多个 `Agent` 实例共同修改同一个会话；
-- 真实界面的输入防抖、权限确认和用户撤销体验；
-- 模型或工具忽略 `signal` 且永不返回时，系统能否强制停止它。
+- 异步 subscriber 的背压、优先级和并行顺序；
+- `run_start` 事件乱序；runId 防护只覆盖当前实现的 `loop` 与 `run_end`；
+- 模型流事件和工具进度中的任意临时数据都可复制；
+- steering 或 follow-up 在 `maxSteps` 边界的产品策略；
+- 进程崩溃后的恢复、跨进程取消或多个 Agent 共同写同一会话；
+- 消息的磁盘持久化、分支、压缩和并发提交；
+- 模型或工具忽略 signal 且永不返回时，`Agent` 能强制停止它。
 
-测试通过只说明：在订阅回调同步执行且只有一个 `Agent` 的环境中，本章列出的
-生命周期与队列时序符合约定；进入消息历史的工具结果可以被安全复制。它不能保证
-第三方模型或工具一定响应取消，更不能把它们变成可以强制终止的独立进程。
+测试还通过变异公开值来检查 `getState()`、subscriber event 与 `prompt()` result 的
+副本边界。loop 输入 context 和模型返回 assistant 的深复制可以从源码看到，聚焦测试
+没有为这两处各写一条独立的别名变异断言。
 
-:::pi title="与上游 Pi 的固定提交对照"
-上游固定提交 `8479bd8` 中，`packages/agent/src/agent.ts` 也在底层循环外保存消息、
-工具和当前运行的 `AbortController`，并区分 steering 与 follow-up。上游还支持
-更多队列取出模式、运行中切换模型与配置、异步订阅回调，以及更多产品状态。
+:::pi title="与固定上游 Pi 对照"
+固定提交 `8479bd8` 的 `packages/agent/src/agent.ts` 同样在底层循环外保存消息、工具和
+当前运行的 `AbortController`，也区分 steering 与 follow-up。上游还支持更多队列模式、
+运行中切换模型与配置、异步订阅回调和更多产品状态。
 
-课程没有照搬这些选项，而是先实现本章所需的最小功能集合：同一时刻只有一个运行、
-每次运行使用独立控制器、公开状态不与内部共享引用，并且两种排队消息只在规定位置
-进入消息历史。11 项离线测试只检查上述范围内的行为。
+课程只保留这条时间线所需的形状：一个实例同一时刻只有一个运行；每次运行拥有独立
+控制器；公开数据不共享内部可变引用；两种消息只在规定的完整边界进入 transcript。
+这些课程约束不代表上游所有队列模式都与本章相同。
 :::
 
-## 本章验收
+## 两次运行的时间线与验收
 
-:::checkpoint title="Checkpoint 09 · 每次运行只清理自己"
-在隔离练习目录运行 `build` 脚本和 11 项测试。你还要画出两条时间线：
+:::checkpoint title="Checkpoint 09 · run 1 结束后 run 2 仍有明确所有者"
+在隔离 practice 目录运行：
 
-1. 运行 1 发布 `run_end` 时，订阅回调立即启动运行 2，随后第三次 `prompt()` 被
-   拒绝；
-2. 两个工具反序完成，同时有两条 steering 排队。
+```bash
+npm run build -w @pi/course
+node --test packages/pi-course/dist/test/09-*.test.js
+```
 
-第一条要按时间标出：旧 `ActiveRun` 何时清理、`run_end` 何时发布、订阅回调何时
-创建新 `ActiveRun`，以及回调产生的新事件何时进入 FIFO 队列。第二条要同时标出
-`tool_end` 的实际完成顺序，以及消息历史中工具调用和结果的写入顺序。还要标出
-两条 steering 何时排队、何时按 FIFO 写入消息历史，以及下一次模型请求何时发起。
-最后，逐一说明测试如何验证 `getState()` 返回值、订阅事件和 `prompt()` 返回值
-这三条公开数据边界，再在源码中指出各边界对应的 `structuredClone()`。对循环输入
-上下文和模型返回的 `assistant` 消息，现有测试没有单独做别名变异断言，只能通过
-源码核对其深复制。做到这些，本章通过。
+结果应为 `11/11`。随后画出两条时间线。
+
+第一条从 run 1 的结果开始：标出它何时清理自己的 `ActiveRun`、何时发布
+`run_end(1)`、listener 何时创建 run 2，以及第三次并行 `prompt()` 在哪里被拒绝。两个
+listener 看到的顺序都应是 `start1 → end1 → start2 → end2`。
+
+第二条从 `assistant(call slow, call fast)` 开始：标出 fast 与 slow 的实际完成顺序、
+结果按 call 顺序写入 transcript 的时间、两条 steering 何时排队、何时按 FIFO 写入消息历史，
+以及下一次模型请求何时发起。最后再指出 run 2 的 context 从哪里取得 run 1
+已经完成的历史。
+
+还要分别用测试说明 `getState()`、订阅事件与 `prompt()` 返回值为什么不能修改内部
+状态，并在源码中找到对应的 `structuredClone()`。重新定位可运行
+`npm run checkpoint -w @pi/course -- 09`；重做时新建 practice 目录，不复用已改过的
+脚手架。
 :::
 
 ## 可选迁移练习
 
 :::transfer title="陪练迁移 · waitForIdle"
-这次不要从空白页硬写。先让旁边的 Agent 只帮你完成三件事：列出
-`waitForIdle(): Promise<void>` 的四个验收例子；指出它应该监听哪个公开事件；检查
-你的测试有没有偷看私有控制器。你自己先写测试，再实现最小代码。
-
-四个例子至少包括：`idle` 时立即完成；正常运行结束后完成；`abort()` 结束后完成；
-多个等待者都完成。最后再启动一次 `prompt()`，证明新运行没有复用旧 `signal`。
-陪练可以逐条提示，但在你写出当前红灯前不要给完整实现。
+为同一个 `Agent` 增加 `waitForIdle(): Promise<void>`。先写四个验收例子：idle 时立即
+完成、正常 run 结束后完成、abort 结算后完成、多个等待者都完成。实现只使用公开状态
+和事件，不读取私有控制器。最后再启动一次 prompt，确认新运行没有复用旧 signal。
 :::
 
 ## 小结
 
-有状态 `Agent` 没有增加新的推理算法。它只集中管理跨运行状态：一份消息历史、
-一个 `ActiveRun`、一组订阅回调和两条用户消息队列。
+同一个 `Agent` 现在能完成 run 1，保存它的 transcript，再用这份历史开始 run 2。
+`ActiveRun` 给每次运行独立的 id、控制器和消息队列；身份检查保证旧运行不会清理新
+运行。reducer 把生命周期事件变成公开状态，事件 FIFO 让所有同步订阅者观察同一顺序，
+深副本隔离三个公开出口。
 
-reducer 会忽略旧运行迟到的 `loop` 和 `run_end` 事件。每次运行先清理自己创建的
-资源，再发布 `run_end`；回调中产生的新事件进入 FIFO，不能插到当前事件前面。
-公开数据通过深副本与内部状态隔离，无法复制的工具结果先转换成标准错误结果。
-`abort()` 只取消当前控制器。steering 在完整工具批次或纯文本 `stop` 后取出；
-follow-up 只在自然 `stop` 且没有待取出的 steering 时取出。
+run 1 中到达的 steering 只在完整工具批次或文本 stop 后进入消息；follow-up 只在自然
+stop 后进入。取消和失败先结算当前运行，未消费队列不会泄漏到 run 2。
 
-下一章会保存已经完成的消息历史。当前运行的控制器、流式文本和队列仍是临时状态，
-不应写进会话历史。
+第 10 章会把已经完成的消息历史写成 session tree。`ActiveRun`、AbortController、
+流式文字和尚未消费的队列仍是运行时状态，不会进入持久化记录。
