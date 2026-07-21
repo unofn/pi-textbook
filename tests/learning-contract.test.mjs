@@ -264,7 +264,7 @@ test("第四章只重建 ScriptedModel，并用三个场景验证可执行规格
   );
   assert.match(
     chapter.source,
-    /本章没有测试.*中途取消.*多个并发.*实际时间间隔.*调度时机.*背压/s,
+    /单进程里的确定性事件生产者.*请求.*快照.*cursor.*microtask.*测试探针.*背压.*中途取消/s,
   );
 });
 
@@ -297,11 +297,11 @@ test("第五章披露两个源文件，并把 provider 边界拆成可运行的�
   assert.match(chapter.source, /实践 5\.4.*11\/11/s);
   assert.match(
     chapter.source,
-    /11 项聚焦测试.*出站.*normalized.*SSE.*取消.*脱敏/s,
+    /11 项聚焦测试.*三段边界.*canonical context.*wire messages.*网络读取.*SSE payload.*unknown.*ProviderChunk.*取消.*脱敏.*AssistantMessage/s,
   );
   assert.match(
     chapter.source,
-    /没有证明.*所有 OpenAI-compatible.*并发.*重试/s,
+    /工具执行与 transcript 更新.*第 06、07 章/s,
   );
   assert.doesNotMatch(chapter.source, /transport (?:保持)?很薄/);
 });
@@ -379,7 +379,11 @@ test("第七章把 Agent Loop 拆成五段可单独验证的状态迁移", async
   );
   assert.match(
     chapter.source,
-    /stop.*tool call.*不得执行.*toolUse.*没有.*call.*error/s,
+    /assistant_message\(length.*executor 调用次数\s+0.*toolResult\(call-1.*skipped.*tool_skipped.*finish\("length"/s,
+  );
+  assert.match(
+    chapter.source,
+    /`stop` \+ 至少一个工具调用.*`unexpected-stop`.*finish\("error".*`toolUse` \+ 没有工具调用.*finish\("error"/s,
   );
   assert.match(
     chapter.source,
@@ -387,7 +391,7 @@ test("第七章把 Agent Loop 拆成五段可单独验证的状态迁移", async
   );
   assert.match(
     chapter.source,
-    /没有证明.*墙钟.*忽略.*signal.*subscriber|没有证明.*忽略.*signal.*墙钟.*subscriber/s,
+    /这份 loop 管理一次进程内运行.*signal.*阻止新的模型请求.*provider.*工具.*第 09 章/s,
   );
   assert.doesNotMatch(chapter.source, /`add`|workshop\//);
 });
@@ -433,7 +437,10 @@ test("第八章把环境副作用拆成六段可恢复的资源协议", async ()
   );
   assert.match(chapter.source, /`endLine`.*实际.*完整/s);
   assert.match(chapter.source, /续读位置为 `endLine \+ 1`/);
-  assert.match(chapter.source, /同一路径.*登记顺序/s);
+  assert.match(
+    chapter.source,
+    /B 等待.*同一个解析后的绝对路径.*C 指向另一个路径.*同时前进.*A 即使抛错.*B.*执行权.*`MutationQueue`/s,
+  );
   assert.match(chapter.source, /Edit 先验证整批/s);
   assert.match(chapter.source, /`bash`.*一个有界的终态/s);
   assert.match(
@@ -450,7 +457,7 @@ test("第八章把环境副作用拆成六段可恢复的资源协议", async ()
   );
   assert.match(
     chapter.source,
-    /没有证明.*符号链接竞态.*断电持久性.*文件操作的运行中取消.*Windows.*命令审批/s,
+    /这四个工具的边界.*`resolvedPath\(\)`.*操作系统沙箱.*`MutationQueue`.*`rename`.*持久化事务.*Windows.*命令\s*审批/s,
   );
   assert.doesNotMatch(chapter.source, /workshop\//);
 });
@@ -494,15 +501,15 @@ test("第九章用两份脚手架分五段建立跨运行所有权", async () =>
   );
   assert.match(
     chapter.source,
-    /`event\.event`[\s\S]*`const loop = event\.event`[\s\S]*不要用 `as any`/s,
+    /`event\.event`[\s\S]*`const loop = event\.event`[\s\S]*类型证据[\s\S]*不需要用 `as any`/s,
   );
   assert.match(
     chapter.source,
-    /已经完成的历史[\s\S]*当前用户消息[\s\S]*`run_start` 事件可能仍在 FIFO 队列/s,
+    /已经完成的历史[\s\S]*当前用户消息[\s\S]*回调重入产生的 `run_start`[\s\S]*FIFO[\s\S]*发布前完成的快照/s,
   );
   assert.match(
     chapter.source,
-    /发布 `run_start`[\s\S]*同一份局部副本[\s\S]*不要在发布 `run_start` 后回读[\s\S]*`this\.state\.messages`/s,
+    /发布 `run_start`[\s\S]*同一份局部副本[\s\S]*若发布事件后再回读[\s\S]*`this\.state\.messages`[\s\S]*FIFO[\s\S]*发布前完成的快照/s,
   );
   assert.match(
     chapter.source,
@@ -510,7 +517,7 @@ test("第九章用两份脚手架分五段建立跨运行所有权", async () =>
   );
   assert.match(
     chapter.source,
-    /不可复制[\s\S]*标准、可复制的错误结果[\s\S]*回到 `idle`/s,
+    /不可复制[\s\S]*标准、\s*可复制的错误结果[\s\S]*回到 `idle`/s,
   );
   assert.match(
     chapter.source,
@@ -522,11 +529,11 @@ test("第九章用两份脚手架分五段建立跨运行所有权", async () =>
   );
   assert.match(
     chapter.source,
-    /保留你已有的清理[\s\S]*身份检查[\s\S]*发布\s*`run_end` 之后[\s\S]*不带身份检查的清理[\s\S]*不要把原来的清理整体移到 `run_end` 后面/s,
+    /保留你已有的清理[\s\S]*身份检查[\s\S]*发布\s*`run_end` 之后[\s\S]*不带身份检查的清理[\s\S]*原来的清理仍留在 `run_end` 之前[\s\S]*整体移到事件之后/s,
   );
   assert.match(
     chapter.source,
-    /不要把规则扩大到 `maxSteps`[\s\S]*steering 或 follow-up[\s\S]*不能依赖这一\s*边界行为/s,
+    /队列规则只覆盖[\s\S]*完整终态[\s\S]*steering 或 follow-up[\s\S]*最后一个允许回合[\s\S]*未定的产品策略/s,
   );
   assert.match(
     chapter.source,
@@ -534,7 +541,7 @@ test("第九章用两份脚手架分五段建立跨运行所有权", async () =>
   );
   assert.match(
     chapter.source,
-    /没有证明什么[\s\S]*run_start.*乱序[\s\S]*永不返回.*强制停止/s,
+    /边界是单实例、内存内生命周期[\s\S]*`ActiveRun`[\s\S]*subscriber[\s\S]*`abort\(\)`[\s\S]*signal[\s\S]*transcript[\s\S]*会话持久化/s,
   );
   assert.match(chapter.source, /陪练迁移 · waitForIdle/);
   assert.doesNotMatch(chapter.source, /workshop\//);
