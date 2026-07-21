@@ -603,8 +603,8 @@ Registry 仍能找到 echo，`stringValue` 随后抛出 `必须是 string`。`ec
 ```
 
 聚焦测试使用名为 `boom` 的工具隔离这条分支，执行规则相同。executor 把 Error 的
-`message` 写进 content 和 details，不附带 stack。普通错误文本仍可能由工具主动包含
-路径或秘密；这一章没有实现通用脱敏。
+`message` 写进 content 和 details，只去掉 stack。通用脱敏属于更外层的日志与输出策略；
+工具主动写进 message 的路径或秘密，在这里仍会原样保留。
 
 三种失败都通过 Promise 正常返回 ToolResultMessage。第 07 章因此可以把每个结果按
 call id 写回 transcript，不需要同时处理“返回消息”和“executor 向外抛错”两条通道。
