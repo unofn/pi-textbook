@@ -6,8 +6,8 @@ export const searchIndex: SearchEntry[] = [
     "id": "00",
     "chapterId": "00",
     "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
-    "title": "先观察一次完整的 Agent 运行",
+    "chapterTitle": "一次 README 读取请求怎样走完 Agent 闭环",
+    "title": "一次 README 读取请求怎样走完 Agent 闭环",
     "href": "/learn/prologue",
     "partTitle": "序章 · 先看见完整系统",
     "terms": [
@@ -17,15 +17,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "transcript"
     ],
-    "searchText": "先观察一次完整的 Agent 运行 先读懂一条从用户目标到工具结果再到最终回答的完整轨迹，为全书建立地图。 序章 · 先看见完整系统 agent, model, tool call, tool result, transcript 你将得到什么 先建立全景 用消息而不是界面描述事实 从终点倒推我们要造的部件 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "一次 README 读取请求怎样走完 Agent 闭环 跟随七个可见里程碑，观察用户消息、模型请求、工具结果和最终回答怎样连成一次完整运行。 序章 · 先看见完整系统 agent, model, tool call, tool result, transcript 你将看到什么 七个里程碑 01 · 用户消息确定本次目标 02 · 第一次模型调用开始 03 · 模型提出 read 工具调用 04 · 循环开始调度 read 05 · 工具结果成为新的环境事实 06 · 第二次模型调用看到新增结果 07 · 最终回答结束这次运行 Owner 回顾：三条容易混淆的记录 Transcript 保存下一轮仍需要的事实 本章验收 小结"
   },
   {
-    "id": "00-你将得到什么",
+    "id": "00-你将看到什么",
     "chapterId": "00",
     "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
-    "title": "你将得到什么",
-    "href": "/learn/prologue#你将得到什么",
+    "chapterTitle": "一次 README 读取请求怎样走完 Agent 闭环",
+    "title": "你将看到什么",
+    "href": "/learn/prologue#你将看到什么",
     "partTitle": "序章 · 先看见完整系统",
     "terms": [
       "agent",
@@ -34,15 +34,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "transcript"
     ],
-    "searchText": "先观察一次完整的 Agent 运行 你将得到什么 agent model tool call tool result transcript"
+    "searchText": "一次 README 读取请求怎样走完 Agent 闭环 你将看到什么 agent model tool call tool result transcript"
   },
   {
-    "id": "00-先建立全景",
+    "id": "00-七个里程碑",
     "chapterId": "00",
     "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
-    "title": "先建立全景",
-    "href": "/learn/prologue#先建立全景",
+    "chapterTitle": "一次 README 读取请求怎样走完 Agent 闭环",
+    "title": "七个里程碑",
+    "href": "/learn/prologue#七个里程碑",
     "partTitle": "序章 · 先看见完整系统",
     "terms": [
       "agent",
@@ -51,15 +51,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "transcript"
     ],
-    "searchText": "先观察一次完整的 Agent 运行 先建立全景 agent model tool call tool result transcript"
+    "searchText": "一次 README 读取请求怎样走完 Agent 闭环 七个里程碑 agent model tool call tool result transcript"
   },
   {
-    "id": "00-用消息而不是界面描述事实",
+    "id": "00-owner-回顾三条容易混淆的记录",
     "chapterId": "00",
     "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
-    "title": "用消息而不是界面描述事实",
-    "href": "/learn/prologue#用消息而不是界面描述事实",
+    "chapterTitle": "一次 README 读取请求怎样走完 Agent 闭环",
+    "title": "Owner 回顾：三条容易混淆的记录",
+    "href": "/learn/prologue#owner-回顾三条容易混淆的记录",
     "partTitle": "序章 · 先看见完整系统",
     "terms": [
       "agent",
@@ -68,15 +68,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "transcript"
     ],
-    "searchText": "先观察一次完整的 Agent 运行 用消息而不是界面描述事实 agent model tool call tool result transcript"
+    "searchText": "一次 README 读取请求怎样走完 Agent 闭环 Owner 回顾：三条容易混淆的记录 agent model tool call tool result transcript"
   },
   {
-    "id": "00-从终点倒推我们要造的部件",
+    "id": "00-transcript-保存下一轮仍需要的事实",
     "chapterId": "00",
     "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
-    "title": "从终点倒推我们要造的部件",
-    "href": "/learn/prologue#从终点倒推我们要造的部件",
+    "chapterTitle": "一次 README 读取请求怎样走完 Agent 闭环",
+    "title": "Transcript 保存下一轮仍需要的事实",
+    "href": "/learn/prologue#transcript-保存下一轮仍需要的事实",
     "partTitle": "序章 · 先看见完整系统",
     "terms": [
       "agent",
@@ -85,30 +85,13 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "transcript"
     ],
-    "searchText": "先观察一次完整的 Agent 运行 从终点倒推我们要造的部件 agent model tool call tool result transcript"
-  },
-  {
-    "id": "00-故意把它弄坏",
-    "chapterId": "00",
-    "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
-    "title": "故意把它弄坏",
-    "href": "/learn/prologue#故意把它弄坏",
-    "partTitle": "序章 · 先看见完整系统",
-    "terms": [
-      "agent",
-      "model",
-      "tool call",
-      "tool result",
-      "transcript"
-    ],
-    "searchText": "先观察一次完整的 Agent 运行 故意把它弄坏 agent model tool call tool result transcript"
+    "searchText": "一次 README 读取请求怎样走完 Agent 闭环 Transcript 保存下一轮仍需要的事实 agent model tool call tool result transcript"
   },
   {
     "id": "00-本章验收",
     "chapterId": "00",
     "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
+    "chapterTitle": "一次 README 读取请求怎样走完 Agent 闭环",
     "title": "本章验收",
     "href": "/learn/prologue#本章验收",
     "partTitle": "序章 · 先看见完整系统",
@@ -119,30 +102,13 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "transcript"
     ],
-    "searchText": "先观察一次完整的 Agent 运行 本章验收 agent model tool call tool result transcript"
-  },
-  {
-    "id": "00-可选迁移练习",
-    "chapterId": "00",
-    "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
-    "title": "可选迁移练习",
-    "href": "/learn/prologue#可选迁移练习",
-    "partTitle": "序章 · 先看见完整系统",
-    "terms": [
-      "agent",
-      "model",
-      "tool call",
-      "tool result",
-      "transcript"
-    ],
-    "searchText": "先观察一次完整的 Agent 运行 可选迁移练习 agent model tool call tool result transcript"
+    "searchText": "一次 README 读取请求怎样走完 Agent 闭环 本章验收 agent model tool call tool result transcript"
   },
   {
     "id": "00-小结",
     "chapterId": "00",
     "chapterSlug": "prologue",
-    "chapterTitle": "先观察一次完整的 Agent 运行",
+    "chapterTitle": "一次 README 读取请求怎样走完 Agent 闭环",
     "title": "小结",
     "href": "/learn/prologue#小结",
     "partTitle": "序章 · 先看见完整系统",
@@ -153,30 +119,32 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "transcript"
     ],
-    "searchText": "先观察一次完整的 Agent 运行 小结 agent model tool call tool result transcript"
+    "searchText": "一次 README 读取请求怎样走完 Agent 闭环 小结 agent model tool call tool result transcript"
   },
   {
     "id": "01",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "TypeScript、测试与 ESM 生存集",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
     "href": "/learn/typescript-survival",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 只学习构造 Agent 所需的 TypeScript 子集，并建立类型检查与行为测试两条证据链。 第一部 · 建立可执行语言 tagged union, narrowing, never, ESM, node:test 你将得到什么 先建立全景 用 tagged union 表达互斥状态 把边界的 unknown 收窄 ESM 与测试让文件形成可执行契约 Promise 让“何时完成”进入类型 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 跟随一组事件对象，读懂联合类型、分支收窄、unknown 验证，以及 ESM 测试怎样加载源码。 第一部 · 建立可执行语言 tagged union, narrowing, never, unknown, ESM, Promise, node:test 你将得到什么 type 区分四种事件 switch 把事件写成文字 unknown 在检查后变成 delta ESM 测试加载编译后的文件 Promise 只增加“稍后得到结果” 完成正常路径后的诊断实验 本节验收 可选迁移练习 小结"
   },
   {
     "id": "01-你将得到什么",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
     "title": "你将得到什么",
     "href": "/learn/typescript-survival#你将得到什么",
     "partTitle": "第一部 · 建立可执行语言",
@@ -184,135 +152,151 @@ export const searchIndex: SearchEntry[] = [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 你将得到什么 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 你将得到什么 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
-    "id": "01-先建立全景",
+    "id": "01-type-区分四种事件",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "先建立全景",
-    "href": "/learn/typescript-survival#先建立全景",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "type 区分四种事件",
+    "href": "/learn/typescript-survival#type-区分四种事件",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 先建立全景 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 type 区分四种事件 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
-    "id": "01-用-tagged-union-表达互斥状态",
+    "id": "01-switch-把事件写成文字",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "用 tagged union 表达互斥状态",
-    "href": "/learn/typescript-survival#用-tagged-union-表达互斥状态",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "switch 把事件写成文字",
+    "href": "/learn/typescript-survival#switch-把事件写成文字",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 用 tagged union 表达互斥状态 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 switch 把事件写成文字 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
-    "id": "01-把边界的-unknown-收窄",
+    "id": "01-unknown-在检查后变成-delta",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "把边界的 unknown 收窄",
-    "href": "/learn/typescript-survival#把边界的-unknown-收窄",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "unknown 在检查后变成 delta",
+    "href": "/learn/typescript-survival#unknown-在检查后变成-delta",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 把边界的 unknown 收窄 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 unknown 在检查后变成 delta tagged union narrowing never unknown ESM Promise node:test"
   },
   {
-    "id": "01-esm-与测试让文件形成可执行契约",
+    "id": "01-esm-测试加载编译后的文件",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "ESM 与测试让文件形成可执行契约",
-    "href": "/learn/typescript-survival#esm-与测试让文件形成可执行契约",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "ESM 测试加载编译后的文件",
+    "href": "/learn/typescript-survival#esm-测试加载编译后的文件",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 ESM 与测试让文件形成可执行契约 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 ESM 测试加载编译后的文件 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
-    "id": "01-promise-让何时完成进入类型",
+    "id": "01-promise-只增加稍后得到结果",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "Promise 让“何时完成”进入类型",
-    "href": "/learn/typescript-survival#promise-让何时完成进入类型",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "Promise 只增加“稍后得到结果”",
+    "href": "/learn/typescript-survival#promise-只增加稍后得到结果",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 Promise 让“何时完成”进入类型 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 Promise 只增加“稍后得到结果” tagged union narrowing never unknown ESM Promise node:test"
   },
   {
-    "id": "01-故意把它弄坏",
+    "id": "01-完成正常路径后的诊断实验",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "故意把它弄坏",
-    "href": "/learn/typescript-survival#故意把它弄坏",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "完成正常路径后的诊断实验",
+    "href": "/learn/typescript-survival#完成正常路径后的诊断实验",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 故意把它弄坏 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 完成正常路径后的诊断实验 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
-    "id": "01-本章验收",
+    "id": "01-本节验收",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
-    "title": "本章验收",
-    "href": "/learn/typescript-survival#本章验收",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
+    "title": "本节验收",
+    "href": "/learn/typescript-survival#本节验收",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 本章验收 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 本节验收 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
     "id": "01-可选迁移练习",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
     "title": "可选迁移练习",
     "href": "/learn/typescript-survival#可选迁移练习",
     "partTitle": "第一部 · 建立可执行语言",
@@ -320,16 +304,18 @@ export const searchIndex: SearchEntry[] = [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 可选迁移练习 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 可选迁移练习 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
     "id": "01-小结",
     "chapterId": "01",
     "chapterSlug": "typescript-survival",
-    "chapterTitle": "TypeScript、测试与 ESM 生存集",
+    "chapterTitle": "TypeScript 生存集：四个 DemoEvent 怎样进入测试",
     "title": "小结",
     "href": "/learn/typescript-survival#小结",
     "partTitle": "第一部 · 建立可执行语言",
@@ -337,17 +323,19 @@ export const searchIndex: SearchEntry[] = [
       "tagged union",
       "narrowing",
       "never",
+      "unknown",
       "ESM",
+      "Promise",
       "node:test"
     ],
-    "searchText": "TypeScript、测试与 ESM 生存集 小结 tagged union narrowing never ESM node:test"
+    "searchText": "TypeScript 生存集：四个 DemoEvent 怎样进入测试 小结 tagged union narrowing never unknown ESM Promise node:test"
   },
   {
     "id": "02",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
-    "title": "EventStream：让过程和结果走同一条流",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "EventStream：同一个对象怎样交付下一项和最终结果",
     "href": "/learn/event-stream",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
@@ -357,13 +345,13 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 实现一个既能逐项读取事件、又能等待最终结果的异步流，并把终态写成唯一结束信号。 第一部 · 建立可执行语言 AsyncIterable, EventStream, queue, waiter, terminal event 你将得到什么 先建立全景 一条流需要队列、等待者与终态 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 跟随一个 EventStream 实例，观察 push、next 与 result 怎样在两种到达顺序下汇合。 第一部 · 建立可执行语言 AsyncIterable, EventStream, queue, waiter, terminal event 你将得到什么 先手动读取同一个 events 事件先到：它留在 queue 里 events 保存两条交付队列和一条完成状态 next 先到：它把 resolve 留在 waiting 里 end() 在没有终态事件时关闭流 四个公开调用各改哪一份状态 完成正常路径后再做一次诊断 本章验收 可选迁移练习 小结"
   },
   {
     "id": "02-你将得到什么",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
     "title": "你将得到什么",
     "href": "/learn/event-stream#你将得到什么",
     "partTitle": "第一部 · 建立可执行语言",
@@ -374,15 +362,15 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 你将得到什么 AsyncIterable EventStream queue waiter terminal event"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 你将得到什么 AsyncIterable EventStream queue waiter terminal event"
   },
   {
-    "id": "02-先建立全景",
+    "id": "02-先手动读取同一个-events",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
-    "title": "先建立全景",
-    "href": "/learn/event-stream#先建立全景",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "先手动读取同一个 events",
+    "href": "/learn/event-stream#先手动读取同一个-events",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "AsyncIterable",
@@ -391,15 +379,15 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 先建立全景 AsyncIterable EventStream queue waiter terminal event"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 先手动读取同一个 events AsyncIterable EventStream queue waiter terminal event"
   },
   {
-    "id": "02-一条流需要队列等待者与终态",
+    "id": "02-事件先到它留在-queue-里",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
-    "title": "一条流需要队列、等待者与终态",
-    "href": "/learn/event-stream#一条流需要队列等待者与终态",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "事件先到：它留在 queue 里",
+    "href": "/learn/event-stream#事件先到它留在-queue-里",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "AsyncIterable",
@@ -408,15 +396,15 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 一条流需要队列、等待者与终态 AsyncIterable EventStream queue waiter terminal event"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 事件先到：它留在 queue 里 AsyncIterable EventStream queue waiter terminal event"
   },
   {
-    "id": "02-故意把它弄坏",
+    "id": "02-events-保存两条交付队列和一条完成状态",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
-    "title": "故意把它弄坏",
-    "href": "/learn/event-stream#故意把它弄坏",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "events 保存两条交付队列和一条完成状态",
+    "href": "/learn/event-stream#events-保存两条交付队列和一条完成状态",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "AsyncIterable",
@@ -425,13 +413,81 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 故意把它弄坏 AsyncIterable EventStream queue waiter terminal event"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 events 保存两条交付队列和一条完成状态 AsyncIterable EventStream queue waiter terminal event"
+  },
+  {
+    "id": "02-next-先到它把-resolve-留在-waiting-里",
+    "chapterId": "02",
+    "chapterSlug": "event-stream",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "next 先到：它把 resolve 留在 waiting 里",
+    "href": "/learn/event-stream#next-先到它把-resolve-留在-waiting-里",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "AsyncIterable",
+      "EventStream",
+      "queue",
+      "waiter",
+      "terminal event"
+    ],
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 next 先到：它把 resolve 留在 waiting 里 AsyncIterable EventStream queue waiter terminal event"
+  },
+  {
+    "id": "02-end-在没有终态事件时关闭流",
+    "chapterId": "02",
+    "chapterSlug": "event-stream",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "end() 在没有终态事件时关闭流",
+    "href": "/learn/event-stream#end-在没有终态事件时关闭流",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "AsyncIterable",
+      "EventStream",
+      "queue",
+      "waiter",
+      "terminal event"
+    ],
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 end() 在没有终态事件时关闭流 AsyncIterable EventStream queue waiter terminal event"
+  },
+  {
+    "id": "02-四个公开调用各改哪一份状态",
+    "chapterId": "02",
+    "chapterSlug": "event-stream",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "四个公开调用各改哪一份状态",
+    "href": "/learn/event-stream#四个公开调用各改哪一份状态",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "AsyncIterable",
+      "EventStream",
+      "queue",
+      "waiter",
+      "terminal event"
+    ],
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 四个公开调用各改哪一份状态 AsyncIterable EventStream queue waiter terminal event"
+  },
+  {
+    "id": "02-完成正常路径后再做一次诊断",
+    "chapterId": "02",
+    "chapterSlug": "event-stream",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
+    "title": "完成正常路径后再做一次诊断",
+    "href": "/learn/event-stream#完成正常路径后再做一次诊断",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "AsyncIterable",
+      "EventStream",
+      "queue",
+      "waiter",
+      "terminal event"
+    ],
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 完成正常路径后再做一次诊断 AsyncIterable EventStream queue waiter terminal event"
   },
   {
     "id": "02-本章验收",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
     "title": "本章验收",
     "href": "/learn/event-stream#本章验收",
     "partTitle": "第一部 · 建立可执行语言",
@@ -442,13 +498,13 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 本章验收 AsyncIterable EventStream queue waiter terminal event"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 本章验收 AsyncIterable EventStream queue waiter terminal event"
   },
   {
     "id": "02-可选迁移练习",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
     "title": "可选迁移练习",
     "href": "/learn/event-stream#可选迁移练习",
     "partTitle": "第一部 · 建立可执行语言",
@@ -459,13 +515,13 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 可选迁移练习 AsyncIterable EventStream queue waiter terminal event"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 可选迁移练习 AsyncIterable EventStream queue waiter terminal event"
   },
   {
     "id": "02-小结",
     "chapterId": "02",
     "chapterSlug": "event-stream",
-    "chapterTitle": "EventStream：让过程和结果走同一条流",
+    "chapterTitle": "EventStream：同一个对象怎样交付下一项和最终结果",
     "title": "小结",
     "href": "/learn/event-stream#小结",
     "partTitle": "第一部 · 建立可执行语言",
@@ -476,14 +532,14 @@ export const searchIndex: SearchEntry[] = [
       "waiter",
       "terminal event"
     ],
-    "searchText": "EventStream：让过程和结果走同一条流 小结 AsyncIterable EventStream queue waiter terminal event"
+    "searchText": "EventStream：同一个对象怎样交付下一项和最终结果 小结 AsyncIterable EventStream queue waiter terminal event"
   },
   {
     "id": "03",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
-    "title": "给 Agent 一套自己的消息格式",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "保存一次完整的工具往返",
     "href": "/learn/message-ir",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
@@ -493,13 +549,13 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 用稳定的消息和内容块保存语义，不让界面格式或某家模型接口渗进核心。 第一部 · 建立可执行语言 canonical IR, content block, AgentContext, StopReason, projection 你将得到什么 先建立全景 Content block 保存有顺序的语义 三种消息承担不同所有权 Context 是本次请求的输入视图 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "保存一次完整的工具往返 用一段 README transcript 看清文本、工具调用和工具结果怎样成为可保存的消息。 第一部 · 建立可执行语言 canonical IR, content block, AgentContext, StopReason, projection 你将得到什么 content 数组保留“说了什么”和“要做什么” 三个 role 记录三种来源 stopReason 说明这次模型调用为何停下 AgentContext 把 transcript 交给下一次模型调用 textOf() 只提供文本视图 模型事件最终汇合成一条 assistant message 用一次可观察的错误检查 textOf() 本章验收 小结"
   },
   {
     "id": "03-你将得到什么",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
+    "chapterTitle": "保存一次完整的工具往返",
     "title": "你将得到什么",
     "href": "/learn/message-ir#你将得到什么",
     "partTitle": "第一部 · 建立可执行语言",
@@ -510,15 +566,15 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 你将得到什么 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 你将得到什么 canonical IR content block AgentContext StopReason projection"
   },
   {
-    "id": "03-先建立全景",
+    "id": "03-content-数组保留说了什么和要做什么",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
-    "title": "先建立全景",
-    "href": "/learn/message-ir#先建立全景",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "content 数组保留“说了什么”和“要做什么”",
+    "href": "/learn/message-ir#content-数组保留说了什么和要做什么",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "canonical IR",
@@ -527,15 +583,15 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 先建立全景 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 content 数组保留“说了什么”和“要做什么” canonical IR content block AgentContext StopReason projection"
   },
   {
-    "id": "03-content-block-保存有顺序的语义",
+    "id": "03-三个-role-记录三种来源",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
-    "title": "Content block 保存有顺序的语义",
-    "href": "/learn/message-ir#content-block-保存有顺序的语义",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "三个 role 记录三种来源",
+    "href": "/learn/message-ir#三个-role-记录三种来源",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "canonical IR",
@@ -544,15 +600,15 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 Content block 保存有顺序的语义 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 三个 role 记录三种来源 canonical IR content block AgentContext StopReason projection"
   },
   {
-    "id": "03-三种消息承担不同所有权",
+    "id": "03-stopreason-说明这次模型调用为何停下",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
-    "title": "三种消息承担不同所有权",
-    "href": "/learn/message-ir#三种消息承担不同所有权",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "stopReason 说明这次模型调用为何停下",
+    "href": "/learn/message-ir#stopreason-说明这次模型调用为何停下",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "canonical IR",
@@ -561,15 +617,15 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 三种消息承担不同所有权 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 stopReason 说明这次模型调用为何停下 canonical IR content block AgentContext StopReason projection"
   },
   {
-    "id": "03-context-是本次请求的输入视图",
+    "id": "03-agentcontext-把-transcript-交给下一次模型调用",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
-    "title": "Context 是本次请求的输入视图",
-    "href": "/learn/message-ir#context-是本次请求的输入视图",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "AgentContext 把 transcript 交给下一次模型调用",
+    "href": "/learn/message-ir#agentcontext-把-transcript-交给下一次模型调用",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "canonical IR",
@@ -578,15 +634,15 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 Context 是本次请求的输入视图 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 AgentContext 把 transcript 交给下一次模型调用 canonical IR content block AgentContext StopReason projection"
   },
   {
-    "id": "03-故意把它弄坏",
+    "id": "03-textof-只提供文本视图",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
-    "title": "故意把它弄坏",
-    "href": "/learn/message-ir#故意把它弄坏",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "textOf() 只提供文本视图",
+    "href": "/learn/message-ir#textof-只提供文本视图",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "canonical IR",
@@ -595,13 +651,47 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 故意把它弄坏 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 textOf() 只提供文本视图 canonical IR content block AgentContext StopReason projection"
+  },
+  {
+    "id": "03-模型事件最终汇合成一条-assistant-message",
+    "chapterId": "03",
+    "chapterSlug": "message-ir",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "模型事件最终汇合成一条 assistant message",
+    "href": "/learn/message-ir#模型事件最终汇合成一条-assistant-message",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "canonical IR",
+      "content block",
+      "AgentContext",
+      "StopReason",
+      "projection"
+    ],
+    "searchText": "保存一次完整的工具往返 模型事件最终汇合成一条 assistant message canonical IR content block AgentContext StopReason projection"
+  },
+  {
+    "id": "03-用一次可观察的错误检查-textof",
+    "chapterId": "03",
+    "chapterSlug": "message-ir",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "用一次可观察的错误检查 textOf()",
+    "href": "/learn/message-ir#用一次可观察的错误检查-textof",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "canonical IR",
+      "content block",
+      "AgentContext",
+      "StopReason",
+      "projection"
+    ],
+    "searchText": "保存一次完整的工具往返 用一次可观察的错误检查 textOf() canonical IR content block AgentContext StopReason projection"
   },
   {
     "id": "03-本章验收",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
+    "chapterTitle": "保存一次完整的工具往返",
     "title": "本章验收",
     "href": "/learn/message-ir#本章验收",
     "partTitle": "第一部 · 建立可执行语言",
@@ -612,30 +702,13 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 本章验收 canonical IR content block AgentContext StopReason projection"
-  },
-  {
-    "id": "03-可选迁移练习",
-    "chapterId": "03",
-    "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
-    "title": "可选迁移练习",
-    "href": "/learn/message-ir#可选迁移练习",
-    "partTitle": "第一部 · 建立可执行语言",
-    "terms": [
-      "canonical IR",
-      "content block",
-      "AgentContext",
-      "StopReason",
-      "projection"
-    ],
-    "searchText": "给 Agent 一套自己的消息格式 可选迁移练习 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 本章验收 canonical IR content block AgentContext StopReason projection"
   },
   {
     "id": "03-小结",
     "chapterId": "03",
     "chapterSlug": "message-ir",
-    "chapterTitle": "给 Agent 一套自己的消息格式",
+    "chapterTitle": "保存一次完整的工具往返",
     "title": "小结",
     "href": "/learn/message-ir#小结",
     "partTitle": "第一部 · 建立可执行语言",
@@ -646,14 +719,14 @@ export const searchIndex: SearchEntry[] = [
       "StopReason",
       "projection"
     ],
-    "searchText": "给 Agent 一套自己的消息格式 小结 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 小结 canonical IR content block AgentContext StopReason projection"
   },
   {
     "id": "04",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "ScriptedModel：把模型行为写成可执行规格",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "ScriptedModel：同一个实例怎样依次播放两个回合",
     "href": "/learn/scripted-model",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
@@ -662,15 +735,15 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 用按轮消费的确定性脚本生成模型事件，稳定验证请求快照、事件顺序、终态和失败。 第一部 · 建立可执行语言 test double, executable specification, deterministic trace, recorded request 你将得到什么 先建立全景 先固定 Model 的唯一入口 播放一个成功回合 按轮消费，并把失败放回流里 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 跟踪同一个 ScriptedModel 的两次调用，看清请求快照、cursor、microtask 和消息到事件的投影。 第一部 · 建立可执行语言 test double, executable specification, deterministic trace, recorded request 两次调用，各自拿到哪一轮 cursor 只是一个数组下标 引用和快照记录的是两个时间点 microtask 把返回和生产分成两个时刻 ScriptedTurn 保存最终结果 stream() 的同步部分 纯文本消息怎样进入流 第一轮再加一个 tool call 三种失败仍然结束同一个流 Checkpoint 04 验收 可选迁移练习 小结"
   },
   {
-    "id": "04-你将得到什么",
+    "id": "04-两次调用各自拿到哪一轮",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "你将得到什么",
-    "href": "/learn/scripted-model#你将得到什么",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "两次调用，各自拿到哪一轮",
+    "href": "/learn/scripted-model#两次调用各自拿到哪一轮",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "test double",
@@ -678,15 +751,15 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 你将得到什么 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 两次调用，各自拿到哪一轮 test double executable specification deterministic trace recorded request"
   },
   {
-    "id": "04-先建立全景",
+    "id": "04-cursor-只是一个数组下标",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "先建立全景",
-    "href": "/learn/scripted-model#先建立全景",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "cursor 只是一个数组下标",
+    "href": "/learn/scripted-model#cursor-只是一个数组下标",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "test double",
@@ -694,15 +767,15 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 先建立全景 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 cursor 只是一个数组下标 test double executable specification deterministic trace recorded request"
   },
   {
-    "id": "04-先固定-model-的唯一入口",
+    "id": "04-引用和快照记录的是两个时间点",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "先固定 Model 的唯一入口",
-    "href": "/learn/scripted-model#先固定-model-的唯一入口",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "引用和快照记录的是两个时间点",
+    "href": "/learn/scripted-model#引用和快照记录的是两个时间点",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "test double",
@@ -710,15 +783,15 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 先固定 Model 的唯一入口 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 引用和快照记录的是两个时间点 test double executable specification deterministic trace recorded request"
   },
   {
-    "id": "04-播放一个成功回合",
+    "id": "04-microtask-把返回和生产分成两个时刻",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "播放一个成功回合",
-    "href": "/learn/scripted-model#播放一个成功回合",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "microtask 把返回和生产分成两个时刻",
+    "href": "/learn/scripted-model#microtask-把返回和生产分成两个时刻",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "test double",
@@ -726,15 +799,15 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 播放一个成功回合 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 microtask 把返回和生产分成两个时刻 test double executable specification deterministic trace recorded request"
   },
   {
-    "id": "04-按轮消费并把失败放回流里",
+    "id": "04-scriptedturn-保存最终结果",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "按轮消费，并把失败放回流里",
-    "href": "/learn/scripted-model#按轮消费并把失败放回流里",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "ScriptedTurn 保存最终结果",
+    "href": "/learn/scripted-model#scriptedturn-保存最终结果",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "test double",
@@ -742,15 +815,15 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 按轮消费，并把失败放回流里 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 ScriptedTurn 保存最终结果 test double executable specification deterministic trace recorded request"
   },
   {
-    "id": "04-故意把它弄坏",
+    "id": "04-stream-的同步部分",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "故意把它弄坏",
-    "href": "/learn/scripted-model#故意把它弄坏",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "stream() 的同步部分",
+    "href": "/learn/scripted-model#stream-的同步部分",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "test double",
@@ -758,15 +831,15 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 故意把它弄坏 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 stream() 的同步部分 test double executable specification deterministic trace recorded request"
   },
   {
-    "id": "04-本章验收",
+    "id": "04-纯文本消息怎样进入流",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
-    "title": "本章验收",
-    "href": "/learn/scripted-model#本章验收",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "纯文本消息怎样进入流",
+    "href": "/learn/scripted-model#纯文本消息怎样进入流",
     "partTitle": "第一部 · 建立可执行语言",
     "terms": [
       "test double",
@@ -774,13 +847,61 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 本章验收 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 纯文本消息怎样进入流 test double executable specification deterministic trace recorded request"
+  },
+  {
+    "id": "04-第一轮再加一个-tool-call",
+    "chapterId": "04",
+    "chapterSlug": "scripted-model",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "第一轮再加一个 tool call",
+    "href": "/learn/scripted-model#第一轮再加一个-tool-call",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "test double",
+      "executable specification",
+      "deterministic trace",
+      "recorded request"
+    ],
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 第一轮再加一个 tool call test double executable specification deterministic trace recorded request"
+  },
+  {
+    "id": "04-三种失败仍然结束同一个流",
+    "chapterId": "04",
+    "chapterSlug": "scripted-model",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "三种失败仍然结束同一个流",
+    "href": "/learn/scripted-model#三种失败仍然结束同一个流",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "test double",
+      "executable specification",
+      "deterministic trace",
+      "recorded request"
+    ],
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 三种失败仍然结束同一个流 test double executable specification deterministic trace recorded request"
+  },
+  {
+    "id": "04-checkpoint-04-验收",
+    "chapterId": "04",
+    "chapterSlug": "scripted-model",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
+    "title": "Checkpoint 04 验收",
+    "href": "/learn/scripted-model#checkpoint-04-验收",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "test double",
+      "executable specification",
+      "deterministic trace",
+      "recorded request"
+    ],
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 Checkpoint 04 验收 test double executable specification deterministic trace recorded request"
   },
   {
     "id": "04-可选迁移练习",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
     "title": "可选迁移练习",
     "href": "/learn/scripted-model#可选迁移练习",
     "partTitle": "第一部 · 建立可执行语言",
@@ -790,13 +911,13 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 可选迁移练习 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 可选迁移练习 test double executable specification deterministic trace recorded request"
   },
   {
     "id": "04-小结",
     "chapterId": "04",
     "chapterSlug": "scripted-model",
-    "chapterTitle": "ScriptedModel：把模型行为写成可执行规格",
+    "chapterTitle": "ScriptedModel：同一个实例怎样依次播放两个回合",
     "title": "小结",
     "href": "/learn/scripted-model#小结",
     "partTitle": "第一部 · 建立可执行语言",
@@ -806,7 +927,7 @@ export const searchIndex: SearchEntry[] = [
       "deterministic trace",
       "recorded request"
     ],
-    "searchText": "ScriptedModel：把模型行为写成可执行规格 小结 test double executable specification deterministic trace recorded request"
+    "searchText": "ScriptedModel：同一个实例怎样依次播放两个回合 小结 test double executable specification deterministic trace recorded request"
   },
   {
     "id": "05",
@@ -823,7 +944,7 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "模型调用：在课程协议和 Provider API 之间转换 跟随一次模型调用，读懂消息如何写成 HTTP 请求，流式响应又如何变回统一事件。 第一部 · 建立可执行语言 provider adapter, transport, normalized chunk, incremental JSON, finish reason 你将得到什么 先建立全景 把消息写成 Provider 请求 从 ProviderChunk 读回模型回复 从 SSE 字节流读出 ProviderChunk 发出 HTTP 请求 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 跟随一次模型调用，读懂消息如何写成 HTTP 请求，流式响应又如何变回统一事件。 第一部 · 建立可执行语言 provider adapter, transport, normalized chunk, incremental JSON, finish reason 你将得到什么 先建立全景 把消息写成 Provider 请求 从 ProviderChunk 读回模型回复 局部 fixture：只看文本 partial 诊断 fixture：用 index 4/2 分开两种顺序 从 SSE 字节流读出 ProviderChunk 发出 HTTP 请求 故意把它弄坏 本章验收 可选迁移练习 小结"
   },
   {
     "id": "05-你将得到什么",
@@ -999,8 +1120,8 @@ export const searchIndex: SearchEntry[] = [
     "id": "06",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
-    "title": "Tool 是类型化的环境动作",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
+    "title": "工具调用：一条 echo 请求怎样变成配对结果",
     "href": "/learn/tool-contract",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
@@ -1010,13 +1131,13 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 依次实现 validator、Registry 和 executor，把模型提出的动作变成完整、配对的环境结果。 第二部 · 闭合 Agent 核心 tool contract, runtime validation, registry, tool result, call id 你将得到什么 先建立全景 第一步：让 validator 同时携带行为和描述 第二步：让每次运行显式持有动作空间 第三步：让每种预期结果都带着原调用返回 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 跟随一次 echo 调用，观察参数怎样经过 schema、Registry 和 executor，最后形成同 id 的工具结果。 第二部 · 闭合 Agent 核心 tool contract, runtime validation, registry, tool result, call id 你将得到什么 echo 同时带着描述和可执行函数 同一个 schema 做两件不同的事 validator 是可调用函数，也是带元数据的对象 Registry 保存这一次允许使用的工具 executor 按固定顺序完成 echoCall content 给模型，details 给程序 三种失败仍然回答原调用 参数类型错误：parse 拦在 execute 前 未知工具：查找结束后不再解析 工具抛错：调用已经进入 execute 完成正常实现后再检查执行顺序 本章验收 可选迁移练习 小结"
   },
   {
     "id": "06-你将得到什么",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
     "title": "你将得到什么",
     "href": "/learn/tool-contract#你将得到什么",
     "partTitle": "第二部 · 闭合 Agent 核心",
@@ -1027,15 +1148,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 你将得到什么 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 你将得到什么 tool contract runtime validation registry tool result call id"
   },
   {
-    "id": "06-先建立全景",
+    "id": "06-echo-同时带着描述和可执行函数",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
-    "title": "先建立全景",
-    "href": "/learn/tool-contract#先建立全景",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
+    "title": "echo 同时带着描述和可执行函数",
+    "href": "/learn/tool-contract#echo-同时带着描述和可执行函数",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "tool contract",
@@ -1044,15 +1165,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 先建立全景 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 echo 同时带着描述和可执行函数 tool contract runtime validation registry tool result call id"
   },
   {
-    "id": "06-第一步让-validator-同时携带行为和描述",
+    "id": "06-同一个-schema-做两件不同的事",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
-    "title": "第一步：让 validator 同时携带行为和描述",
-    "href": "/learn/tool-contract#第一步让-validator-同时携带行为和描述",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
+    "title": "同一个 schema 做两件不同的事",
+    "href": "/learn/tool-contract#同一个-schema-做两件不同的事",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "tool contract",
@@ -1061,15 +1182,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 第一步：让 validator 同时携带行为和描述 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 同一个 schema 做两件不同的事 tool contract runtime validation registry tool result call id"
   },
   {
-    "id": "06-第二步让每次运行显式持有动作空间",
+    "id": "06-registry-保存这一次允许使用的工具",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
-    "title": "第二步：让每次运行显式持有动作空间",
-    "href": "/learn/tool-contract#第二步让每次运行显式持有动作空间",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
+    "title": "Registry 保存这一次允许使用的工具",
+    "href": "/learn/tool-contract#registry-保存这一次允许使用的工具",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "tool contract",
@@ -1078,15 +1199,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 第二步：让每次运行显式持有动作空间 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 Registry 保存这一次允许使用的工具 tool contract runtime validation registry tool result call id"
   },
   {
-    "id": "06-第三步让每种预期结果都带着原调用返回",
+    "id": "06-executor-按固定顺序完成-echocall",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
-    "title": "第三步：让每种预期结果都带着原调用返回",
-    "href": "/learn/tool-contract#第三步让每种预期结果都带着原调用返回",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
+    "title": "executor 按固定顺序完成 echoCall",
+    "href": "/learn/tool-contract#executor-按固定顺序完成-echocall",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "tool contract",
@@ -1095,15 +1216,15 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 第三步：让每种预期结果都带着原调用返回 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 executor 按固定顺序完成 echoCall tool contract runtime validation registry tool result call id"
   },
   {
-    "id": "06-故意把它弄坏",
+    "id": "06-三种失败仍然回答原调用",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
-    "title": "故意把它弄坏",
-    "href": "/learn/tool-contract#故意把它弄坏",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
+    "title": "三种失败仍然回答原调用",
+    "href": "/learn/tool-contract#三种失败仍然回答原调用",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "tool contract",
@@ -1112,13 +1233,30 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 故意把它弄坏 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 三种失败仍然回答原调用 tool contract runtime validation registry tool result call id"
+  },
+  {
+    "id": "06-完成正常实现后再检查执行顺序",
+    "chapterId": "06",
+    "chapterSlug": "tool-contract",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
+    "title": "完成正常实现后再检查执行顺序",
+    "href": "/learn/tool-contract#完成正常实现后再检查执行顺序",
+    "partTitle": "第二部 · 闭合 Agent 核心",
+    "terms": [
+      "tool contract",
+      "runtime validation",
+      "registry",
+      "tool result",
+      "call id"
+    ],
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 完成正常实现后再检查执行顺序 tool contract runtime validation registry tool result call id"
   },
   {
     "id": "06-本章验收",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
     "title": "本章验收",
     "href": "/learn/tool-contract#本章验收",
     "partTitle": "第二部 · 闭合 Agent 核心",
@@ -1129,13 +1267,13 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 本章验收 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 本章验收 tool contract runtime validation registry tool result call id"
   },
   {
     "id": "06-可选迁移练习",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
     "title": "可选迁移练习",
     "href": "/learn/tool-contract#可选迁移练习",
     "partTitle": "第二部 · 闭合 Agent 核心",
@@ -1146,13 +1284,13 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 可选迁移练习 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 可选迁移练习 tool contract runtime validation registry tool result call id"
   },
   {
     "id": "06-小结",
     "chapterId": "06",
     "chapterSlug": "tool-contract",
-    "chapterTitle": "Tool 是类型化的环境动作",
+    "chapterTitle": "工具调用：一条 echo 请求怎样变成配对结果",
     "title": "小结",
     "href": "/learn/tool-contract#小结",
     "partTitle": "第二部 · 闭合 Agent 核心",
@@ -1163,218 +1301,201 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "call id"
     ],
-    "searchText": "Tool 是类型化的环境动作 小结 tool contract runtime validation registry tool result call id"
+    "searchText": "工具调用：一条 echo 请求怎样变成配对结果 小结 tool contract runtime validation registry tool result call id"
   },
   {
     "id": "07",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "把 Agent Loop 写成可验证的状态迁移",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "Agent Loop：一次 README 往返怎样调用模型两次",
     "href": "/learn/agent-loop",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 让模型调用、工具执行和结果回填形成一条有明确终点的反馈回路。 第二部 · 闭合 Agent 核心 agent loop, state transition, stop reason, transcript order, terminal state 你将得到什么 先建立全景 把循环写成决策表 第一步：完成一次纯文本 stop 第二步：把一个工具结果送回模型 第三步：给不会执行的调用也配对 第四步：同时执行，按调用顺序写回 第五步：让控制器有明确边界 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 跟随同一条 read 调用，看模型消息、工具结果和最终回答怎样依次进入 transcript。 第二部 · 闭合 Agent 核心 agent loop, transcript, stop reason, tool result, terminal state 一次请求为什么需要两次模型调用 第一次 model.stream() 追加 assistant 消息 没有工具的 stop 直接结束 call-1 的结果进入第二次模型请求 LoopEvent 展示过程，messages 保存事实 length ：工具不启动，调用仍然闭合 多个工具同时运行，结果仍按工具调用顺序追加 取消与 maxSteps 阻止新的模型请求 完成正常实现后检查 length 分支 本章验收 小结"
   },
   {
-    "id": "07-你将得到什么",
+    "id": "07-一次请求为什么需要两次模型调用",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "你将得到什么",
-    "href": "/learn/agent-loop#你将得到什么",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "一次请求为什么需要两次模型调用",
+    "href": "/learn/agent-loop#一次请求为什么需要两次模型调用",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 你将得到什么 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 一次请求为什么需要两次模型调用 agent loop transcript stop reason tool result terminal state"
   },
   {
-    "id": "07-先建立全景",
+    "id": "07-第一次-modelstream-追加-assistant-消息",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "先建立全景",
-    "href": "/learn/agent-loop#先建立全景",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "第一次 model.stream() 追加 assistant 消息",
+    "href": "/learn/agent-loop#第一次-modelstream-追加-assistant-消息",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 先建立全景 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 第一次 model.stream() 追加 assistant 消息 agent loop transcript stop reason tool result terminal state"
   },
   {
-    "id": "07-第一步完成一次纯文本-stop",
+    "id": "07-call-1-的结果进入第二次模型请求",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "第一步：完成一次纯文本 stop",
-    "href": "/learn/agent-loop#第一步完成一次纯文本-stop",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "call-1 的结果进入第二次模型请求",
+    "href": "/learn/agent-loop#call-1-的结果进入第二次模型请求",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 第一步：完成一次纯文本 stop agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 call-1 的结果进入第二次模型请求 agent loop transcript stop reason tool result terminal state"
   },
   {
-    "id": "07-第二步把一个工具结果送回模型",
+    "id": "07-loopevent-展示过程messages-保存事实",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "第二步：把一个工具结果送回模型",
-    "href": "/learn/agent-loop#第二步把一个工具结果送回模型",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "LoopEvent 展示过程，messages 保存事实",
+    "href": "/learn/agent-loop#loopevent-展示过程messages-保存事实",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 第二步：把一个工具结果送回模型 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 LoopEvent 展示过程，messages 保存事实 agent loop transcript stop reason tool result terminal state"
   },
   {
-    "id": "07-第三步给不会执行的调用也配对",
+    "id": "07-length-工具不启动调用仍然闭合",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "第三步：给不会执行的调用也配对",
-    "href": "/learn/agent-loop#第三步给不会执行的调用也配对",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "length ：工具不启动，调用仍然闭合",
+    "href": "/learn/agent-loop#length-工具不启动调用仍然闭合",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 第三步：给不会执行的调用也配对 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 length ：工具不启动，调用仍然闭合 agent loop transcript stop reason tool result terminal state"
   },
   {
-    "id": "07-第四步同时执行按调用顺序写回",
+    "id": "07-多个工具同时运行结果仍按工具调用顺序追加",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "第四步：同时执行，按调用顺序写回",
-    "href": "/learn/agent-loop#第四步同时执行按调用顺序写回",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "多个工具同时运行，结果仍按工具调用顺序追加",
+    "href": "/learn/agent-loop#多个工具同时运行结果仍按工具调用顺序追加",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 第四步：同时执行，按调用顺序写回 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 多个工具同时运行，结果仍按工具调用顺序追加 agent loop transcript stop reason tool result terminal state"
   },
   {
-    "id": "07-第五步让控制器有明确边界",
+    "id": "07-取消与-maxsteps-阻止新的模型请求",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "第五步：让控制器有明确边界",
-    "href": "/learn/agent-loop#第五步让控制器有明确边界",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "取消与 maxSteps 阻止新的模型请求",
+    "href": "/learn/agent-loop#取消与-maxsteps-阻止新的模型请求",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 第五步：让控制器有明确边界 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 取消与 maxSteps 阻止新的模型请求 agent loop transcript stop reason tool result terminal state"
   },
   {
-    "id": "07-故意把它弄坏",
+    "id": "07-完成正常实现后检查-length-分支",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "故意把它弄坏",
-    "href": "/learn/agent-loop#故意把它弄坏",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "完成正常实现后检查 length 分支",
+    "href": "/learn/agent-loop#完成正常实现后检查-length-分支",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 故意把它弄坏 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 完成正常实现后检查 length 分支 agent loop transcript stop reason tool result terminal state"
   },
   {
     "id": "07-本章验收",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
     "title": "本章验收",
     "href": "/learn/agent-loop#本章验收",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 本章验收 agent loop state transition stop reason transcript order terminal state"
-  },
-  {
-    "id": "07-可选迁移练习",
-    "chapterId": "07",
-    "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
-    "title": "可选迁移练习",
-    "href": "/learn/agent-loop#可选迁移练习",
-    "partTitle": "第二部 · 闭合 Agent 核心",
-    "terms": [
-      "agent loop",
-      "state transition",
-      "stop reason",
-      "transcript order",
-      "terminal state"
-    ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 可选迁移练习 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 本章验收 agent loop transcript stop reason tool result terminal state"
   },
   {
     "id": "07-小结",
     "chapterId": "07",
     "chapterSlug": "agent-loop",
-    "chapterTitle": "把 Agent Loop 写成可验证的状态迁移",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
     "title": "小结",
     "href": "/learn/agent-loop#小结",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "agent loop",
-      "state transition",
+      "transcript",
       "stop reason",
-      "transcript order",
+      "tool result",
       "terminal state"
     ],
-    "searchText": "把 Agent Loop 写成可验证的状态迁移 小结 agent loop state transition stop reason transcript order terminal state"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 小结 agent loop transcript stop reason tool result terminal state"
   },
   {
     "id": "08",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "Read、Write、Edit 与 Bash",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "四个工具怎样在同一个 workspace 里完成文件任务",
     "href": "/learn/coding-tools",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
@@ -1384,15 +1505,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 把文件和进程能力接入 Agent Loop，并用明确的路径、提交和资源边界约束副作用。 第二部 · 闭合 Agent 核心 bounded observation, path containment, mutation queue, exact edit, process lifecycle 你将得到什么 开始前：只认一条练习路线 先建立全景 四个工具共享一条处理路径 第一步：让 Read 只报告完整观察 第二步：让路径判断覆盖符号链接 第三步：把 Write 变成一次明确提交 第四步：Edit 先验证整批，再写一次 第五步：把 Bash 当成一段生命周期 第六步：让真实工具走完 Agent Loop 故意把它弄坏 本章没有证明什么 本章验收 可选迁移练习 小结"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 跟随 task.txt 的读取、覆盖、精确编辑和命令检查，理解文件与进程工具怎样返回可验证结果。 第二部 · 闭合 Agent 核心 bounded observation, path containment, mutation queue, exact edit, process lifecycle 同一个 task.txt 经过四次调用 read 只返回能够完整显示的行 三个文件工具从同一个 root 解析路径 write 用 rename 提交完整内容 Edit 先验证整批，再写一次 bash 从同一个 cwd 启动并结算进程 取消和超时结束同一个进程组 workspace 模式对命令做有限的字符串检查 四个工具回到 Agent Loop 这四个工具的边界停在哪里 去掉第二个非重叠匹配检查 本章验收 可选迁移练习 小结"
   },
   {
-    "id": "08-你将得到什么",
+    "id": "08-同一个-tasktxt-经过四次调用",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "你将得到什么",
-    "href": "/learn/coding-tools#你将得到什么",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "同一个 task.txt 经过四次调用",
+    "href": "/learn/coding-tools#同一个-tasktxt-经过四次调用",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1401,15 +1522,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 你将得到什么 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 同一个 task.txt 经过四次调用 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-开始前只认一条练习路线",
+    "id": "08-read-只返回能够完整显示的行",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "开始前：只认一条练习路线",
-    "href": "/learn/coding-tools#开始前只认一条练习路线",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "read 只返回能够完整显示的行",
+    "href": "/learn/coding-tools#read-只返回能够完整显示的行",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1418,15 +1539,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 开始前：只认一条练习路线 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 read 只返回能够完整显示的行 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-先建立全景",
+    "id": "08-三个文件工具从同一个-root-解析路径",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "先建立全景",
-    "href": "/learn/coding-tools#先建立全景",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "三个文件工具从同一个 root 解析路径",
+    "href": "/learn/coding-tools#三个文件工具从同一个-root-解析路径",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1435,15 +1556,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 先建立全景 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 三个文件工具从同一个 root 解析路径 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-第一步让-read-只报告完整观察",
+    "id": "08-write-用-rename-提交完整内容",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "第一步：让 Read 只报告完整观察",
-    "href": "/learn/coding-tools#第一步让-read-只报告完整观察",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "write 用 rename 提交完整内容",
+    "href": "/learn/coding-tools#write-用-rename-提交完整内容",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1452,15 +1573,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 第一步：让 Read 只报告完整观察 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 write 用 rename 提交完整内容 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-第二步让路径判断覆盖符号链接",
+    "id": "08-edit-先验证整批再写一次",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "第二步：让路径判断覆盖符号链接",
-    "href": "/learn/coding-tools#第二步让路径判断覆盖符号链接",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "Edit 先验证整批，再写一次",
+    "href": "/learn/coding-tools#edit-先验证整批再写一次",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1469,15 +1590,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 第二步：让路径判断覆盖符号链接 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 Edit 先验证整批，再写一次 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-第三步把-write-变成一次明确提交",
+    "id": "08-bash-从同一个-cwd-启动并结算进程",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "第三步：把 Write 变成一次明确提交",
-    "href": "/learn/coding-tools#第三步把-write-变成一次明确提交",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "bash 从同一个 cwd 启动并结算进程",
+    "href": "/learn/coding-tools#bash-从同一个-cwd-启动并结算进程",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1486,15 +1607,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 第三步：把 Write 变成一次明确提交 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 bash 从同一个 cwd 启动并结算进程 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-第四步edit-先验证整批再写一次",
+    "id": "08-四个工具回到-agent-loop",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "第四步：Edit 先验证整批，再写一次",
-    "href": "/learn/coding-tools#第四步edit-先验证整批再写一次",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "四个工具回到 Agent Loop",
+    "href": "/learn/coding-tools#四个工具回到-agent-loop",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1503,15 +1624,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 第四步：Edit 先验证整批，再写一次 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 四个工具回到 Agent Loop bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-第五步把-bash-当成一段生命周期",
+    "id": "08-这四个工具的边界停在哪里",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "第五步：把 Bash 当成一段生命周期",
-    "href": "/learn/coding-tools#第五步把-bash-当成一段生命周期",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "这四个工具的边界停在哪里",
+    "href": "/learn/coding-tools#这四个工具的边界停在哪里",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1520,15 +1641,15 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 第五步：把 Bash 当成一段生命周期 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 这四个工具的边界停在哪里 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
-    "id": "08-第六步让真实工具走完-agent-loop",
+    "id": "08-去掉第二个非重叠匹配检查",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "第六步：让真实工具走完 Agent Loop",
-    "href": "/learn/coding-tools#第六步让真实工具走完-agent-loop",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
+    "title": "去掉第二个非重叠匹配检查",
+    "href": "/learn/coding-tools#去掉第二个非重叠匹配检查",
     "partTitle": "第二部 · 闭合 Agent 核心",
     "terms": [
       "bounded observation",
@@ -1537,47 +1658,13 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 第六步：让真实工具走完 Agent Loop bounded observation path containment mutation queue exact edit process lifecycle"
-  },
-  {
-    "id": "08-故意把它弄坏",
-    "chapterId": "08",
-    "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "故意把它弄坏",
-    "href": "/learn/coding-tools#故意把它弄坏",
-    "partTitle": "第二部 · 闭合 Agent 核心",
-    "terms": [
-      "bounded observation",
-      "path containment",
-      "mutation queue",
-      "exact edit",
-      "process lifecycle"
-    ],
-    "searchText": "Read、Write、Edit 与 Bash 故意把它弄坏 bounded observation path containment mutation queue exact edit process lifecycle"
-  },
-  {
-    "id": "08-本章没有证明什么",
-    "chapterId": "08",
-    "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
-    "title": "本章没有证明什么",
-    "href": "/learn/coding-tools#本章没有证明什么",
-    "partTitle": "第二部 · 闭合 Agent 核心",
-    "terms": [
-      "bounded observation",
-      "path containment",
-      "mutation queue",
-      "exact edit",
-      "process lifecycle"
-    ],
-    "searchText": "Read、Write、Edit 与 Bash 本章没有证明什么 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 去掉第二个非重叠匹配检查 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
     "id": "08-本章验收",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
     "title": "本章验收",
     "href": "/learn/coding-tools#本章验收",
     "partTitle": "第二部 · 闭合 Agent 核心",
@@ -1588,13 +1675,13 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 本章验收 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 本章验收 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
     "id": "08-可选迁移练习",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
     "title": "可选迁移练习",
     "href": "/learn/coding-tools#可选迁移练习",
     "partTitle": "第二部 · 闭合 Agent 核心",
@@ -1605,13 +1692,13 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 可选迁移练习 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 可选迁移练习 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
     "id": "08-小结",
     "chapterId": "08",
     "chapterSlug": "coding-tools",
-    "chapterTitle": "Read、Write、Edit 与 Bash",
+    "chapterTitle": "四个工具怎样在同一个 workspace 里完成文件任务",
     "title": "小结",
     "href": "/learn/coding-tools#小结",
     "partTitle": "第二部 · 闭合 Agent 核心",
@@ -1622,7 +1709,7 @@ export const searchIndex: SearchEntry[] = [
       "exact edit",
       "process lifecycle"
     ],
-    "searchText": "Read、Write、Edit 与 Bash 小结 bounded observation path containment mutation queue exact edit process lifecycle"
+    "searchText": "四个工具怎样在同一个 workspace 里完成文件任务 小结 bounded observation path containment mutation queue exact edit process lifecycle"
   },
   {
     "id": "09",
@@ -1640,15 +1727,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 让一个对象持有跨运行状态，并把重入、订阅、取消、steering 与 follow-up 的时序写成可执行契约。 第三部 · 让 Harness 可靠 stateful agent, lifecycle, abort, steering, follow-up, reentrancy 你将得到什么 为什么第 09 章放在这里 先建立全景 开始动手：先进入正确的仓库 第一步：先写纯 reducer 第二步：让每次 prompt() 拥有自己的 ActiveRun 第三步：切断三条可变引用 第四步：取消只属于当前运行 第五步：在完整消息边界取出两个队列 故意把它弄坏 本章没有证明什么 本章验收 可选迁移练习 小结"
+    "searchText": "从单次循环到有状态 Agent 让一个对象持有跨运行状态，并把重入、订阅、取消、steering 与 follow-up 的时序写成可执行契约。 第三部 · 让 Harness 可靠 stateful agent, lifecycle, abort, steering, follow-up, reentrancy 同一个 Agent 连续完成两次运行 Agent 保存状态，ActiveRun 保存临时所有权 run_start 把 run 1 投影成公开状态 prompt() 先结算 run 1，再开放 run 2 同一实例拒绝两个并行循环 三个公开出口各自得到一份副本 abort() 只向当前运行发出取消信号 队列消息只在完整协议边界进入 transcript 诊断旧运行误删新运行 这份 Agent 的边界是单实例、内存内生命周期 两次运行的时间线与验收 可选迁移练习 小结"
   },
   {
-    "id": "09-你将得到什么",
+    "id": "09-同一个-agent-连续完成两次运行",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "你将得到什么",
-    "href": "/learn/stateful-agent#你将得到什么",
+    "title": "同一个 Agent 连续完成两次运行",
+    "href": "/learn/stateful-agent#同一个-agent-连续完成两次运行",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1658,15 +1745,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 你将得到什么 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent 同一个 Agent 连续完成两次运行 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-为什么第-09-章放在这里",
+    "id": "09-agent-保存状态activerun-保存临时所有权",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "为什么第 09 章放在这里",
-    "href": "/learn/stateful-agent#为什么第-09-章放在这里",
+    "title": "Agent 保存状态，ActiveRun 保存临时所有权",
+    "href": "/learn/stateful-agent#agent-保存状态activerun-保存临时所有权",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1676,15 +1763,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 为什么第 09 章放在这里 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent Agent 保存状态，ActiveRun 保存临时所有权 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-先建立全景",
+    "id": "09-runstart-把-run-1-投影成公开状态",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "先建立全景",
-    "href": "/learn/stateful-agent#先建立全景",
+    "title": "run_start 把 run 1 投影成公开状态",
+    "href": "/learn/stateful-agent#runstart-把-run-1-投影成公开状态",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1694,15 +1781,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 先建立全景 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent run_start 把 run 1 投影成公开状态 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-开始动手先进入正确的仓库",
+    "id": "09-prompt-先结算-run-1再开放-run-2",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "开始动手：先进入正确的仓库",
-    "href": "/learn/stateful-agent#开始动手先进入正确的仓库",
+    "title": "prompt() 先结算 run 1，再开放 run 2",
+    "href": "/learn/stateful-agent#prompt-先结算-run-1再开放-run-2",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1712,15 +1799,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 开始动手：先进入正确的仓库 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent prompt() 先结算 run 1，再开放 run 2 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-第一步先写纯-reducer",
+    "id": "09-三个公开出口各自得到一份副本",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "第一步：先写纯 reducer",
-    "href": "/learn/stateful-agent#第一步先写纯-reducer",
+    "title": "三个公开出口各自得到一份副本",
+    "href": "/learn/stateful-agent#三个公开出口各自得到一份副本",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1730,15 +1817,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 第一步：先写纯 reducer stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent 三个公开出口各自得到一份副本 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-第二步让每次-prompt-拥有自己的-activerun",
+    "id": "09-abort-只向当前运行发出取消信号",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "第二步：让每次 prompt() 拥有自己的 ActiveRun",
-    "href": "/learn/stateful-agent#第二步让每次-prompt-拥有自己的-activerun",
+    "title": "abort() 只向当前运行发出取消信号",
+    "href": "/learn/stateful-agent#abort-只向当前运行发出取消信号",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1748,15 +1835,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 第二步：让每次 prompt() 拥有自己的 ActiveRun stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent abort() 只向当前运行发出取消信号 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-第三步切断三条可变引用",
+    "id": "09-队列消息只在完整协议边界进入-transcript",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "第三步：切断三条可变引用",
-    "href": "/learn/stateful-agent#第三步切断三条可变引用",
+    "title": "队列消息只在完整协议边界进入 transcript",
+    "href": "/learn/stateful-agent#队列消息只在完整协议边界进入-transcript",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1766,15 +1853,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 第三步：切断三条可变引用 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent 队列消息只在完整协议边界进入 transcript stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-第四步取消只属于当前运行",
+    "id": "09-诊断旧运行误删新运行",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "第四步：取消只属于当前运行",
-    "href": "/learn/stateful-agent#第四步取消只属于当前运行",
+    "title": "诊断旧运行误删新运行",
+    "href": "/learn/stateful-agent#诊断旧运行误删新运行",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1784,15 +1871,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 第四步：取消只属于当前运行 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent 诊断旧运行误删新运行 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-第五步在完整消息边界取出两个队列",
+    "id": "09-这份-agent-的边界是单实例内存内生命周期",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "第五步：在完整消息边界取出两个队列",
-    "href": "/learn/stateful-agent#第五步在完整消息边界取出两个队列",
+    "title": "这份 Agent 的边界是单实例、内存内生命周期",
+    "href": "/learn/stateful-agent#这份-agent-的边界是单实例内存内生命周期",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1802,15 +1889,15 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 第五步：在完整消息边界取出两个队列 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent 这份 Agent 的边界是单实例、内存内生命周期 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
-    "id": "09-故意把它弄坏",
+    "id": "09-两次运行的时间线与验收",
     "chapterId": "09",
     "chapterSlug": "stateful-agent",
     "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "故意把它弄坏",
-    "href": "/learn/stateful-agent#故意把它弄坏",
+    "title": "两次运行的时间线与验收",
+    "href": "/learn/stateful-agent#两次运行的时间线与验收",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "stateful agent",
@@ -1820,43 +1907,7 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 故意把它弄坏 stateful agent lifecycle abort steering follow-up reentrancy"
-  },
-  {
-    "id": "09-本章没有证明什么",
-    "chapterId": "09",
-    "chapterSlug": "stateful-agent",
-    "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "本章没有证明什么",
-    "href": "/learn/stateful-agent#本章没有证明什么",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "stateful agent",
-      "lifecycle",
-      "abort",
-      "steering",
-      "follow-up",
-      "reentrancy"
-    ],
-    "searchText": "从单次循环到有状态 Agent 本章没有证明什么 stateful agent lifecycle abort steering follow-up reentrancy"
-  },
-  {
-    "id": "09-本章验收",
-    "chapterId": "09",
-    "chapterSlug": "stateful-agent",
-    "chapterTitle": "从单次循环到有状态 Agent",
-    "title": "本章验收",
-    "href": "/learn/stateful-agent#本章验收",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "stateful agent",
-      "lifecycle",
-      "abort",
-      "steering",
-      "follow-up",
-      "reentrancy"
-    ],
-    "searchText": "从单次循环到有状态 Agent 本章验收 stateful agent lifecycle abort steering follow-up reentrancy"
+    "searchText": "从单次循环到有状态 Agent 两次运行的时间线与验收 stateful agent lifecycle abort steering follow-up reentrancy"
   },
   {
     "id": "09-可选迁移练习",
@@ -1898,8 +1949,8 @@ export const searchIndex: SearchEntry[] = [
     "id": "10",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "把完成的历史追加成一棵树",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "从一棵会话树恢复当前对话",
     "href": "/learn/session-tree",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
@@ -1910,15 +1961,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 把完整消息写成带 parentId 的 JSONL 记录；从指定叶子恢复分支，并让断尾与写入失败停在可诊断状态。 第三部 · 让 Harness 可靠 append-only log, JSONL, parent pointer, active path, branch, recovery 你将得到什么 为什么第 10 章放在这里 先建立全景 开始动手：先进入正确的仓库 第一步：用 parentId 找回一条分支 第二步：磁盘读出的对象仍然是 unknown 第三步：先在内存中固定数据所有权 第四步：把换行当成提交标记 第五步：一次可能半写的失败会让 writer 失效 第六步：只把选中分支的完整消息交回 Agent 故意把它弄坏 本章没有证明什么 本章验收 可选迁移练习 小结"
+    "searchText": "从一棵会话树恢复当前对话 给完成消息加上稳定 id 与 parentId，追加到 JSONL；从选中的叶子恢复 active path，并明确副本、顺序和断尾边界。 第三部 · 让 Harness 可靠 append-only log, JSONL, parent pointer, active path, branch, recovery 先看这一棵树 从第 09 章进入第 10 章 1. id 和 parentId 如何组成路径 2. JSON 进入程序时仍然是 unknown 3. Store 在 append() 调用时取得快照 4. JSONL 用换行标记一条记录已经提交 5. JSONL writer 只在确定安全时继续追加 6. active path 最终投影为完整消息 用一次故障确认 writer 的边界 14 项测试证明到哪里 本章验收 小结"
   },
   {
-    "id": "10-你将得到什么",
+    "id": "10-先看这一棵树",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "你将得到什么",
-    "href": "/learn/session-tree#你将得到什么",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "先看这一棵树",
+    "href": "/learn/session-tree#先看这一棵树",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -1928,15 +1979,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 你将得到什么 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 先看这一棵树 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-为什么第-10-章放在这里",
+    "id": "10-从第-09-章进入第-10-章",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "为什么第 10 章放在这里",
-    "href": "/learn/session-tree#为什么第-10-章放在这里",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "从第 09 章进入第 10 章",
+    "href": "/learn/session-tree#从第-09-章进入第-10-章",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -1946,15 +1997,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 为什么第 10 章放在这里 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 从第 09 章进入第 10 章 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-先建立全景",
+    "id": "10-1-id-和-parentid-如何组成路径",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "先建立全景",
-    "href": "/learn/session-tree#先建立全景",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "1. id 和 parentId 如何组成路径",
+    "href": "/learn/session-tree#1-id-和-parentid-如何组成路径",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -1964,15 +2015,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 先建立全景 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 1. id 和 parentId 如何组成路径 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-开始动手先进入正确的仓库",
+    "id": "10-2-json-进入程序时仍然是-unknown",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "开始动手：先进入正确的仓库",
-    "href": "/learn/session-tree#开始动手先进入正确的仓库",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "2. JSON 进入程序时仍然是 unknown",
+    "href": "/learn/session-tree#2-json-进入程序时仍然是-unknown",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -1982,15 +2033,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 开始动手：先进入正确的仓库 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 2. JSON 进入程序时仍然是 unknown append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-第一步用-parentid-找回一条分支",
+    "id": "10-3-store-在-append-调用时取得快照",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "第一步：用 parentId 找回一条分支",
-    "href": "/learn/session-tree#第一步用-parentid-找回一条分支",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "3. Store 在 append() 调用时取得快照",
+    "href": "/learn/session-tree#3-store-在-append-调用时取得快照",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -2000,15 +2051,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 第一步：用 parentId 找回一条分支 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 3. Store 在 append() 调用时取得快照 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-第二步磁盘读出的对象仍然是-unknown",
+    "id": "10-4-jsonl-用换行标记一条记录已经提交",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "第二步：磁盘读出的对象仍然是 unknown",
-    "href": "/learn/session-tree#第二步磁盘读出的对象仍然是-unknown",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "4. JSONL 用换行标记一条记录已经提交",
+    "href": "/learn/session-tree#4-jsonl-用换行标记一条记录已经提交",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -2018,15 +2069,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 第二步：磁盘读出的对象仍然是 unknown append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 4. JSONL 用换行标记一条记录已经提交 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-第三步先在内存中固定数据所有权",
+    "id": "10-5-jsonl-writer-只在确定安全时继续追加",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "第三步：先在内存中固定数据所有权",
-    "href": "/learn/session-tree#第三步先在内存中固定数据所有权",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "5. JSONL writer 只在确定安全时继续追加",
+    "href": "/learn/session-tree#5-jsonl-writer-只在确定安全时继续追加",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -2036,15 +2087,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 第三步：先在内存中固定数据所有权 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 5. JSONL writer 只在确定安全时继续追加 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-第四步把换行当成提交标记",
+    "id": "10-6-active-path-最终投影为完整消息",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "第四步：把换行当成提交标记",
-    "href": "/learn/session-tree#第四步把换行当成提交标记",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "6. active path 最终投影为完整消息",
+    "href": "/learn/session-tree#6-active-path-最终投影为完整消息",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -2054,15 +2105,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 第四步：把换行当成提交标记 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 6. active path 最终投影为完整消息 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-第五步一次可能半写的失败会让-writer-失效",
+    "id": "10-用一次故障确认-writer-的边界",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "第五步：一次可能半写的失败会让 writer 失效",
-    "href": "/learn/session-tree#第五步一次可能半写的失败会让-writer-失效",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "用一次故障确认 writer 的边界",
+    "href": "/learn/session-tree#用一次故障确认-writer-的边界",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -2072,15 +2123,15 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 第五步：一次可能半写的失败会让 writer 失效 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 用一次故障确认 writer 的边界 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-第六步只把选中分支的完整消息交回-agent",
+    "id": "10-14-项测试证明到哪里",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "第六步：只把选中分支的完整消息交回 Agent",
-    "href": "/learn/session-tree#第六步只把选中分支的完整消息交回-agent",
+    "chapterTitle": "从一棵会话树恢复当前对话",
+    "title": "14 项测试证明到哪里",
+    "href": "/learn/session-tree#14-项测试证明到哪里",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -2090,49 +2141,13 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 第六步：只把选中分支的完整消息交回 Agent append-only log JSONL parent pointer active path branch recovery"
-  },
-  {
-    "id": "10-故意把它弄坏",
-    "chapterId": "10",
-    "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "故意把它弄坏",
-    "href": "/learn/session-tree#故意把它弄坏",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "append-only log",
-      "JSONL",
-      "parent pointer",
-      "active path",
-      "branch",
-      "recovery"
-    ],
-    "searchText": "把完成的历史追加成一棵树 故意把它弄坏 append-only log JSONL parent pointer active path branch recovery"
-  },
-  {
-    "id": "10-本章没有证明什么",
-    "chapterId": "10",
-    "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "本章没有证明什么",
-    "href": "/learn/session-tree#本章没有证明什么",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "append-only log",
-      "JSONL",
-      "parent pointer",
-      "active path",
-      "branch",
-      "recovery"
-    ],
-    "searchText": "把完成的历史追加成一棵树 本章没有证明什么 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 14 项测试证明到哪里 append-only log JSONL parent pointer active path branch recovery"
   },
   {
     "id": "10-本章验收",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
+    "chapterTitle": "从一棵会话树恢复当前对话",
     "title": "本章验收",
     "href": "/learn/session-tree#本章验收",
     "partTitle": "第三部 · 让 Harness 可靠",
@@ -2144,31 +2159,13 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 本章验收 append-only log JSONL parent pointer active path branch recovery"
-  },
-  {
-    "id": "10-可选迁移练习",
-    "chapterId": "10",
-    "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
-    "title": "可选迁移练习",
-    "href": "/learn/session-tree#可选迁移练习",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "append-only log",
-      "JSONL",
-      "parent pointer",
-      "active path",
-      "branch",
-      "recovery"
-    ],
-    "searchText": "把完成的历史追加成一棵树 可选迁移练习 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 本章验收 append-only log JSONL parent pointer active path branch recovery"
   },
   {
     "id": "10-小结",
     "chapterId": "10",
     "chapterSlug": "session-tree",
-    "chapterTitle": "把完成的历史追加成一棵树",
+    "chapterTitle": "从一棵会话树恢复当前对话",
     "title": "小结",
     "href": "/learn/session-tree#小结",
     "partTitle": "第三部 · 让 Harness 可靠",
@@ -2180,7 +2177,7 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "把完成的历史追加成一棵树 小结 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 小结 append-only log JSONL parent pointer active path branch recovery"
   },
   {
     "id": "11",
@@ -2197,15 +2194,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 把工具往返组成不可拆分的交互，在预算内选择完整后缀，并用追加的结构化摘要恢复更早事实。 第三部 · 让 Harness 可靠 history, context projection, token budget, interaction boundary, compaction 你将得到什么 为什么第 11 章放在这里 开始动手 先建立全景 第一步：让摘要成为可持久化事实 第二步：预算不能拆开一次完整交互 第三步：先扣固定成本，再选择最近的完整组 第四步：创建摘要记录，不替调用者写入 第五步：恢复时只认活动路径上的最新摘要 故意把它弄坏 本章没有证明什么 本章验收 可选迁移练习 小结"
+    "searchText": "历史不动，上下文按预算重建 把工具往返组成不可拆分的交互，在预算内选择完整后缀，并用追加的结构化摘要恢复更早事实。 第三部 · 让 Harness 可靠 history, context projection, token budget, interaction boundary, compaction 同一段历史会产生一份更短的模型输入 摘要先成为 session 中的一条普通事实 两个 tool result 仍属于 u3 开始的同一组 31 个 token 怎样留下第二、三组 compact-1 记录摘要与保留起点 恢复时把最新摘要接在保留后缀前面 损坏记录在进入预算前就会被拒绝 14 项测试固定到哪里 本章验收 可选迁移练习 小结"
   },
   {
-    "id": "11-你将得到什么",
+    "id": "11-同一段历史会产生一份更短的模型输入",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "你将得到什么",
-    "href": "/learn/context-compaction#你将得到什么",
+    "title": "同一段历史会产生一份更短的模型输入",
+    "href": "/learn/context-compaction#同一段历史会产生一份更短的模型输入",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2214,15 +2211,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 你将得到什么 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 同一段历史会产生一份更短的模型输入 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-为什么第-11-章放在这里",
+    "id": "11-摘要先成为-session-中的一条普通事实",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "为什么第 11 章放在这里",
-    "href": "/learn/context-compaction#为什么第-11-章放在这里",
+    "title": "摘要先成为 session 中的一条普通事实",
+    "href": "/learn/context-compaction#摘要先成为-session-中的一条普通事实",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2231,15 +2228,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 为什么第 11 章放在这里 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 摘要先成为 session 中的一条普通事实 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-开始动手",
+    "id": "11-两个-tool-result-仍属于-u3-开始的同一组",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "开始动手",
-    "href": "/learn/context-compaction#开始动手",
+    "title": "两个 tool result 仍属于 u3 开始的同一组",
+    "href": "/learn/context-compaction#两个-tool-result-仍属于-u3-开始的同一组",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2248,15 +2245,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 开始动手 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 两个 tool result 仍属于 u3 开始的同一组 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-先建立全景",
+    "id": "11-31-个-token-怎样留下第二三组",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "先建立全景",
-    "href": "/learn/context-compaction#先建立全景",
+    "title": "31 个 token 怎样留下第二、三组",
+    "href": "/learn/context-compaction#31-个-token-怎样留下第二三组",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2265,15 +2262,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 先建立全景 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 31 个 token 怎样留下第二、三组 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-第一步让摘要成为可持久化事实",
+    "id": "11-compact-1-记录摘要与保留起点",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "第一步：让摘要成为可持久化事实",
-    "href": "/learn/context-compaction#第一步让摘要成为可持久化事实",
+    "title": "compact-1 记录摘要与保留起点",
+    "href": "/learn/context-compaction#compact-1-记录摘要与保留起点",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2282,15 +2279,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 第一步：让摘要成为可持久化事实 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 compact-1 记录摘要与保留起点 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-第二步预算不能拆开一次完整交互",
+    "id": "11-恢复时把最新摘要接在保留后缀前面",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "第二步：预算不能拆开一次完整交互",
-    "href": "/learn/context-compaction#第二步预算不能拆开一次完整交互",
+    "title": "恢复时把最新摘要接在保留后缀前面",
+    "href": "/learn/context-compaction#恢复时把最新摘要接在保留后缀前面",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2299,15 +2296,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 第二步：预算不能拆开一次完整交互 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 恢复时把最新摘要接在保留后缀前面 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-第三步先扣固定成本再选择最近的完整组",
+    "id": "11-损坏记录在进入预算前就会被拒绝",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "第三步：先扣固定成本，再选择最近的完整组",
-    "href": "/learn/context-compaction#第三步先扣固定成本再选择最近的完整组",
+    "title": "损坏记录在进入预算前就会被拒绝",
+    "href": "/learn/context-compaction#损坏记录在进入预算前就会被拒绝",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2316,15 +2313,15 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 第三步：先扣固定成本，再选择最近的完整组 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 损坏记录在进入预算前就会被拒绝 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-第四步创建摘要记录不替调用者写入",
+    "id": "11-14-项测试固定到哪里",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "第四步：创建摘要记录，不替调用者写入",
-    "href": "/learn/context-compaction#第四步创建摘要记录不替调用者写入",
+    "title": "14 项测试固定到哪里",
+    "href": "/learn/context-compaction#14-项测试固定到哪里",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2333,58 +2330,7 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 第四步：创建摘要记录，不替调用者写入 history context projection token budget interaction boundary compaction"
-  },
-  {
-    "id": "11-第五步恢复时只认活动路径上的最新摘要",
-    "chapterId": "11",
-    "chapterSlug": "context-compaction",
-    "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "第五步：恢复时只认活动路径上的最新摘要",
-    "href": "/learn/context-compaction#第五步恢复时只认活动路径上的最新摘要",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "history",
-      "context projection",
-      "token budget",
-      "interaction boundary",
-      "compaction"
-    ],
-    "searchText": "历史不动，上下文按预算重建 第五步：恢复时只认活动路径上的最新摘要 history context projection token budget interaction boundary compaction"
-  },
-  {
-    "id": "11-故意把它弄坏",
-    "chapterId": "11",
-    "chapterSlug": "context-compaction",
-    "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "故意把它弄坏",
-    "href": "/learn/context-compaction#故意把它弄坏",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "history",
-      "context projection",
-      "token budget",
-      "interaction boundary",
-      "compaction"
-    ],
-    "searchText": "历史不动，上下文按预算重建 故意把它弄坏 history context projection token budget interaction boundary compaction"
-  },
-  {
-    "id": "11-本章没有证明什么",
-    "chapterId": "11",
-    "chapterSlug": "context-compaction",
-    "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "本章没有证明什么",
-    "href": "/learn/context-compaction#本章没有证明什么",
-    "partTitle": "第三部 · 让 Harness 可靠",
-    "terms": [
-      "history",
-      "context projection",
-      "token budget",
-      "interaction boundary",
-      "compaction"
-    ],
-    "searchText": "历史不动，上下文按预算重建 本章没有证明什么 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 14 项测试固定到哪里 history context projection token budget interaction boundary compaction"
   },
   {
     "id": "11-本章验收",
@@ -2453,15 +2399,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 把项目说明、Skill 和模板接入同一个上下文入口，再用信任检查、原子注册与故障隔离控制可执行扩展。 第四部 · 从核心到产品 resource catalog, skill activation, prompt template, extension host, trust gate, hook 你将得到什么 为什么第 12 章放在这里 开始动手 先建立全景 第一步：目录的冲突规则由调用者决定 第二步：路径边界要检查两次 第三步：资源只从一个入口进入模型上下文 第四步：Extension 的原子性从 staging 开始 第五步：策略失败时，前置关闭；观察失败时，事实保留 故意把它弄坏 读测试时，先找观察量 本章验收 可选迁移练习 小结"
+    "searchText": "知识按需进入上下文，代码先过信任门 把项目说明、Skill 和模板接入同一个上下文入口，再用信任检查、原子注册与故障隔离控制可执行扩展。 第四部 · 从核心到产品 resource catalog, skill activation, prompt template, extension host, trust gate, hook 同一个工作区里四种会影响运行的对象 它接在第 11 章的哪个位置 建立练习起点 Lab 12.1：roots 顺序决定 catalog winner Lab 12.2：activation 才把 Skill 正文交给本轮 Lab 12.3：模板与 Skill 从两个入口汇入一次模型请求 Lab 12.4：Extension 先获准，再一次性注册 Lab 12.5：一次工具调用怎样穿过 hooks 把正常链与边界链放在一起 故意破坏 trust 与 import 的顺序 测试证据与验收 课程模型怎样迁移到真实 Pi 用固定示例做一次组合迁移 小结"
   },
   {
-    "id": "12-你将得到什么",
+    "id": "12-同一个工作区里四种会影响运行的对象",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "你将得到什么",
-    "href": "/learn/resources-extensions#你将得到什么",
+    "title": "同一个工作区里四种会影响运行的对象",
+    "href": "/learn/resources-extensions#同一个工作区里四种会影响运行的对象",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2471,15 +2417,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 你将得到什么 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 同一个工作区里四种会影响运行的对象 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-为什么第-12-章放在这里",
+    "id": "12-它接在第-11-章的哪个位置",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "为什么第 12 章放在这里",
-    "href": "/learn/resources-extensions#为什么第-12-章放在这里",
+    "title": "它接在第 11 章的哪个位置",
+    "href": "/learn/resources-extensions#它接在第-11-章的哪个位置",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2489,15 +2435,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 为什么第 12 章放在这里 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 它接在第 11 章的哪个位置 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-开始动手",
+    "id": "12-建立练习起点",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "开始动手",
-    "href": "/learn/resources-extensions#开始动手",
+    "title": "建立练习起点",
+    "href": "/learn/resources-extensions#建立练习起点",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2507,15 +2453,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 开始动手 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 建立练习起点 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-先建立全景",
+    "id": "12-lab-121roots-顺序决定-catalog-winner",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "先建立全景",
-    "href": "/learn/resources-extensions#先建立全景",
+    "title": "Lab 12.1：roots 顺序决定 catalog winner",
+    "href": "/learn/resources-extensions#lab-121roots-顺序决定-catalog-winner",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2525,15 +2471,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 先建立全景 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 Lab 12.1：roots 顺序决定 catalog winner resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-第一步目录的冲突规则由调用者决定",
+    "id": "12-lab-122activation-才把-skill-正文交给本轮",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "第一步：目录的冲突规则由调用者决定",
-    "href": "/learn/resources-extensions#第一步目录的冲突规则由调用者决定",
+    "title": "Lab 12.2：activation 才把 Skill 正文交给本轮",
+    "href": "/learn/resources-extensions#lab-122activation-才把-skill-正文交给本轮",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2543,15 +2489,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 第一步：目录的冲突规则由调用者决定 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 Lab 12.2：activation 才把 Skill 正文交给本轮 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-第二步路径边界要检查两次",
+    "id": "12-lab-123模板与-skill-从两个入口汇入一次模型请求",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "第二步：路径边界要检查两次",
-    "href": "/learn/resources-extensions#第二步路径边界要检查两次",
+    "title": "Lab 12.3：模板与 Skill 从两个入口汇入一次模型请求",
+    "href": "/learn/resources-extensions#lab-123模板与-skill-从两个入口汇入一次模型请求",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2561,15 +2507,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 第二步：路径边界要检查两次 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 Lab 12.3：模板与 Skill 从两个入口汇入一次模型请求 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-第三步资源只从一个入口进入模型上下文",
+    "id": "12-lab-124extension-先获准再一次性注册",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "第三步：资源只从一个入口进入模型上下文",
-    "href": "/learn/resources-extensions#第三步资源只从一个入口进入模型上下文",
+    "title": "Lab 12.4：Extension 先获准，再一次性注册",
+    "href": "/learn/resources-extensions#lab-124extension-先获准再一次性注册",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2579,15 +2525,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 第三步：资源只从一个入口进入模型上下文 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 Lab 12.4：Extension 先获准，再一次性注册 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-第四步extension-的原子性从-staging-开始",
+    "id": "12-lab-125一次工具调用怎样穿过-hooks",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "第四步：Extension 的原子性从 staging 开始",
-    "href": "/learn/resources-extensions#第四步extension-的原子性从-staging-开始",
+    "title": "Lab 12.5：一次工具调用怎样穿过 hooks",
+    "href": "/learn/resources-extensions#lab-125一次工具调用怎样穿过-hooks",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2597,15 +2543,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 第四步：Extension 的原子性从 staging 开始 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 Lab 12.5：一次工具调用怎样穿过 hooks resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-第五步策略失败时前置关闭观察失败时事实保留",
+    "id": "12-把正常链与边界链放在一起",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "第五步：策略失败时，前置关闭；观察失败时，事实保留",
-    "href": "/learn/resources-extensions#第五步策略失败时前置关闭观察失败时事实保留",
+    "title": "把正常链与边界链放在一起",
+    "href": "/learn/resources-extensions#把正常链与边界链放在一起",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2615,15 +2561,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 第五步：策略失败时，前置关闭；观察失败时，事实保留 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 把正常链与边界链放在一起 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-故意把它弄坏",
+    "id": "12-故意破坏-trust-与-import-的顺序",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "故意把它弄坏",
-    "href": "/learn/resources-extensions#故意把它弄坏",
+    "title": "故意破坏 trust 与 import 的顺序",
+    "href": "/learn/resources-extensions#故意破坏-trust-与-import-的顺序",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2633,15 +2579,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 故意把它弄坏 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 故意破坏 trust 与 import 的顺序 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-读测试时先找观察量",
+    "id": "12-测试证据与验收",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "读测试时，先找观察量",
-    "href": "/learn/resources-extensions#读测试时先找观察量",
+    "title": "测试证据与验收",
+    "href": "/learn/resources-extensions#测试证据与验收",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2651,15 +2597,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 读测试时，先找观察量 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 测试证据与验收 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-本章验收",
+    "id": "12-课程模型怎样迁移到真实-pi",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "本章验收",
-    "href": "/learn/resources-extensions#本章验收",
+    "title": "课程模型怎样迁移到真实 Pi",
+    "href": "/learn/resources-extensions#课程模型怎样迁移到真实-pi",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2669,15 +2615,15 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 本章验收 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 课程模型怎样迁移到真实 Pi resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
-    "id": "12-可选迁移练习",
+    "id": "12-用固定示例做一次组合迁移",
     "chapterId": "12",
     "chapterSlug": "resources-extensions",
     "chapterTitle": "知识按需进入上下文，代码先过信任门",
-    "title": "可选迁移练习",
-    "href": "/learn/resources-extensions#可选迁移练习",
+    "title": "用固定示例做一次组合迁移",
+    "href": "/learn/resources-extensions#用固定示例做一次组合迁移",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "resource catalog",
@@ -2687,7 +2633,7 @@ export const searchIndex: SearchEntry[] = [
       "trust gate",
       "hook"
     ],
-    "searchText": "知识按需进入上下文，代码先过信任门 可选迁移练习 resource catalog skill activation prompt template extension host trust gate hook"
+    "searchText": "知识按需进入上下文，代码先过信任门 用固定示例做一次组合迁移 resource catalog skill activation prompt template extension host trust gate hook"
   },
   {
     "id": "12-小结",
@@ -2711,8 +2657,8 @@ export const searchIndex: SearchEntry[] = [
     "id": "13",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "把已有能力接成一个可落盘的 Runtime",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "把已有能力接成一个能提交历史的 Runtime",
     "href": "/learn/composition-root",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
@@ -2723,15 +2669,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 显式选择活动分支，恢复 Agent，在每次模型请求前统一构造上下文，并让 prompt 只有在新消息落盘后才完成。 第四部 · 从核心到产品 composition root, runtime, active leaf, context projection, durability, poison state 你将得到什么 为什么第 13 章放在这里 开始动手 先建立全景 Runtime 拥有什么 一次 prompt 穿过哪些层 第一步：恢复明确选择的历史 先写恢复规则 再接 Runtime 外壳 第二步：每次模型请求前投影 context 临时 entry 只为调用 buildContext 第三步：让 prompt 的完成等于事实已经落盘 先完成对象图 只保存本轮新增的 suffix 用一条队列串行 prompt append 失败后必须 poison flush 和 dispose 的边界 故意把它弄坏 第四步：Mode 只负责一次呈现 本章验收 和陪练 Agent 一起复盘 可选迁移练习 小结"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 显式选择活动分支，恢复 Agent，在每次模型请求前统一构造上下文，并让 prompt 只有在新消息被 Session Store 接受后才完成。 第四部 · 从核心到产品 composition root, runtime, active leaf, context projection, durability, poison state 一次 Runtime.prompt() 到底什么时候完成 从四个独立部件进入一个 Runtime 建立练习起点 Lab 13.1：从指定 leaf 恢复唯一 Agent Lab 13.2：每次模型请求都投影当前路径与临时 suffix Lab 13.3：把资源、Extension、Agent 与 Session Store 接成一次调用 新消息从哪个位置开始 每次 append 成功后推进 leaf 两个 prompt 共用一条 operation queue 部分提交后 Runtime 不能继续 flush() 与 dispose() 等待哪些工作 用现有测试破坏一次 poison 规则 Lab 13.4：Mode 只改变输出编码 十项测试固定了哪些边界 课程 Runtime 与真实 Pi 的关系 完整对象图与本章验收 小结"
   },
   {
-    "id": "13-你将得到什么",
+    "id": "13-一次-runtimeprompt-到底什么时候完成",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "你将得到什么",
-    "href": "/learn/composition-root#你将得到什么",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "一次 Runtime.prompt() 到底什么时候完成",
+    "href": "/learn/composition-root#一次-runtimeprompt-到底什么时候完成",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2741,15 +2687,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 你将得到什么 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 一次 Runtime.prompt() 到底什么时候完成 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-为什么第-13-章放在这里",
+    "id": "13-从四个独立部件进入一个-runtime",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "为什么第 13 章放在这里",
-    "href": "/learn/composition-root#为什么第-13-章放在这里",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "从四个独立部件进入一个 Runtime",
+    "href": "/learn/composition-root#从四个独立部件进入一个-runtime",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2759,15 +2705,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 为什么第 13 章放在这里 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 从四个独立部件进入一个 Runtime composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-开始动手",
+    "id": "13-建立练习起点",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "开始动手",
-    "href": "/learn/composition-root#开始动手",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "建立练习起点",
+    "href": "/learn/composition-root#建立练习起点",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2777,15 +2723,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 开始动手 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 建立练习起点 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-先建立全景",
+    "id": "13-lab-131从指定-leaf-恢复唯一-agent",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "先建立全景",
-    "href": "/learn/composition-root#先建立全景",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "Lab 13.1：从指定 leaf 恢复唯一 Agent",
+    "href": "/learn/composition-root#lab-131从指定-leaf-恢复唯一-agent",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2795,15 +2741,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 先建立全景 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime Lab 13.1：从指定 leaf 恢复唯一 Agent composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-第一步恢复明确选择的历史",
+    "id": "13-lab-132每次模型请求都投影当前路径与临时-suffix",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "第一步：恢复明确选择的历史",
-    "href": "/learn/composition-root#第一步恢复明确选择的历史",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "Lab 13.2：每次模型请求都投影当前路径与临时 suffix",
+    "href": "/learn/composition-root#lab-132每次模型请求都投影当前路径与临时-suffix",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2813,15 +2759,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 第一步：恢复明确选择的历史 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime Lab 13.2：每次模型请求都投影当前路径与临时 suffix composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-第二步每次模型请求前投影-context",
+    "id": "13-lab-133把资源extensionagent-与-session-store-接成一次调用",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "第二步：每次模型请求前投影 context",
-    "href": "/learn/composition-root#第二步每次模型请求前投影-context",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "Lab 13.3：把资源、Extension、Agent 与 Session Store 接成一次调用",
+    "href": "/learn/composition-root#lab-133把资源extensionagent-与-session-store-接成一次调用",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2831,15 +2777,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 第二步：每次模型请求前投影 context composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime Lab 13.3：把资源、Extension、Agent 与 Session Store 接成一次调用 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-第三步让-prompt-的完成等于事实已经落盘",
+    "id": "13-用现有测试破坏一次-poison-规则",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "第三步：让 prompt 的完成等于事实已经落盘",
-    "href": "/learn/composition-root#第三步让-prompt-的完成等于事实已经落盘",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "用现有测试破坏一次 poison 规则",
+    "href": "/learn/composition-root#用现有测试破坏一次-poison-规则",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2849,15 +2795,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 第三步：让 prompt 的完成等于事实已经落盘 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 用现有测试破坏一次 poison 规则 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-故意把它弄坏",
+    "id": "13-lab-134mode-只改变输出编码",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "故意把它弄坏",
-    "href": "/learn/composition-root#故意把它弄坏",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "Lab 13.4：Mode 只改变输出编码",
+    "href": "/learn/composition-root#lab-134mode-只改变输出编码",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2867,15 +2813,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 故意把它弄坏 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime Lab 13.4：Mode 只改变输出编码 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-第四步mode-只负责一次呈现",
+    "id": "13-十项测试固定了哪些边界",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "第四步：Mode 只负责一次呈现",
-    "href": "/learn/composition-root#第四步mode-只负责一次呈现",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "十项测试固定了哪些边界",
+    "href": "/learn/composition-root#十项测试固定了哪些边界",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2885,15 +2831,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 第四步：Mode 只负责一次呈现 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 十项测试固定了哪些边界 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-本章验收",
+    "id": "13-课程-runtime-与真实-pi-的关系",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "本章验收",
-    "href": "/learn/composition-root#本章验收",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "课程 Runtime 与真实 Pi 的关系",
+    "href": "/learn/composition-root#课程-runtime-与真实-pi-的关系",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2903,15 +2849,15 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 本章验收 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 课程 Runtime 与真实 Pi 的关系 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-和陪练-agent-一起复盘",
+    "id": "13-完整对象图与本章验收",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "和陪练 Agent 一起复盘",
-    "href": "/learn/composition-root#和陪练-agent-一起复盘",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
+    "title": "完整对象图与本章验收",
+    "href": "/learn/composition-root#完整对象图与本章验收",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2921,31 +2867,13 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 和陪练 Agent 一起复盘 composition root runtime active leaf context projection durability poison state"
-  },
-  {
-    "id": "13-可选迁移练习",
-    "chapterId": "13",
-    "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
-    "title": "可选迁移练习",
-    "href": "/learn/composition-root#可选迁移练习",
-    "partTitle": "第四部 · 从核心到产品",
-    "terms": [
-      "composition root",
-      "runtime",
-      "active leaf",
-      "context projection",
-      "durability",
-      "poison state"
-    ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 可选迁移练习 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 完整对象图与本章验收 composition root runtime active leaf context projection durability poison state"
   },
   {
     "id": "13-小结",
     "chapterId": "13",
     "chapterSlug": "composition-root",
-    "chapterTitle": "把已有能力接成一个可落盘的 Runtime",
+    "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
     "title": "小结",
     "href": "/learn/composition-root#小结",
     "partTitle": "第四部 · 从核心到产品",
@@ -2957,7 +2885,7 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个可落盘的 Runtime 小结 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 小结 composition root runtime active leaf context projection durability poison state"
   },
   {
     "id": "14",
@@ -2970,260 +2898,241 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 用新鲜 fixture、独立判定器、严格协议和脱敏报告，判断一次 Agent 运行究竟是任务失败、协议失败，还是评测设施坏了。 第四部 · 从核心到产品 eval runner, fresh fixture, oracle, active path, protocol failure, safe evidence, held-out 你将得到什么 为什么最后才做评测 开始动手 先建立全景 Case 负责造一个新世界 Runner 负责事实是否可信 Judge 只回答任务有没有做对 先定义失败语言 实践 14.1：隔离执行，只交出受限事实 第一个动作：搭出始终能清理的外壳 第二个动作：明确执行和收集的分界线 第三个动作：只取活动祖先链 第四个动作：只读取声明文件 第五个动作：先复制，再递归冻结 运行第一段 实践 14.2：先验协议，再让 oracle 判任务 独立 oracle 的最小规则 协议检查要维护状态，不能只数 call 与 result 两条证据链必须汇合 固定分类，不转述异常 运行第二段 实践 14.3：报告只带安全证据，生命周期保留根因 SafeEvidence 只保留计数 一次运行只有一个 primary failure Suite 故意串行 运行第三段 故意把它弄坏 实践 14.4：held-out 检查能否迁移规则 测试结果该怎样判断 与原始 Pi 的关系 和陪学 Agent 一起走最后一章 本章验收 可选迁移练习 小结"
+    "searchText": "给完整的 Pi 建一套独立评测 让 runner 每次重新调用 EvalCase.prepare，验证执行轨迹和任务结果，并输出只含固定分类与计数的报告。 第四部 · 从核心到产品 eval runner, fresh fixture, judge, active path, protocol failure, safe evidence, held-out write-answer 从任务对象走到通过报告 Runner 每次重新调用 prepare() Runtime 完成后，runner 只取活动路径 Observation 先复制，再递归冻结 Judge 先得到可信轨迹，再判断任务条件 Runner 捕获偏差时记录所在阶段 合法拒绝和坏 judge 是两种结果 工具协议按活动路径顺序扫描 SafeEvidence 从事实中计数，不转述事实 清理故障追加在最早结果之后 Suite 等一个 case 完整收口再开始下一个 移除 transcript 交叉验证会制造假通过 公开测试与真正的 held-out 检查 9 项公开测试固定到哪里 本章验收 小结"
   },
   {
-    "id": "14-你将得到什么",
+    "id": "14-write-answer-从任务对象走到通过报告",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "你将得到什么",
-    "href": "/learn/eval-capstone#你将得到什么",
+    "title": "write-answer 从任务对象走到通过报告",
+    "href": "/learn/eval-capstone#write-answer-从任务对象走到通过报告",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 你将得到什么 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 write-answer 从任务对象走到通过报告 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-为什么最后才做评测",
+    "id": "14-runner-每次重新调用-prepare",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "为什么最后才做评测",
-    "href": "/learn/eval-capstone#为什么最后才做评测",
+    "title": "Runner 每次重新调用 prepare()",
+    "href": "/learn/eval-capstone#runner-每次重新调用-prepare",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 为什么最后才做评测 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 Runner 每次重新调用 prepare() eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-开始动手",
+    "id": "14-runtime-完成后runner-只取活动路径",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "开始动手",
-    "href": "/learn/eval-capstone#开始动手",
+    "title": "Runtime 完成后，runner 只取活动路径",
+    "href": "/learn/eval-capstone#runtime-完成后runner-只取活动路径",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 开始动手 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 Runtime 完成后，runner 只取活动路径 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-先建立全景",
+    "id": "14-observation-先复制再递归冻结",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "先建立全景",
-    "href": "/learn/eval-capstone#先建立全景",
+    "title": "Observation 先复制，再递归冻结",
+    "href": "/learn/eval-capstone#observation-先复制再递归冻结",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 先建立全景 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 Observation 先复制，再递归冻结 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-先定义失败语言",
+    "id": "14-judge-先得到可信轨迹再判断任务条件",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "先定义失败语言",
-    "href": "/learn/eval-capstone#先定义失败语言",
+    "title": "Judge 先得到可信轨迹，再判断任务条件",
+    "href": "/learn/eval-capstone#judge-先得到可信轨迹再判断任务条件",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 先定义失败语言 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 Judge 先得到可信轨迹，再判断任务条件 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-实践-141隔离执行只交出受限事实",
+    "id": "14-runner-捕获偏差时记录所在阶段",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "实践 14.1：隔离执行，只交出受限事实",
-    "href": "/learn/eval-capstone#实践-141隔离执行只交出受限事实",
+    "title": "Runner 捕获偏差时记录所在阶段",
+    "href": "/learn/eval-capstone#runner-捕获偏差时记录所在阶段",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 实践 14.1：隔离执行，只交出受限事实 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 Runner 捕获偏差时记录所在阶段 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-实践-142先验协议再让-oracle-判任务",
+    "id": "14-safeevidence-从事实中计数不转述事实",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "实践 14.2：先验协议，再让 oracle 判任务",
-    "href": "/learn/eval-capstone#实践-142先验协议再让-oracle-判任务",
+    "title": "SafeEvidence 从事实中计数，不转述事实",
+    "href": "/learn/eval-capstone#safeevidence-从事实中计数不转述事实",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 实践 14.2：先验协议，再让 oracle 判任务 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 SafeEvidence 从事实中计数，不转述事实 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-实践-143报告只带安全证据生命周期保留根因",
+    "id": "14-清理故障追加在最早结果之后",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "实践 14.3：报告只带安全证据，生命周期保留根因",
-    "href": "/learn/eval-capstone#实践-143报告只带安全证据生命周期保留根因",
+    "title": "清理故障追加在最早结果之后",
+    "href": "/learn/eval-capstone#清理故障追加在最早结果之后",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 实践 14.3：报告只带安全证据，生命周期保留根因 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 清理故障追加在最早结果之后 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-故意把它弄坏",
+    "id": "14-suite-等一个-case-完整收口再开始下一个",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "故意把它弄坏",
-    "href": "/learn/eval-capstone#故意把它弄坏",
+    "title": "Suite 等一个 case 完整收口再开始下一个",
+    "href": "/learn/eval-capstone#suite-等一个-case-完整收口再开始下一个",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 故意把它弄坏 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 Suite 等一个 case 完整收口再开始下一个 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-实践-144held-out-检查能否迁移规则",
+    "id": "14-移除-transcript-交叉验证会制造假通过",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "实践 14.4：held-out 检查能否迁移规则",
-    "href": "/learn/eval-capstone#实践-144held-out-检查能否迁移规则",
+    "title": "移除 transcript 交叉验证会制造假通过",
+    "href": "/learn/eval-capstone#移除-transcript-交叉验证会制造假通过",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 实践 14.4：held-out 检查能否迁移规则 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 移除 transcript 交叉验证会制造假通过 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-测试结果该怎样判断",
+    "id": "14-公开测试与真正的-held-out-检查",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "测试结果该怎样判断",
-    "href": "/learn/eval-capstone#测试结果该怎样判断",
+    "title": "公开测试与真正的 held-out 检查",
+    "href": "/learn/eval-capstone#公开测试与真正的-held-out-检查",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 测试结果该怎样判断 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 公开测试与真正的 held-out 检查 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-与原始-pi-的关系",
+    "id": "14-9-项公开测试固定到哪里",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "与原始 Pi 的关系",
-    "href": "/learn/eval-capstone#与原始-pi-的关系",
+    "title": "9 项公开测试固定到哪里",
+    "href": "/learn/eval-capstone#9-项公开测试固定到哪里",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 与原始 Pi 的关系 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
-  },
-  {
-    "id": "14-和陪学-agent-一起走最后一章",
-    "chapterId": "14",
-    "chapterSlug": "eval-capstone",
-    "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "和陪学 Agent 一起走最后一章",
-    "href": "/learn/eval-capstone#和陪学-agent-一起走最后一章",
-    "partTitle": "第四部 · 从核心到产品",
-    "terms": [
-      "eval runner",
-      "fresh fixture",
-      "oracle",
-      "active path",
-      "protocol failure",
-      "safe evidence",
-      "held-out"
-    ],
-    "searchText": "给完整的 Pi 建一套独立评测 和陪学 Agent 一起走最后一章 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 9 项公开测试固定到哪里 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
     "id": "14-本章验收",
@@ -3236,32 +3145,13 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 本章验收 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
-  },
-  {
-    "id": "14-可选迁移练习",
-    "chapterId": "14",
-    "chapterSlug": "eval-capstone",
-    "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "可选迁移练习",
-    "href": "/learn/eval-capstone#可选迁移练习",
-    "partTitle": "第四部 · 从核心到产品",
-    "terms": [
-      "eval runner",
-      "fresh fixture",
-      "oracle",
-      "active path",
-      "protocol failure",
-      "safe evidence",
-      "held-out"
-    ],
-    "searchText": "给完整的 Pi 建一套独立评测 可选迁移练习 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 本章验收 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
     "id": "14-小结",
@@ -3274,12 +3164,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "eval runner",
       "fresh fixture",
-      "oracle",
+      "judge",
       "active path",
       "protocol failure",
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 小结 eval runner fresh fixture oracle active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 小结 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   }
 ];
