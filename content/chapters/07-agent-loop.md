@@ -243,8 +243,9 @@ const executeToolCall: ToolExecutor =
     executeCoreToolCall(call, options.tools, context));
 ```
 
-第 06 章导出的 `executeCoreToolCall` 接收 `(call, registry, context)`；这个局部 adapter
-已经闭包捕获 `options.tools`，所以它的第二个参数才是 execution context。测试也可以通过
+第 06 章导出的 `executeToolCall` 在本文件中重命名为 `executeCoreToolCall`；它接收
+`(call, registry, context)`。这个局部 adapter 已经闭包捕获 `options.tools`，所以它的
+第二个参数才是 execution context。测试也可以通过
 `options.executeToolCall` 注入遵守同一签名的 probe。
 
 调用处因此只传 call 与 context：
