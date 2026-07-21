@@ -334,13 +334,18 @@ test("第六章沿唯一教学路线分三步闭合工具契约", async () => {
     chapter.source,
     /4 项聚焦测试.*validator.*Registry.*执行器.*signal.*progress.*details/s,
   );
-  const keepsPreviousCoverageNote =
-    /没有证明.*预取消.*中途取消.*并发.*错误.*密钥/s.test(chapter.source);
-  const usesObjectCenteredCoverageNote =
-    /没有证明.*及时响应.*取消.*并发顺序/s.test(chapter.source) &&
-    /没有实现通用脱敏/.test(chapter.source) &&
-    /错误文本.*路径或秘密/s.test(chapter.source);
-  assert.ok(keepsPreviousCoverageNote || usesObjectCenteredCoverageNote);
+  assert.match(
+    chapter.source,
+    /signal.*取消请求.*传递.*工具.*主动观察 signal.*及时停止/s,
+  );
+  assert.match(
+    chapter.source,
+    /executeToolCall\(\).*一次调用.*多个工具.*排队或并行.*loop/s,
+  );
+  assert.match(
+    chapter.source,
+    /通用脱敏.*外层.*路径或秘密.*原样保留/s,
+  );
   assert.match(chapter.source, /`echo`/);
   assert.doesNotMatch(chapter.source, /`add`|workshop\//);
 });
