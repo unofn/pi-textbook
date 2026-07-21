@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import {
+  extractDirectiveField,
+  hasValidStartTarget,
+} from "../scripts/validate-learning-contract.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const chapterRoot = path.join(root, "content", "chapters");
@@ -26,6 +30,38 @@ function rebuildBlock(source) {
   return match?.groups?.body ?? null;
 }
 
+test("起终点字段允许自然换行，但不从下一字段借用缺失词", () => {
+  const multiline = [
+    "**起终点：** `parent` `d055` 是第 09 章",
+    "完成后的起点；`target` `5551` 是会话树与",
+    "14 项测试通过的终点。",
+    "",
+    "**教学文件：** `packages/pi-course/src/session.ts`",
+  ].join("\n");
+
+  assert.equal(
+    extractDirectiveField(multiline, "起终点"),
+    [
+      "`parent` `d055` 是第 09 章",
+      "完成后的起点；`target` `5551` 是会话树与",
+      "14 项测试通过的终点。",
+    ].join("\n"),
+  );
+  assert.equal(hasValidStartTarget(multiline), true);
+
+  const leakedWords = [
+    "**起终点：** `parent` 只有角色，没有完整关系。",
+    "",
+    "**第一步：** 从起点找到 `target`，再走到终点。",
+  ].join("\n");
+
+  assert.equal(
+    extractDirectiveField(leakedWords, "起终点"),
+    "`parent` 只有角色，没有完整关系。",
+  );
+  assert.equal(hasValidStartTarget(leakedWords), false);
+});
+
 test("每章把讲解桥接到真实 commit 的第一个可执行动作", async () => {
   const all = await chapters();
   assert.equal(all.length, 15);
@@ -38,13 +74,13 @@ test("每章把讲解桥接到真实 commit 的第一个可执行动作", async 
       continue;
     }
 
+    if (!hasValidStartTarget(body)) {
+      failures.push(`${chapter.id}: missing 起终点`);
+    }
+
     const expectedMode = chapter.id === "00" ? "观察" : "重建";
     const required = [
       [`模式`, new RegExp(`\\*\\*模式：\\*\\*\\s*${expectedMode}`)],
-      [
-        "起终点",
-        /\*\*起终点：\*\*\s*`?parent`?[^\n]*起点[\s\S]*?`?target`?[\s\S]*?终点/,
-      ],
       [
         "教学文件",
         /\*\*教学文件：\*\*\s*(?:-\s*)?`packages\/pi-course\/[^`]+`/,

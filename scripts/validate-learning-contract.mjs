@@ -17,6 +17,34 @@ function rebuildBlock(source) {
   )?.groups?.body;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function extractDirectiveField(body, label) {
+  const marker = new RegExp(
+    `(?:^|\\n)\\*\\*${escapeRegExp(label)}：\\*\\*[ \\t]*`,
+  );
+  const match = marker.exec(body);
+  if (!match) return undefined;
+
+  const valueStart = match.index + match[0].length;
+  const remainder = body.slice(valueStart);
+  const nextField = /\n(?:[ \t]*\n)*\*\*[^*\n]+：\*\*/.exec(remainder);
+  const value = nextField
+    ? remainder.slice(0, nextField.index)
+    : remainder;
+  return value.trim();
+}
+
+export function hasValidStartTarget(body) {
+  const value = extractDirectiveField(body, "起终点");
+  if (!value) return false;
+  return /(?:`parent`|\bparent\b)[\s\S]*?起点[\s\S]*?(?:`target`|\btarget\b)[\s\S]*?终点/.test(
+    value,
+  );
+}
+
 export async function validateLearningContract() {
   const issues = [];
   const files = (await readdir(chapterRoot))
@@ -42,15 +70,15 @@ export async function validateLearningContract() {
         code: "LC_ARTIFACT_PATH",
         chapter: id,
         message: id === "14"
-          ? "14 artifact must point to packages/pi-course/test-support/eval.ts"
-          : `${id} artifact must point to packages/pi-course/src`,
+          ? "artifact must point to packages/pi-course/test-support/eval.ts"
+          : "artifact must point to packages/pi-course/src",
       });
     }
     if (!body) {
       issues.push({
         code: "LC_REBUILD_MISSING",
         chapter: id,
-        message: `${id} has no rebuild directive`,
+        message: "has no rebuild directive",
       });
       continue;
     }
@@ -58,10 +86,7 @@ export async function validateLearningContract() {
     const expectedMode = id === "00" ? "观察" : "重建";
     const fields = [
       ["LC_MODE", new RegExp(`\\*\\*模式：\\*\\*\\s*${expectedMode}`)],
-      [
-        "LC_START_TARGET",
-        /\*\*起终点：\*\*\s*`?parent`?[^\n]*起点[\s\S]*?`?target`?[\s\S]*?终点/,
-      ],
+      ["LC_START_TARGET", hasValidStartTarget],
       [
         "LC_TEACHING_FILE",
         /\*\*教学文件：\*\*\s*(?:-\s*)?`packages\/pi-course\/[^`]+`/,
@@ -98,12 +123,15 @@ export async function validateLearningContract() {
       ],
     ];
 
-    for (const [code, pattern] of fields) {
-      if (!pattern.test(body)) {
+    for (const [code, rule] of fields) {
+      const valid = typeof rule === "function"
+        ? rule(body)
+        : rule.test(body);
+      if (!valid) {
         issues.push({
           code,
           chapter: id,
-          message: `${id} rebuild directive violates ${code}`,
+          message: `rebuild directive violates ${code}`,
         });
       }
     }
