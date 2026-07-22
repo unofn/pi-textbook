@@ -1,4 +1,8 @@
 <p align="center">
+  简体中文 · <a href="README_EN.md">English</a>
+</p>
+
+<p align="center">
   <img src="docs/assets/logo.png" alt="动手学 Pi Logo" width="132" />
 </p>
 
