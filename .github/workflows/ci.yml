@@ -40,9 +40,9 @@ jobs:
         working-directory: pi-textbook
         run: npm ci
 
-      - name: Audit production dependencies
+      - name: Audit dependencies
         working-directory: pi-textbook
-        run: npm audit --omit=dev --audit-level=moderate
+        run: npm audit --audit-level=moderate
 
       - name: Verify textbook and workshop
         working-directory: pi-textbook
