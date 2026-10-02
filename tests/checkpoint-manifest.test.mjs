@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { expected } from "../scripts/build-content.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const historyRoot = process.env.PI_COURSE_ROOT
@@ -25,10 +26,10 @@ test("checkpoint manifest is synchronized with the live course history", () => {
 
 test("checkpoint manifest describes all focused tests on one linear chain", async () => {
   const checkpoints = JSON.parse(await readFile(manifestFile, "utf8"));
-  assert.equal(checkpoints.length, 15);
+  assert.equal(checkpoints.length, expected.length);
   assert.deepEqual(
     checkpoints.map(({ id }) => id),
-    Array.from({ length: 15 }, (_, index) => String(index).padStart(2, "0")),
+    expected.map(({ id }) => id),
   );
 
   for (const [index, checkpoint] of checkpoints.entries()) {

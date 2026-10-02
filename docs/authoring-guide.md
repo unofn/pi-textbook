@@ -1,6 +1,6 @@
 # Pi 教材作者契约
 
-本契约保证 15 章由不同作者撰写时仍然形成同一本书，而不是一组风格各异的博客。
+本契约保证 20 章（00–14 核心课程，15–19 进阶）由不同作者撰写时仍然形成同一本书，而不是一组风格各异的博客。
 
 ## 章节文件
 
@@ -21,6 +21,13 @@
 | 12 | `12-resources-extensions.md` | Resources、Skills 与 Extensions | 第四部 |
 | 13 | `13-composition-root.md` | 一个核心，多种产品入口 | 第四部 |
 | 14 | `14-eval-capstone.md` | 用故障矩阵证明你造出了 Pi | 第四部 |
+| 15 | `15-tool-exposure.md` | 工具暴露：谁能看见、谁能调用 | 第五部 |
+| 16 | `16-codemode.md` | Codemode：让模型写脚本调用工具 | 第五部 |
+| 17 | `17-mcp.md` | MCP：把外部服务器的工具接进来 | 第五部 |
+| 18 | `18-virtual-models.md` | 虚拟模型：选择与派发分离 | 第五部 |
+| 19 | `19-durable.md` | Durable：先提交，再可见 | 第五部 |
+
+章节清单以 `scripts/build-content.mjs` 中的 `expected` 为准；学习契约、checkpoint 同步与测试都从这里读取章节数和编号。
 
 ## Frontmatter
 
@@ -51,7 +58,8 @@ upstream: packages/agent/src/agent-loop.ts
 - `foundations`：01–05；
 - `core`：06–08；
 - `state`：09–11；
-- `product`：12–14。
+- `product`：12–14；
+- `advanced`：15–19。
 
 ## 正文结构
 

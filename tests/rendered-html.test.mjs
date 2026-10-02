@@ -40,7 +40,7 @@ test("首页服务端渲染完整课程入口，而不是 starter", async () => 
   assert.match(html, /动手学 Pi/);
   assert.match(html, /从一条运行轨迹开始/);
   assert.match(html, /一步步实现 Pi/);
-  assert.match(html, /15 CHECKPOINTS/);
+  assert.match(html, /20 CHECKPOINTS/);
   assert.match(html, /href="\/learn\/prologue"/);
   assert.match(html, /href="\/about"/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);

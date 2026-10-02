@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { expected } from "./build-content.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const historyRoot = process.env.PI_COURSE_ROOT
@@ -9,10 +10,7 @@ const historyRoot = process.env.PI_COURSE_ROOT
   : path.resolve(root, "..", "pi-course");
 const manifestFile = path.join(root, "content", "checkpoints.json");
 const courseBranch = process.env.PI_COURSE_BRANCH ?? "course/build-your-own-pi";
-const expectedIds = Array.from(
-  { length: 15 },
-  (_, index) => String(index).padStart(2, "0"),
-);
+const expectedIds = expected.map(({ id }) => id);
 
 function fail(message) {
   throw new Error(`[checkpoint-history] ${message}`);

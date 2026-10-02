@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { expected } from "../scripts/build-content.mjs";
 import {
   extractDirectiveField,
   hasValidStartTarget,
@@ -64,7 +65,7 @@ test("起终点字段允许自然换行，但不从下一字段借用缺失词",
 
 test("每章把讲解桥接到真实 commit 的第一个可执行动作", async () => {
   const all = await chapters();
-  assert.equal(all.length, 15);
+  assert.equal(all.length, expected.length);
 
   const failures = [];
   for (const chapter of all) {

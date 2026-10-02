@@ -2,6 +2,7 @@ import {
   runAgentLoop,
   type AgentRunResult,
   type LoopEvent,
+  type PrepareRequestHook,
 } from "./agent-loop.js";
 import type { ToolExecutor, ToolRegistry } from "./tool.js";
 import {
@@ -110,6 +111,8 @@ export interface AgentOptions {
   /** 恢复出的 transcript；Agent 只在其后追加。 */
   messages?: AgentMessage[];
   maxSteps?: number;
+  /** 每次请求前换入物理模型的钩子（虚拟模型），原样交给 loop。 */
+  prepareRequest?: PrepareRequestHook;
 }
 
 /** 追加一条 system message 的增量：content 追加说明，sections 按名字替换，null 删除。 */
@@ -235,6 +238,7 @@ export class Agent {
         context: { messages: this.state.messages },
         signal: this.abortController.signal,
         maxSteps: this.options.maxSteps,
+        prepareRequest: this.options.prepareRequest,
         executeToolCall: this.options.toolExecutor,
         takeSteeringMessages: () => this.steering.splice(0),
         takeFollowUpMessages: () => this.followUps.splice(0),

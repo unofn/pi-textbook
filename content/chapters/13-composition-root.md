@@ -829,7 +829,7 @@ prompt。8479bd8 时这一步产出一个完整的 system prompt 字符串，替
 message 的 `content` 表示“从这一点起追加的说明”（`packages/ai/src/types.ts:512-538`），
 需要补充说明时可以追加 `content`，不必改段落。上游 system message 还有第三种用途：
 agent loop 用 `toolsAdded`/`toolsRemoved` 字段声明工具集合变化
-（`packages/agent/src/agent-loop.ts:333-363`）；课程仍用 `context.tools`，不实现这两个字段。
+（`packages/agent/src/agent-loop.ts:333-363`）；本章仍只用 `context.tools`，第 15 章补上这两个字段。
 
 **初始 system message。** 上游 `Agent` 同样只在初始 `messages` 不以 system message 开头时
 插入 `systemPrompt`（`packages/agent/src/agent.ts:77-90`），与本章给 `agent.ts` 加的保护

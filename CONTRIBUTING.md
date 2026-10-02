@@ -19,7 +19,7 @@ npm run build
 
 ## 跨仓库历史校验
 
-教材记录了课程分支的 15 个 commit、parent、subject 与聚焦测试。运行完整校验时，用 `PI_COURSE_ROOT` 指向任意位置的课程仓库，不要求固定 worktree 名称或相邻目录结构：
+教材记录了课程分支的 20 个 commit、parent、subject 与聚焦测试。运行完整校验时，用 `PI_COURSE_ROOT` 指向任意位置的课程仓库，不要求固定 worktree 名称或相邻目录结构：
 
 ```bash
 git clone --branch course/build-your-own-pi \
@@ -40,7 +40,7 @@ PI_COURSE_ROOT=/path/to/pi npm run history:sync
 
 ## 代码边界
 
-- `content/chapters/`：15 章教材源文件
+- `content/chapters/`：20 章教材源文件（00–14 核心课程，15–19 进阶）
 - `scripts/build-content.mjs`：正文、链接和上游路径验证
 - `lib/generated-course.ts`：生成的页面数据
 - `workshop/`：教材对应的最终参考实现

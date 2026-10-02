@@ -5,11 +5,9 @@ import Link from "next/link";
 import { CourseSearch } from "./course-search";
 import { useProgress } from "./progress-provider";
 
-const TOTAL_CHAPTERS = 15;
-
-export function SiteHeader() {
+export function SiteHeader({ totalChapters }: { totalChapters: number }) {
   const { completed } = useProgress();
-  const progress = Math.round((completed.size / TOTAL_CHAPTERS) * 100);
+  const progress = Math.round((completed.size / totalChapters) * 100);
 
   return (
     <header className="site-header">
@@ -38,7 +36,7 @@ export function SiteHeader() {
         <CourseSearch />
         <span
           className="header-progress"
-          title={`已完成 ${completed.size}/${TOTAL_CHAPTERS} 章`}
+          title={`已完成 ${completed.size}/${totalChapters} 章`}
         >
           <span style={{ width: `${progress}%` }} />
         </span>

@@ -3,7 +3,8 @@ export type PartId =
   | "foundations"
   | "core"
   | "state"
-  | "product";
+  | "product"
+  | "advanced";
 
 export interface CoursePart {
   id: PartId;
@@ -11,7 +12,7 @@ export interface CoursePart {
   title: string;
   shortTitle: string;
   thesis: string;
-  accent: "ink" | "cyan" | "green" | "amber" | "red";
+  accent: "ink" | "cyan" | "green" | "amber" | "red" | "violet";
 }
 
 export interface TableOfContentsItem {

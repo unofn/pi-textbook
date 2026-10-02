@@ -27,6 +27,14 @@ const aliases = {
   composition: ["composition-eval"],
   "eval-capstone": ["composition-eval", "product-eval"],
   eval: ["composition-eval", "product-eval"],
+  "tool-exposure": ["tool-exposure"],
+  exposure: ["tool-exposure"],
+  "tool-search": ["tool-exposure"],
+  codemode: ["codemode"],
+  mcp: ["mcp"],
+  "virtual-models": ["virtual-models"],
+  virtual: ["virtual-models"],
+  durable: ["durable"],
 };
 
 const compile = spawnSync(

@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { expected } from "./build-content.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const chapterRoot = path.join(root, "content", "chapters");
@@ -51,10 +52,15 @@ export async function validateLearningContract() {
     .filter((file) => /^\d{2}-.*\.md$/.test(file))
     .sort();
 
-  if (files.length !== 15) {
+  if (files.length !== expected.length) {
+    const missing = expected
+      .map(({ file }) => file)
+      .filter((file) => !files.includes(file));
     issues.push({
       code: "LC_CHAPTER_COUNT",
-      message: `expected 15 chapters, found ${files.length}`,
+      message: `expected ${expected.length} chapters, found ${files.length}${
+        missing.length > 0 ? `; missing ${missing.join(", ")}` : ""
+      }`,
     });
   }
 
@@ -192,6 +198,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     }
     process.exitCode = 1;
   } else {
-    process.stdout.write("学习契约通过：15 章均有可执行重建入口。\n");
+    process.stdout.write(`学习契约通过：${expected.length} 章均有可执行重建入口。\n`);
   }
 }

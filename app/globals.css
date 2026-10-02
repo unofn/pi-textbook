@@ -17,6 +17,7 @@
   --amber-soft: #f4e8d3;
   --red: #b83c32;
   --red-soft: #f4dfdc;
+  --violet: #5d4a9c;
   --header-height: 64px;
   --font-display: "Iowan Old Style", "Noto Serif SC", "Source Han Serif SC",
     "Songti SC", STSong, serif;
@@ -621,6 +622,10 @@ a {
 
 .course-part.accent-red {
   --part-accent: var(--red);
+}
+
+.course-part.accent-violet {
+  --part-accent: var(--violet);
 }
 
 .part-index {

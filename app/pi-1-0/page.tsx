@@ -5,9 +5,9 @@ import { UPSTREAM_COMMIT } from "@/lib/course";
 import { UPSTREAM_REPOSITORY_URL } from "@/lib/course-links";
 
 export const metadata: Metadata = {
-  title: "附录：Pi 1.0 的其他机制",
+  title: "附录：Pi 1.0 机制与章节对照",
   description:
-    "Pi 1.0 新增、15 章课程没有实现的机制：system 消息补丁、codemode 与工具暴露、MCP、虚拟模型和 pi-durable。",
+    "Pi 1.0 的 system 消息补丁、工具暴露、codemode、MCP、虚拟模型和 pi-durable 各对应哪一章，以及章节之外只读的补充：OAuth、Streamable HTTP、QuickJS 隔离、JSONL、poison、文档与分叉。",
 };
 
 const UPSTREAM_TAG = "v1.0.0";
@@ -91,7 +91,8 @@ function Table({
 const sections = [
   ["scope", "这一页是什么"],
   ["system-messages", "system 消息模型总览"],
-  ["codemode", "codemode 与工具暴露级别"],
+  ["tool-exposure", "工具暴露"],
+  ["codemode", "codemode"],
   ["mcp", "MCP"],
   ["virtual-models", "虚拟模型"],
   ["durable", "pi-durable"],
@@ -195,14 +196,22 @@ const readingList: {
     ],
   },
   {
-    id: "reading-codemode",
-    title: "codemode 与工具暴露",
+    id: "reading-exposure",
+    title: "工具暴露",
     files: [
       { path: "packages/coding-agent/src/core/extensions/types.ts", lines: "367-615", note: "ToolExposure、ToolLoadout、prepareLoadout 的契约" },
       { path: "packages/coding-agent/src/core/agent-session.ts", lines: "1449-1572", note: "可调用集合、声明集合与 loadout" },
+      { path: "packages/coding-agent/src/extensions/tool-search/tool.ts", note: "tool_search 的 BM25 排序与激活" },
+    ],
+  },
+  {
+    id: "reading-codemode",
+    title: "codemode",
+    files: [
       { path: "packages/coding-agent/src/extensions/codemode/tool.ts", note: "工具定义、描述构建与 inlineBudget" },
       { path: "packages/coding-agent/src/extensions/codemode/execute.ts", note: "单次执行、store 与输出截断" },
       { path: "packages/codemode/src/runtime/host.ts", note: "worker 生命周期与消息桥的宿主一侧" },
+      { path: "packages/codemode/src/runtime/worker.ts", note: "worker 里的 QuickJS 虚拟机" },
       { path: "packages/coding-agent/src/core/nested-tool-calls.ts", note: "嵌套调用的 id、记录上限与 usage 汇总" },
     ],
   },
@@ -237,19 +246,31 @@ const readingList: {
       { path: "packages/durable/src/harness/scheduler.ts", note: "任务认领、恢复与归属" },
       { path: "packages/durable/src/harness/generation.ts", note: "模型请求的检查点与崩溃后重发" },
       { path: "packages/durable/src/harness/tool.ts", note: "工具意图与 replay 判断" },
+      { path: "packages/durable/src/storage/jsonl/storage.ts", note: "JSONL 后端：残行截断、poison 与 fsync 选项" },
+      { path: "packages/durable/src/session/forks.ts", note: "分叉时复制哪些会话文档" },
     ],
   },
 ];
+
+/** 每节开头的章节入口。 */
+function ChapterLinks({ children }: { children: ReactNode }) {
+  return (
+    <p>
+      <strong>对应章节：</strong>
+      {children}
+    </p>
+  );
+}
 
 export default function Pi10AppendixPage() {
   return (
     <main className="reference-page prose-page appendix-page">
       <header className="reference-hero">
         <p>APPENDIX · PI 1.0</p>
-        <h1>课程之外，<br />Pi 1.0 还做了什么。</h1>
+        <h1>Pi 1.0 机制<br />与章节对照。</h1>
         <span>
-          这一页不属于 15 个 checkpoint，没有练习和测试。它沿着第 13 章已经建立的
-          system 消息模型，介绍 1.0 中另外几套机制各自解决什么问题、在源码的哪里。
+          第五部（第 15–19 章）把 Pi 1.0 新增的几套机制做成了 checkpoint。这一页按机制列出
+          对应章节和上游源码位置，并补充章节没有实现、只适合阅读的部分。
         </span>
       </header>
 
@@ -266,11 +287,16 @@ export default function Pi10AppendixPage() {
 
         <h2 id="scope">这一页是什么</h2>
         <p>
-          课程的 15 章基于 Pi 1.0 重建了 system 消息模型：system prompt 成为 transcript
-          里的一条消息，之后的修改以补丁消息的形式追加。下面几套机制 Pi 1.0 都有，课程没有实现，
-          也不会进入任何 checkpoint。建议读完
-          <Link href="/learn/composition-root">第 13 章</Link>
-          之后再看，那时 Runtime、会话和 system 补丁都已经在你手里跑过一遍。
+          第 03–14 章基于 Pi 1.0 重建了 system 消息模型：system prompt 成为 transcript
+          里的一条消息，之后的修改以补丁消息的形式追加。第五部在
+          <Link href="/learn/eval-capstone">第 14 章</Link>
+          完成的 Runtime 之上继续动手：工具暴露、codemode、MCP、虚拟模型和 pi-durable 各占一章，
+          每章都有自己的 checkpoint、练习和测试。
+        </p>
+        <p>
+          下面每一节先给出对应章节，再补充上游在章节之外还做了什么：MCP 的 OAuth 与
+          Streamable HTTP、codemode 的 QuickJS 隔离细节、coding-agent 里的工具暴露表、pi-durable 的
+          JSONL 存储、poison、文档与分叉等。这些补充只供阅读，没有对应的练习。
         </p>
         <p>
           所有引用固定在上游 {UPSTREAM_TAG}（
@@ -287,6 +313,13 @@ export default function Pi10AppendixPage() {
         </p>
 
         <h2 id="system-messages">system 消息模型总览</h2>
+        <ChapterLinks>
+          <Link href="/learn/message-ir">第 03 章 · 为 Agent 建立统一消息语言</Link>
+          （<code>SystemMessage</code> 与重放）；
+          <Link href="/learn/composition-root">第 13 章 · 把已有能力接成一个能提交历史的 Runtime</Link>
+          （段落补丁）。工具声明一侧见
+          <Link href="/learn/tool-exposure">第 15 章</Link>。
+        </ChapterLinks>
         <p>
           Pi 1.0 处理“模型应该看到什么说明”时遵守一条习惯：只追加，不改写前缀。
           工具集合或 prompt 的某个段落变了，Pi 不回头修改历史里那条声明，而是在对话末尾追加一条带补丁的
@@ -302,7 +335,7 @@ export default function Pi10AppendixPage() {
         </p>
         <Table
           caption="只追加的三处实现"
-          head={["位置", "追加什么", "课程是否实现"]}
+          head={["位置", "追加什么", "对应章节"]}
           rows={[
             [
               <>
@@ -315,7 +348,9 @@ export default function Pi10AppendixPage() {
                 system 消息上的 <code>toolsAdded</code> / <code>toolsRemoved</code>。
               </>,
               <>
-                没有实现。课程仍然通过 <code>context.tools</code> 每次附带完整工具列表。
+                <Link href="/learn/tool-exposure">第 15 章</Link>。课程只在注册表用到非
+                <code>direct</code> 暴露、或 transcript 已声明过工具时才生成这条补丁，07–14 章的
+                transcript 因此保持不变。
               </>,
             ],
             [
@@ -329,7 +364,9 @@ export default function Pi10AppendixPage() {
                 <Src path="packages/coding-agent/src/core/agent-session.ts" lines="1689-1703" />）。
               </>,
               <>
-                已实现。第 13 章的 Runtime 对 <code>pi-resources</code> 段落做同样的差异补丁。
+                <Link href="/learn/composition-root">第 13 章</Link>对 <code>pi-resources</code>{" "}
+                段落做同样的差异补丁；<Link href="/learn/mcp">第 17 章</Link>用同一条路径维护
+                <code>mcp_servers</code> 段落。
               </>,
             ],
             [
@@ -341,7 +378,10 @@ export default function Pi10AppendixPage() {
               <>
                 把扩展段落和工具的差异追加成 <code>pi.system</code> entry，工具变化跟在最后一条补丁上。
               </>,
-              <>没有实现，课程不涉及 pi-durable。</>,
+              <>
+                没有实现。<Link href="/learn/durable">第 19 章</Link>的 durable harness 只保存
+                user、assistant 和 toolResult 三种 entry。
+              </>,
             ],
           ]}
         />
@@ -350,23 +390,20 @@ export default function Pi10AppendixPage() {
           code={DIFF_SECTIONS}
         />
         <p>
-          课程实现的是其中“段落补丁”这一支：第 03 章定义 <code>SystemMessage</code> 并按顺序重放出当前
+          课程按章节补齐了前两处：第 03 章定义 <code>SystemMessage</code> 并按顺序重放出当前
           prompt，第 05 章在出线时把重放结果折叠成一条开头的 system 消息，第 09 章允许
           <code>prompt(value, {"{ system }"})</code> 在用户消息之前追加补丁，第 13 章在每次
-          <code>prompt()</code> 前只为变化的段落生成补丁。课程没有实现的是工具一侧：上游用
-          <code>toolsAdded</code> / <code>toolsRemoved</code> 记录模型可调用集合的变化，下一节的
-          codemode、<code>tool_search</code> 和 MCP 都依赖这种记录在同一个 run 中改变工具集合，并在恢复会话时从
-          transcript 读回。
+          <code>prompt()</code> 前只为变化的段落生成补丁。第 15 章再给 <code>SystemMessage</code> 加上
+          <code>toolsAdded</code> / <code>toolsRemoved</code>：<code>tool_search</code> 激活的工具在同一个
+          run 里就能声明给模型，恢复会话时也能从 transcript 读回。
         </p>
 
-        <h2 id="codemode">codemode 与工具暴露级别</h2>
-        <p>
-          codemode 是一个参数为一段 JavaScript 的工具。模型调用它时，Pi 为这一次执行新开一个 worker
-          线程（<Src path="packages/codemode/src/runtime/host.ts" lines="155" />），在里面启动一个全新的
-          QuickJS（WASM）虚拟机（<Src path="packages/codemode/src/runtime/worker.ts" lines="54-61" />）。
-          脚本里的 <code>tools.read()</code> 之类调用通过消息桥回到宿主，跨线程传递的只有 JSON 字符串，
-          宿主一侧走与普通工具调用相同的参数校验和钩子。
-        </p>
+        <h2 id="tool-exposure">工具暴露</h2>
+        <ChapterLinks>
+          <Link href="/learn/tool-exposure">第 15 章 · 工具暴露：谁能看见、谁能调用</Link>。
+          章节实现了五种 <code>exposure</code>、声明集合与可调用集合、工具声明补丁和
+          <code>tool_search</code>；排序用 token 重叠，上游是 BM25。下面是 coding-agent 里的完整对照。
+        </ChapterLinks>
         <p>
           一个工具能被谁看到，由注册时的 <code>exposure</code> 决定。下表的四列都对应
           <Src path="packages/coding-agent/src/core/agent-session.ts" lines="1449-1572" />
@@ -399,6 +436,32 @@ export default function Pi10AppendixPage() {
           <code>tool_search</code> 命中后把匹配的工具加入激活集合，下一次请求前由
           <code>declareToolChanges</code> 写进 <code>toolsAdded</code>，同一个 run 里就能生效。
         </p>
+        <p>
+          MCP 配置里也可以写 <code>codemode</code> 暴露，但注册时它被映射成核心的 <code>deferred</code>：
+        </p>
+        <Excerpt
+          source="packages/coding-agent/src/extensions/mcp/tools.ts:39-41"
+          code={MCP_EXPOSURE}
+        />
+        <p>
+          结果是 MCP 工具不会列在 codemode 描述里。脚本知道名字就能直接调用它们；名字本身要由模型通过
+          <code>tool_search</code> 或脚本里的 <code>searchTools()</code> 查到，两者使用同一个排序器。
+          模型知道有哪些 MCP server，靠的是 MCP 一节的 <code>mcp_servers</code> 段落。
+        </p>
+
+        <h2 id="codemode">codemode</h2>
+        <ChapterLinks>
+          <Link href="/learn/codemode">第 16 章 · Codemode：让模型写脚本调用工具</Link>。
+          章节用与上游同版本的 quickjs-wasi 跑脚本，嵌套调用经过第 06 章的参数校验，默认不经过第 12 章的扩展钩子；store、image、
+          models、<code>searchTools</code> 和输出截断没有实现。下面补充上游的隔离与记录细节。
+        </ChapterLinks>
+        <p>
+          codemode 是一个参数为一段 JavaScript 的工具。模型调用它时，Pi 为这一次执行新开一个 worker
+          线程（<Src path="packages/codemode/src/runtime/host.ts" lines="155" />），在里面启动一个全新的
+          QuickJS（WASM）虚拟机（<Src path="packages/codemode/src/runtime/worker.ts" lines="54-61" />）。
+          脚本里的 <code>tools.read()</code> 之类调用通过消息桥回到宿主，跨线程传递的只有 JSON 字符串，
+          宿主一侧走与普通工具调用相同的参数校验和钩子。
+        </p>
 
         <h3>一次 codemode 调用的路径</h3>
         <ol>
@@ -423,7 +486,9 @@ export default function Pi10AppendixPage() {
           </li>
           <li>
             脚本结束后，宿主先置共享中断标志，再终止 worker（
-            <Src path="packages/codemode/src/runtime/host.ts" lines="242-272" />）。输出超过上限时截断，完整内容落到临时文件。
+            <Src path="packages/codemode/src/runtime/host.ts" lines="242-272" />）。这个标志是为 Bun
+            准备的；第 16 章用 <code>SharedArrayBuffer</code> 中断加 <code>worker.terminate()</code>。
+            输出超过上限时截断，完整内容落到临时文件。
           </li>
           <li>
             codemode 的结果消息上挂一份 <code>nestedCalls</code> 记录，并合并各层嵌套调用的 usage。
@@ -439,22 +504,15 @@ export default function Pi10AppendixPage() {
           <code>complete: false</code>；工具结果本身从不记录（
           <Src path="packages/coding-agent/src/core/nested-tool-calls.ts" lines="64-69" />）。
         </p>
-        <p>
-          MCP 配置里也可以写 <code>codemode</code> 暴露，但注册时它被映射成核心的 <code>deferred</code>：
-        </p>
-        <Excerpt
-          source="packages/coding-agent/src/extensions/mcp/tools.ts:39-41"
-          code={MCP_EXPOSURE}
-        />
-        <p>
-          结果是 MCP 工具不会列在 codemode 描述里。脚本知道名字就能直接调用它们；名字本身要由模型通过
-          <code>tool_search</code> 或脚本里的 <code>searchTools()</code> 查到，两者使用同一个排序器。
-          模型知道有哪些 MCP server，靠的是下一节的 <code>mcp_servers</code> 段落。
-        </p>
 
         <h2 id="mcp">MCP</h2>
+        <ChapterLinks>
+          <Link href="/learn/mcp">第 17 章 · MCP：把外部服务器的工具接进来</Link>。
+          章节实现 JSON-RPC 客户端、stdio 传输、工具命名与注册和 <code>mcp_servers</code> 段落；
+          OAuth、Streamable HTTP、resources、progress、重连与重试只在这里读。
+        </ChapterLinks>
         <p>
-          MCP 支持分成两层。<code>packages/mcp</code>（pi-mcp）是一个不依赖其他 Pi 包的 MCP 客户端，负责协议、
+          上游的 MCP 支持分成两层。<code>packages/mcp</code>（pi-mcp）是一个不依赖其他 Pi 包的 MCP 客户端，负责协议、
           stdio 与 Streamable HTTP 两种传输以及 OAuth；coding-agent 的内置 MCP 扩展负责读配置、管理连接、
           注册工具和维护 system prompt 里的 <code>mcp_servers</code> 段落。扩展的设计目标有两条：MCP
           不拖慢第一个 prompt，也不破坏 prompt cache。
@@ -470,7 +528,7 @@ export default function Pi10AppendixPage() {
           </li>
           <li>
             <code>before_agent_start</code>：按当前连接状态重新渲染 <code>mcp_servers</code> 段落。段落有变化时，
-            core 用上一节的 <code>diffSystemPromptSections</code> 把补丁作为新 system 消息插在用户消息之前，已有前缀不动（
+            core 用 <code>diffSystemPromptSections</code> 把补丁作为新 system 消息插在用户消息之前，已有前缀不动（
             <Src path="packages/coding-agent/src/extensions/mcp/index.ts" lines="1016-1024" />）。
           </li>
           <li>
@@ -504,7 +562,10 @@ export default function Pi10AppendixPage() {
           <code>mcp_servers</code> 段落整体上限 4096 字符、每条描述 250 字符，放不下的 server 在末尾折叠成一行计数。
         </p>
 
-        <h3>OAuth 要点</h3>
+        <h3>Streamable HTTP 与 OAuth 要点</h3>
+        <p>
+          远程 server 走 Streamable HTTP 传输，需要授权时进入下面的 OAuth 流程。
+        </p>
         <ul>
           <li>
             先按 RFC 9728 查受保护资源元数据，带路径的 well-known 地址失败时回退到根路径（
@@ -534,6 +595,11 @@ export default function Pi10AppendixPage() {
         <Excerpt source="packages/mcp/src/oauth/flow.ts:340-344" code={OAUTH_ISS} />
 
         <h2 id="virtual-models">虚拟模型</h2>
+        <ChapterLinks>
+          <Link href="/learn/virtual-models">第 18 章 · 虚拟模型：选择与派发分离</Link>。
+          章节实现路由、选择与派发的两类记录和路由状态的恢复；provider 目录登记和 thinking level
+          的裁剪只在这里读。
+        </ChapterLinks>
         <p>
           虚拟模型是一个 <code>api: &quot;pi-virtual&quot;</code> 的普通 <code>Model</code>，背后是一个
           <code>route()</code> 函数（<Src path="packages/coding-agent/src/core/virtual-models.ts" lines="30-104" />）。
@@ -588,18 +654,25 @@ export default function Pi10AppendixPage() {
         </p>
 
         <h2 id="durable">pi-durable</h2>
+        <ChapterLinks>
+          <Link href="/learn/durable">第 19 章 · Durable：先提交，再可见</Link>。
+          章节用内存存储和快照实现四个机制：单一变更线与原子提交、重新打开时把 running 改回
+          pending、<code>execute()</code> 之前提交工具意图并按 <code>replay</code> 决定重跑、部分输出转成
+          aborted entry 后从头重发。poison、JSONL 存储、文档与分叉只在这里读。
+        </ChapterLinks>
         <p>
           pi-durable（<code>packages/durable</code>）是 1.0 首发的独立库，由早先 agent-core 里的实验性 harness
           拆出来重写，README 第一行就标着 Experimental（
           <Src path="packages/durable/README.md" lines="3" />）。主力 CLI coding-agent 目前没有使用它：
           <code>package.json</code> 里没有这个依赖，<code>src/</code> 下引用 pi-durable 的文件全部在
-          <code>experimental/</code> 目录，主线会话仍由 <code>core/session-manager.ts</code> 负责。
-          课程第 10 章的会话树对应的是后者。
+          <code>experimental/</code> 目录，发布包也排除了这个目录；主线会话仍由
+          <code>core/session-manager.ts</code> 负责，课程第 10、13 章对应的是后者。
         </p>
         <p>
           pi-durable 的核心规则是先提交，再可见。同一个 Session 的所有变更排在一条 promise 链上依次执行；
           每次提交是一次 <code>Storage.commit(writes)</code> 批量写入，只有提交成功后，其他部分才能看到这次变更。
           写入失败而又不能确认“什么都没写进去”时，Session 把自己标记为 poison，之后的操作都会失败。
+          第 19 章实现了前一半；它的内存存储只会整批拒绝，所以没有 poison。
         </p>
         <Excerpt source="packages/durable/src/session/session.ts:529-536" code={DURABLE_ENQUEUE} />
         <Excerpt
@@ -650,14 +723,39 @@ export default function Pi10AppendixPage() {
         </p>
         <p>
           README 说部分输出至多每 100 ms 提交一次。代码里是一个 100 ms 的尾随定时器，加上最多一次在途提交，所以“最多丢
-          100 ms”只是近似。操作系统级崩溃可能丢得更多：SQLite 后端使用 <code>synchronous = NORMAL</code>（
+          100 ms”只是近似。第 19 章没有节流，每个增量提交一次。操作系统级崩溃可能丢得更多：SQLite 后端使用
+          <code>synchronous = NORMAL</code>（
           <Src path="packages/durable/src/storage/sqlite/node.ts" lines="190-191" />），JSONL 后端默认不 fsync（
           <Src path="packages/durable/src/storage/jsonl/storage.ts" lines="256" />）。
         </p>
 
+        <h3>JSONL 存储、文档与分叉</h3>
+        <ul>
+          <li>
+            JSONL 后端打开时检查每个文件的末尾，没有以换行结束的残行直接截掉（
+            <Src path="packages/durable/src/storage/jsonl/storage.ts" lines="795-802" />）。追加失败后，存储把自己标为
+            poisoned，之后的调用都抛出同一个错误，必须重新打开（
+            <Src path="packages/durable/src/storage/jsonl/storage.ts" lines="836-844" />）。
+            <code>fsync</code> 是可选项，默认关闭（
+            <Src path="packages/durable/src/storage/jsonl/storage.ts" lines="76-79" />）。
+          </li>
+          <li>
+            文档是与 transcript 并列保存的类型化 JSON 状态，和 entry、任务在同一次提交里修改。内置文档保存每个会话的
+            agent 选择（<code>pi.agent</code>）、正在运行的 generation 与工具（<code>pi.live</code>，部分输出就写在这里）、
+            排队的输入（<code>pi.inbox</code>）和花费（<code>pi.usage</code>）（
+            <Src path="packages/durable/src/documents.ts" />）。第 19 章把部分输出放在任务检查点里。
+          </li>
+          <li>
+            分叉从某个 entry 开出一个新会话：新会话看到父会话截至该 entry 的历史，之后各自继续，并按 entry
+            当时的状态复制会话文档（
+            <Src path="packages/durable/src/session/forks.ts" />）。
+          </li>
+        </ul>
+
         <h2 id="reading">推荐阅读顺序</h2>
         <p>
-          每组按列出的顺序读。先读 system 消息模型那一组，它连接课程与后面四组；其余各组彼此独立。
+          每组按列出的顺序读。先读 system 消息模型那一组，它连接课程与后面五组；其余各组彼此独立，
+          最好在对应章节完成之后再读。
         </p>
         {readingList.map((group) => (
           <section key={group.id} aria-labelledby={group.id}>
@@ -685,8 +783,8 @@ export default function Pi10AppendixPage() {
           源码整理，代码片段只做必要节选。
         </p>
 
-        <Link className="text-action" href="/learn/composition-root">
-          回到第 13 章 →
+        <Link className="text-action" href="/learn/tool-exposure">
+          从第 15 章开始第五部 →
         </Link>
       </article>
     </main>

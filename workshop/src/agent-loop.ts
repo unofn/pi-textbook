@@ -4,12 +4,17 @@ import {
   type ToolRegistry,
 } from "./tool.js";
 import {
+  assistantMessage,
+  currentTools,
+  toolStateChanges,
   type AgentContext,
   type AgentMessage,
   type AssistantMessage,
   type Model,
   type ModelEvent,
+  type SystemMessage,
   type TextContent,
+  type ThinkingLevel,
   type ToolCall,
   type ToolResultMessage,
   type UserMessage,
@@ -35,11 +40,47 @@ export interface AgentRunResult {
   steps: number;
 }
 
+/**
+ * 为什么发出这次请求：
+ * - user：最近一次回复之后有用户写的消息（prompt、steering、follow-up）；
+ * - continuation：loop 内的其他请求，例如工具结果之后；
+ * - retry：transcript 以失败回复结尾且其后没有任何消息——调用方直接重发。
+ */
+export type RequestReason = "user" | "continuation" | "retry";
+
+export interface AgentRequest {
+  context: AgentContext;
+  /** 配置的模型；钩子可以换成本次真正要用的物理模型。 */
+  model: Model;
+  reason: RequestReason;
+  /** retry 时：那条失败回复。 */
+  failed?: AssistantMessage;
+}
+
+export interface PreparedRequest {
+  model?: Model;
+  thinkingLevel?: ThinkingLevel;
+}
+
+/**
+ * 每次请求前的钩子：可以换掉本次的模型与推理强度，不能改写 transcript。
+ * 抛错或 reject 以一条 error 回复结束本次请求。
+ */
+export type PrepareRequestHook = (
+  request: AgentRequest,
+  signal?: AbortSignal,
+) =>
+  | PreparedRequest
+  | undefined
+  | void
+  | Promise<PreparedRequest | undefined | void>;
+
 export interface AgentLoopOptions {
   model: Model;
   tools: ToolRegistry;
   context: AgentContext;
   signal?: AbortSignal;
+  prepareRequest?: PrepareRequestHook;
   onEvent?(event: LoopEvent): void;
   takeSteeringMessages?(): UserMessage[];
   takeFollowUpMessages?(): UserMessage[];
@@ -89,6 +130,62 @@ function skippedCall(
   };
 }
 
+function declaresTools(messages: readonly AgentMessage[]): boolean {
+  return messages.some(
+    (message) =>
+      message.role === "system" &&
+      (message.toolsAdded !== undefined ||
+        message.toolsRemoved !== undefined),
+  );
+}
+
+/**
+ * 把本次请求的声明集合与 transcript 重放出的工具集合比较，只在有差异时生成
+ * 一条只含 toolsAdded / toolsRemoved 的 system 补丁。全 direct 的注册表不写
+ * 补丁（那时 context.tools 就是全部事实，前几章的 transcript 保持不变）；一旦
+ * 注册表用上 exposure，或 transcript 已经声明过工具，差异就必须落进 transcript。
+ */
+export function declareToolChanges(
+  messages: readonly AgentMessage[],
+  registry: ToolRegistry,
+): SystemMessage | undefined {
+  if (!registry.usesExposure() && !declaresTools(messages)) return undefined;
+  const { toolsAdded, toolsRemoved } = toolStateChanges(
+    currentTools(messages),
+    registry.definitions(),
+  );
+  if (toolsAdded.length === 0 && toolsRemoved.length === 0) return undefined;
+  return {
+    role: "system",
+    content: "",
+    ...(toolsAdded.length > 0 ? { toolsAdded } : {}),
+    ...(toolsRemoved.length > 0 ? { toolsRemoved } : {}),
+    timestamp: Date.now(),
+  };
+}
+
+/** 从 transcript 尾部判断请求原因；retry 时附带那条失败回复。 */
+export function requestReason(
+  messages: readonly AgentMessage[],
+): { reason: RequestReason; failed?: AssistantMessage } {
+  const lastAssistant = messages.findLastIndex(
+    (message) => message.role === "assistant",
+  );
+  const tail = messages.slice(lastAssistant + 1);
+  if (tail.some((message) => message.role === "user")) {
+    return { reason: "user" };
+  }
+  const last = messages[lastAssistant];
+  if (
+    last?.role === "assistant" &&
+    (last.stopReason === "error" || last.stopReason === "aborted") &&
+    tail.length === 0
+  ) {
+    return { reason: "retry", failed: last };
+  }
+  return { reason: "continuation" };
+}
+
 export async function runAgentLoop(
   options: AgentLoopOptions,
 ): Promise<AgentRunResult> {
@@ -104,15 +201,43 @@ export async function runAgentLoop(
       emit(options, { type: "turn_end", reason: "aborted" });
       return { reason: "aborted", messages, steps: steps - 1 };
     }
+    // 请求前先让 transcript 说出本次声明的工具集合：有差异才追加一条声明补丁，
+    // 跟在本轮已有消息之后（用户消息或工具结果之后），紧贴即将发出的请求。
+    const declaration = declareToolChanges(messages, options.tools);
+    if (declaration) messages.push(declaration);
     // 请求只由 messages 与 tools 组成：system prompt 已在 messages 里。
-    // loop 自己从不写入 system message，只追加 assistant 与 toolResult。
-    const stream = options.model.stream(
-      {
-        messages,
-        tools: options.tools.definitions(),
-      },
-      { signal: options.signal },
-    );
+    // 除工具声明补丁外，loop 只追加 assistant 与 toolResult。
+    const context: AgentContext = {
+      messages,
+      tools: options.tools.definitions(),
+    };
+    let prepared: PreparedRequest | undefined | void;
+    if (options.prepareRequest) {
+      // 钩子只决定本次用哪个模型、什么推理强度；它失败时本次请求以 error 回复结束。
+      try {
+        prepared = await options.prepareRequest(
+          { context, model: options.model, ...requestReason(messages) },
+          options.signal,
+        );
+      } catch (error) {
+        const aborted = options.signal?.aborted === true;
+        const failed = assistantMessage([], aborted ? "aborted" : "error", {
+          errorMessage:
+            error instanceof Error ? error.message : String(error),
+        });
+        messages.push(failed);
+        emit(options, { type: "assistant_message", message: failed });
+        const reason = aborted ? "aborted" : "error";
+        emit(options, { type: "turn_end", reason });
+        return { reason, messages, steps };
+      }
+    }
+    const stream = (prepared?.model ?? options.model).stream(context, {
+      signal: options.signal,
+      ...(prepared?.thinkingLevel === undefined
+        ? {}
+        : { thinkingLevel: prepared.thinkingLevel }),
+    });
 
     for await (const event of stream) {
       emit(options, { type: "model_event", event });

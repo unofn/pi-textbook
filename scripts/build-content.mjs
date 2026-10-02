@@ -58,6 +58,14 @@ const parts = [
     thesis: "在不污染核心的前提下组合产品，并用故障证明架构。",
     accent: "red",
   },
+  {
+    id: "advanced",
+    number: "V",
+    title: "第五部 · Pi 1.0 进阶",
+    shortTitle: "Pi 1.0 进阶",
+    thesis: "在完整 Runtime 之上补齐 1.0 的工具暴露、codemode、MCP、虚拟模型与 durable 执行。",
+    accent: "violet",
+  },
 ];
 
 const expected = [
@@ -76,25 +84,38 @@ const expected = [
   ["12", "12-resources-extensions.md", "resources-extensions", "product"],
   ["13", "13-composition-root.md", "composition-root", "product"],
   ["14", "14-eval-capstone.md", "eval-capstone", "product"],
+  ["15", "15-tool-exposure.md", "tool-exposure", "advanced"],
+  ["16", "16-codemode.md", "codemode", "advanced"],
+  ["17", "17-mcp.md", "mcp", "advanced"],
+  ["18", "18-virtual-models.md", "virtual-models", "advanced"],
+  ["19", "19-durable.md", "durable", "advanced"],
 ].map(([id, file, slug, part]) => ({ id, file, slug, part }));
 
-const checkpointManifest = JSON.parse(
-  await readFile(checkpointManifestFile, "utf8"),
-);
-if (
-  !Array.isArray(checkpointManifest) ||
-  checkpointManifest.length !== expected.length
-) {
-  fail(`content/checkpoints.json 必须包含 ${expected.length} 个 checkpoint`);
-}
-const checkpointHistory = Object.fromEntries(
-  checkpointManifest.map((checkpoint) => [checkpoint.id, checkpoint]),
-);
-if (
-  Object.keys(checkpointHistory).length !== expected.length ||
-  expected.some(({ id }) => !checkpointHistory[id])
-) {
-  fail("content/checkpoints.json 的 checkpoint id 不完整或重复");
+// 章节清单是全书章节数与 checkpoint 编号的唯一来源；校验脚本与测试从这里导入。
+export { expected, parts };
+
+let checkpointHistory;
+
+async function loadCheckpointHistory() {
+  const checkpointManifest = JSON.parse(
+    await readFile(checkpointManifestFile, "utf8"),
+  );
+  if (
+    !Array.isArray(checkpointManifest) ||
+    checkpointManifest.length !== expected.length
+  ) {
+    fail(`content/checkpoints.json 必须包含 ${expected.length} 个 checkpoint`);
+  }
+  const history = Object.fromEntries(
+    checkpointManifest.map((checkpoint) => [checkpoint.id, checkpoint]),
+  );
+  if (
+    Object.keys(history).length !== expected.length ||
+    expected.some(({ id }) => !history[id])
+  ) {
+    fail("content/checkpoints.json 的 checkpoint id 不完整或重复");
+  }
+  return history;
 }
 
 const requiredHeadingPatterns = [
@@ -492,6 +513,7 @@ function buildSearchIndex(chapters) {
 }
 
 async function main() {
+  checkpointHistory = await loadCheckpointHistory();
   await mkdir(chapterRoot, { recursive: true });
   const files = (await readdir(chapterRoot)).filter((file) => file.endsWith(".md"));
   const expectedFiles = new Set(expected.map((chapter) => chapter.file));
@@ -538,7 +560,9 @@ export const searchIndex: SearchEntry[] = ${JSON.stringify(buildSearchIndex(chap
   );
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

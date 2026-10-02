@@ -4,7 +4,7 @@ import { courseNav, courseParts } from "@/lib/course";
 
 export const metadata: Metadata = {
   title: "课程路线",
-  description: "从事件流到产品评测的 15 个 Pi 工程 checkpoint。",
+  description: "从事件流到 durable 执行的 20 个 Pi 工程 checkpoint：00–14 核心课程，15–19 进阶。",
 };
 
 const invariants = [
@@ -21,10 +21,10 @@ export default function MapPage() {
     <main className="reference-page">
       <header className="reference-hero">
         <p>COURSE MAP</p>
-        <h1>不是 15 个主题，<br />是一个系统的 15 次状态转移。</h1>
+        <h1>不是 20 个主题，<br />是一个系统的 20 次状态转移。</h1>
         <span>
           你会反复穿过同一条 user → model → tool → result → next turn 主链路；
-          每一部只增加一种新的所有权或资源约束。
+          每一部只增加一种新的所有权或资源约束。00–14 是核心课程，15–19 是 Pi 1.0 进阶。
         </span>
       </header>
       <section className="map-invariants">

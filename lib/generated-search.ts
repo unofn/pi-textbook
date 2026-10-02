@@ -3217,5 +3217,1117 @@ export const searchIndex: SearchEntry[] = [
       "held-out"
     ],
     "searchText": "给完整的 Pi 建一套独立评测 小结 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
+  },
+  {
+    "id": "15",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "工具暴露：谁能看见、谁能调用",
+    "href": "/learn/tool-exposure",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 用同一张注册表推导声明集合与可调用集合，把工具变化写成 transcript 里的 toolsAdded / toolsRemoved 补丁，再让 tool_search 在运行中按需激活工具。 第五部 · Pi 1.0 进阶 tool exposure, declared set, callable set, toolsAdded, toolsRemoved, tool_search 第 14 章的 Runtime 把整张注册表交给了模型 五种 exposure 与两个集合 建立练习起点 Lab 15.1：同一张注册表推导两个集合 调用方作用域 Lab 15.2：让 transcript 记住模型看见了哪些工具 按顺序重放 比较两个完整集合 严格 parser Lab 15.3：loop 在请求前写声明补丁 第一行判断为什么存在 补丁放在哪里 三个场景 Lab 15.4：tool_search 把 deferred 工具带进下一次请求 词项与检索文本 排序只数重叠 tool_search 的执行 回到开篇的那次运行 十二项测试固定了哪些边界 课程工具暴露与真实 Pi 的关系 本章验收 小结"
+  },
+  {
+    "id": "15-第-14-章的-runtime-把整张注册表交给了模型",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "第 14 章的 Runtime 把整张注册表交给了模型",
+    "href": "/learn/tool-exposure#第-14-章的-runtime-把整张注册表交给了模型",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 第 14 章的 Runtime 把整张注册表交给了模型 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-五种-exposure-与两个集合",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "五种 exposure 与两个集合",
+    "href": "/learn/tool-exposure#五种-exposure-与两个集合",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 五种 exposure 与两个集合 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-建立练习起点",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "建立练习起点",
+    "href": "/learn/tool-exposure#建立练习起点",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 建立练习起点 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-lab-151同一张注册表推导两个集合",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "Lab 15.1：同一张注册表推导两个集合",
+    "href": "/learn/tool-exposure#lab-151同一张注册表推导两个集合",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 Lab 15.1：同一张注册表推导两个集合 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-lab-152让-transcript-记住模型看见了哪些工具",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "Lab 15.2：让 transcript 记住模型看见了哪些工具",
+    "href": "/learn/tool-exposure#lab-152让-transcript-记住模型看见了哪些工具",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 Lab 15.2：让 transcript 记住模型看见了哪些工具 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-lab-153loop-在请求前写声明补丁",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "Lab 15.3：loop 在请求前写声明补丁",
+    "href": "/learn/tool-exposure#lab-153loop-在请求前写声明补丁",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 Lab 15.3：loop 在请求前写声明补丁 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-lab-154toolsearch-把-deferred-工具带进下一次请求",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "Lab 15.4：tool_search 把 deferred 工具带进下一次请求",
+    "href": "/learn/tool-exposure#lab-154toolsearch-把-deferred-工具带进下一次请求",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 Lab 15.4：tool_search 把 deferred 工具带进下一次请求 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-十二项测试固定了哪些边界",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "十二项测试固定了哪些边界",
+    "href": "/learn/tool-exposure#十二项测试固定了哪些边界",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 十二项测试固定了哪些边界 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-课程工具暴露与真实-pi-的关系",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "课程工具暴露与真实 Pi 的关系",
+    "href": "/learn/tool-exposure#课程工具暴露与真实-pi-的关系",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 课程工具暴露与真实 Pi 的关系 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-本章验收",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "本章验收",
+    "href": "/learn/tool-exposure#本章验收",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 本章验收 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "15-小结",
+    "chapterId": "15",
+    "chapterSlug": "tool-exposure",
+    "chapterTitle": "工具暴露：谁能看见、谁能调用",
+    "title": "小结",
+    "href": "/learn/tool-exposure#小结",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "tool exposure",
+      "declared set",
+      "callable set",
+      "toolsAdded",
+      "toolsRemoved",
+      "tool_search"
+    ],
+    "searchText": "工具暴露：谁能看见、谁能调用 小结 tool exposure declared set callable set toolsAdded toolsRemoved tool_search"
+  },
+  {
+    "id": "16",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "Codemode：让模型写脚本调用工具",
+    "href": "/learn/codemode",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 为每次执行新建 worker 与 QuickJS 虚拟机，让脚本里的 tools.<name>(args) 经消息桥回到宿主，以 script 作用域走既有执行路径，并由宿主持有 deadline 与取消。 第五部 · Pi 1.0 进阶 codemode, worker thread, QuickJS, message bridge, nested tool call, deadline 第 15 章的可调用集合还没有调用者 三个参与者与两种消息 建立练习起点 Lab 16.1：一个 worker、一个 VM、一条消息桥 宿主收到 call 宿主启动 worker worker 创建 VM 并接上桥 四项测试观察什么 Lab 16.2：嵌套调用走第 06/15 章的执行路径 表里只有可调用集合 一个失败只影响自己 记录有上限 Lab 16.3：deadline 与取消由宿主持有 两个入口 收口只有一处 两项测试观察什么 Lab 16.4：codemode 工具接进 loop 直接调用这个工具 回到开篇的那次运行 十二项测试固定了哪些边界 课程 codemode 与真实 Pi 的关系 本章验收 小结"
+  },
+  {
+    "id": "16-第-15-章的可调用集合还没有调用者",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "第 15 章的可调用集合还没有调用者",
+    "href": "/learn/codemode#第-15-章的可调用集合还没有调用者",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 第 15 章的可调用集合还没有调用者 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-三个参与者与两种消息",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "三个参与者与两种消息",
+    "href": "/learn/codemode#三个参与者与两种消息",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 三个参与者与两种消息 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-建立练习起点",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "建立练习起点",
+    "href": "/learn/codemode#建立练习起点",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 建立练习起点 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-lab-161一个-worker一个-vm一条消息桥",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "Lab 16.1：一个 worker、一个 VM、一条消息桥",
+    "href": "/learn/codemode#lab-161一个-worker一个-vm一条消息桥",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 Lab 16.1：一个 worker、一个 VM、一条消息桥 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-lab-162嵌套调用走第-0615-章的执行路径",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "Lab 16.2：嵌套调用走第 06/15 章的执行路径",
+    "href": "/learn/codemode#lab-162嵌套调用走第-0615-章的执行路径",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 Lab 16.2：嵌套调用走第 06/15 章的执行路径 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-lab-163deadline-与取消由宿主持有",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "Lab 16.3：deadline 与取消由宿主持有",
+    "href": "/learn/codemode#lab-163deadline-与取消由宿主持有",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 Lab 16.3：deadline 与取消由宿主持有 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-lab-164codemode-工具接进-loop",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "Lab 16.4：codemode 工具接进 loop",
+    "href": "/learn/codemode#lab-164codemode-工具接进-loop",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 Lab 16.4：codemode 工具接进 loop codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-十二项测试固定了哪些边界",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "十二项测试固定了哪些边界",
+    "href": "/learn/codemode#十二项测试固定了哪些边界",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 十二项测试固定了哪些边界 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-课程-codemode-与真实-pi-的关系",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "课程 codemode 与真实 Pi 的关系",
+    "href": "/learn/codemode#课程-codemode-与真实-pi-的关系",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 课程 codemode 与真实 Pi 的关系 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-本章验收",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "本章验收",
+    "href": "/learn/codemode#本章验收",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 本章验收 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "16-小结",
+    "chapterId": "16",
+    "chapterSlug": "codemode",
+    "chapterTitle": "Codemode：让模型写脚本调用工具",
+    "title": "小结",
+    "href": "/learn/codemode#小结",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "codemode",
+      "worker thread",
+      "QuickJS",
+      "message bridge",
+      "nested tool call",
+      "deadline"
+    ],
+    "searchText": "Codemode：让模型写脚本调用工具 小结 codemode worker thread QuickJS message bridge nested tool call deadline"
+  },
+  {
+    "id": "17",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "MCP：把外部服务器的工具接进来",
+    "href": "/learn/mcp",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 用一个最小 MCP 客户端完成 JSON-RPC 握手、翻页、调用、超时与取消，再把外部服务器的工具按 deferred 暴露注册进同一张注册表，并把服务器清单作为只在变化时打补丁的 system 段落。 第五部 · Pi 1.0 进阶 MCP, JSON-RPC 2.0, initialize, protocol version, tools/list, nextCursor, notifications/cancelled, stdio transport, mcp_servers 一个工具从另一个进程来 建立练习起点 Lab 17.1：从 unknown 收窄出三种消息，再完成握手 握手只有四步 Lab 17.2：翻页直到 cursor 结束 Lab 17.3：一个在途请求的四种出口 Lab 17.4：stdio 用换行分帧 Lab 17.5：把服务器工具接进注册表与 system prompt 名字要能同时给 provider 和脚本用 服务器工具按 deferred 注册 服务器清单是一个 system 段落 首个 prompt 只等有 direct 工具的服务器 十三项测试固定了哪些边界 课程 MCP 与真实 Pi 的关系 完整链路与本章验收 小结"
+  },
+  {
+    "id": "17-一个工具从另一个进程来",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "一个工具从另一个进程来",
+    "href": "/learn/mcp#一个工具从另一个进程来",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 一个工具从另一个进程来 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-建立练习起点",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "建立练习起点",
+    "href": "/learn/mcp#建立练习起点",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 建立练习起点 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-lab-171从-unknown-收窄出三种消息再完成握手",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "Lab 17.1：从 unknown 收窄出三种消息，再完成握手",
+    "href": "/learn/mcp#lab-171从-unknown-收窄出三种消息再完成握手",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 Lab 17.1：从 unknown 收窄出三种消息，再完成握手 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-lab-172翻页直到-cursor-结束",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "Lab 17.2：翻页直到 cursor 结束",
+    "href": "/learn/mcp#lab-172翻页直到-cursor-结束",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 Lab 17.2：翻页直到 cursor 结束 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-lab-173一个在途请求的四种出口",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "Lab 17.3：一个在途请求的四种出口",
+    "href": "/learn/mcp#lab-173一个在途请求的四种出口",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 Lab 17.3：一个在途请求的四种出口 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-lab-174stdio-用换行分帧",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "Lab 17.4：stdio 用换行分帧",
+    "href": "/learn/mcp#lab-174stdio-用换行分帧",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 Lab 17.4：stdio 用换行分帧 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-lab-175把服务器工具接进注册表与-system-prompt",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "Lab 17.5：把服务器工具接进注册表与 system prompt",
+    "href": "/learn/mcp#lab-175把服务器工具接进注册表与-system-prompt",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 Lab 17.5：把服务器工具接进注册表与 system prompt MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-十三项测试固定了哪些边界",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "十三项测试固定了哪些边界",
+    "href": "/learn/mcp#十三项测试固定了哪些边界",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 十三项测试固定了哪些边界 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-课程-mcp-与真实-pi-的关系",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "课程 MCP 与真实 Pi 的关系",
+    "href": "/learn/mcp#课程-mcp-与真实-pi-的关系",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 课程 MCP 与真实 Pi 的关系 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-完整链路与本章验收",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "完整链路与本章验收",
+    "href": "/learn/mcp#完整链路与本章验收",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 完整链路与本章验收 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "17-小结",
+    "chapterId": "17",
+    "chapterSlug": "mcp",
+    "chapterTitle": "MCP：把外部服务器的工具接进来",
+    "title": "小结",
+    "href": "/learn/mcp#小结",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "MCP",
+      "JSON-RPC 2.0",
+      "initialize",
+      "protocol version",
+      "tools/list",
+      "nextCursor",
+      "notifications/cancelled",
+      "stdio transport",
+      "mcp_servers"
+    ],
+    "searchText": "MCP：把外部服务器的工具接进来 小结 MCP JSON-RPC 2.0 initialize protocol version tools/list nextCursor notifications/cancelled stdio transport mcp_servers"
+  },
+  {
+    "id": "18",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "虚拟模型：选择与派发分离",
+    "href": "/learn/virtual-models",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 在 loop 的每次请求前加一个 prepareRequest 钩子，让用户选中的虚拟模型在这一刻换成目录里的物理模型；选择和路由状态写在会话分支上，派发记录在每条 assistant 消息自己的 model 字段上。 第五部 · Pi 1.0 进阶 virtual model, physical model, model catalog, prepareRequest, request reason, router state, model_change, dispatch 同一个 Runtime，每次请求换一个模型 建立练习起点 Lab 18.1：目录、previous 与路由解析 一张目录登记两种模型 previous 跳过失败的回复 resolveRoute 只接受物理模型 Lab 18.2：loop 在每次请求前问一次 钩子放在声明补丁之后 请求原因从 transcript 尾部读出 Lab 18.3：选择和状态留在分支上 从分支读出选择与状态 路由器把读和写放在一起 Runtime 给钩子一个分支视角 重新打开与路由失败 十项测试固定了哪些边界 课程路由与真实 Pi 的关系 分支上的三种事实与本章验收 小结"
+  },
+  {
+    "id": "18-同一个-runtime每次请求换一个模型",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "同一个 Runtime，每次请求换一个模型",
+    "href": "/learn/virtual-models#同一个-runtime每次请求换一个模型",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 同一个 Runtime，每次请求换一个模型 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-建立练习起点",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "建立练习起点",
+    "href": "/learn/virtual-models#建立练习起点",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 建立练习起点 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-lab-181目录previous-与路由解析",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "Lab 18.1：目录、previous 与路由解析",
+    "href": "/learn/virtual-models#lab-181目录previous-与路由解析",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 Lab 18.1：目录、previous 与路由解析 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-lab-182loop-在每次请求前问一次",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "Lab 18.2：loop 在每次请求前问一次",
+    "href": "/learn/virtual-models#lab-182loop-在每次请求前问一次",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 Lab 18.2：loop 在每次请求前问一次 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-lab-183选择和状态留在分支上",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "Lab 18.3：选择和状态留在分支上",
+    "href": "/learn/virtual-models#lab-183选择和状态留在分支上",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 Lab 18.3：选择和状态留在分支上 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-十项测试固定了哪些边界",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "十项测试固定了哪些边界",
+    "href": "/learn/virtual-models#十项测试固定了哪些边界",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 十项测试固定了哪些边界 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-课程路由与真实-pi-的关系",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "课程路由与真实 Pi 的关系",
+    "href": "/learn/virtual-models#课程路由与真实-pi-的关系",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 课程路由与真实 Pi 的关系 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-分支上的三种事实与本章验收",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "分支上的三种事实与本章验收",
+    "href": "/learn/virtual-models#分支上的三种事实与本章验收",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 分支上的三种事实与本章验收 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "18-小结",
+    "chapterId": "18",
+    "chapterSlug": "virtual-models",
+    "chapterTitle": "虚拟模型：选择与派发分离",
+    "title": "小结",
+    "href": "/learn/virtual-models#小结",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "virtual model",
+      "physical model",
+      "model catalog",
+      "prepareRequest",
+      "request reason",
+      "router state",
+      "model_change",
+      "dispatch"
+    ],
+    "searchText": "虚拟模型：选择与派发分离 小结 virtual model physical model model catalog prepareRequest request reason router state model_change dispatch"
+  },
+  {
+    "id": "19",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "Durable：先提交，再可见",
+    "href": "/learn/durable",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 让会话 entry 与任务检查点经一条变更线原子提交后才可见；重新打开时把 running 任务改回 pending，按存储的工具意图与 replay 策略决定重跑还是给出 interrupted，并把已提交的部分输出转成 aborted entry 后从头重发请求。 第五部 · Pi 1.0 进阶 durable harness, mutation line, atomic commit, task checkpoint, tool intent, replay policy, partial output 进程停在工具执行中间时，存储里该有什么 一次提交是一批写入 建立练习起点 Lab 19.1：原子批量与单一变更线 存储先检查整批，再写入 会话在存储接受之后才更新 view Lab 19.2：任务在存储里走完生命周期 prompt 与 run 重新打开时，没有人在跑 running 任务 测试怎样模拟崩溃 Lab 19.3：execute() 之前先提交意图 从调用到意图 恢复时谁有资格让工具重跑 Lab 19.4：部分输出变成 aborted entry，再从头重发 部分输出只在检查点里 恢复：先落成 entry，再从头请求 模型以 error 结束 用现有测试破坏一次“先提交再可见” 课程 harness 与 pi-durable 十项测试与本章验收 小结"
+  },
+  {
+    "id": "19-进程停在工具执行中间时存储里该有什么",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "进程停在工具执行中间时，存储里该有什么",
+    "href": "/learn/durable#进程停在工具执行中间时存储里该有什么",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 进程停在工具执行中间时，存储里该有什么 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-一次提交是一批写入",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "一次提交是一批写入",
+    "href": "/learn/durable#一次提交是一批写入",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 一次提交是一批写入 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-建立练习起点",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "建立练习起点",
+    "href": "/learn/durable#建立练习起点",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 建立练习起点 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-lab-191原子批量与单一变更线",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "Lab 19.1：原子批量与单一变更线",
+    "href": "/learn/durable#lab-191原子批量与单一变更线",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 Lab 19.1：原子批量与单一变更线 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-lab-192任务在存储里走完生命周期",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "Lab 19.2：任务在存储里走完生命周期",
+    "href": "/learn/durable#lab-192任务在存储里走完生命周期",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 Lab 19.2：任务在存储里走完生命周期 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-lab-193execute-之前先提交意图",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "Lab 19.3：execute() 之前先提交意图",
+    "href": "/learn/durable#lab-193execute-之前先提交意图",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 Lab 19.3：execute() 之前先提交意图 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-lab-194部分输出变成-aborted-entry再从头重发",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "Lab 19.4：部分输出变成 aborted entry，再从头重发",
+    "href": "/learn/durable#lab-194部分输出变成-aborted-entry再从头重发",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 Lab 19.4：部分输出变成 aborted entry，再从头重发 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-用现有测试破坏一次先提交再可见",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "用现有测试破坏一次“先提交再可见”",
+    "href": "/learn/durable#用现有测试破坏一次先提交再可见",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 用现有测试破坏一次“先提交再可见” durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-课程-harness-与-pi-durable",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "课程 harness 与 pi-durable",
+    "href": "/learn/durable#课程-harness-与-pi-durable",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 课程 harness 与 pi-durable durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-十项测试与本章验收",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "十项测试与本章验收",
+    "href": "/learn/durable#十项测试与本章验收",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 十项测试与本章验收 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
+  },
+  {
+    "id": "19-小结",
+    "chapterId": "19",
+    "chapterSlug": "durable",
+    "chapterTitle": "Durable：先提交，再可见",
+    "title": "小结",
+    "href": "/learn/durable#小结",
+    "partTitle": "第五部 · Pi 1.0 进阶",
+    "terms": [
+      "durable harness",
+      "mutation line",
+      "atomic commit",
+      "task checkpoint",
+      "tool intent",
+      "replay policy",
+      "partial output"
+    ],
+    "searchText": "Durable：先提交，再可见 小结 durable harness mutation line atomic commit task checkpoint tool intent replay policy partial output"
   }
 ];
