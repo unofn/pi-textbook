@@ -10,7 +10,7 @@ minutes: 100
 difficulty: 核心
 artifact: packages/pi-course/src/types.ts
 prerequisites: 02
-terms: canonical IR, content block, AgentContext, StopReason, projection
+terms: canonical IR, content block, system message, AgentContext, StopReason, projection
 upstream: packages/ai/src/types.ts
 ---
 
@@ -68,7 +68,8 @@ Provider 的请求体和终端显示文字都可以由它转换出来，但它�
 
 完成这一章后，你会得到：
 
-- `types.ts` 中三种消息、两种 content block、五种结束原因和模型事件；
+- `types.ts` 中四种消息、两种 content block、五种结束原因和模型事件；
+- 三个重放 system message 的纯函数，用来从 transcript 算出当前 system prompt；
 - `event-stream.ts` 中专门运送模型事件并返回最终 assistant message 的流；
 - 一个只读取文本、却不会改写原消息的 `textOf()`。
 
@@ -83,15 +84,16 @@ Provider 的请求体和终端显示文字都可以由它转换出来，但它�
 - `packages/pi-course/src/event-stream.ts`
 
 **动手前只需知道：** transcript 用 role 与 content block 保留消息来源和顺序；
+system prompt 也是 transcript 里的 system message，按顺序重放就得到当前 prompt；
 `ModelEvent` 描述生成过程，`AssistantMessage` 是过程结束后保存的结果。
 
 **第一次红灯：** 在 parent 上运行 build，会报告没有导出
 `AssistantMessageEventStream`，同时找不到 `../src/types.js`。两条错误分别指向上面的
 两份教学文件。
 
-**第一步：** 先不看 target diff。运行 build 记录红灯，然后在 `types.ts` 写出消息和
-helper；在 `event-stream.ts` 声明临时 `AssistantMessageEventStream`。实践 3.1 只运行
-文本投影测试，实践 3.2 再完成终态映射。
+**第一步：** 先不看 target diff。运行 build 记录红灯，然后在 `types.ts` 写出消息、
+helper 和 system 重放函数；在 `event-stream.ts` 声明临时 `AssistantMessageEventStream`。
+实践 3.1 只运行文本投影和 system 重放测试，实践 3.2 再完成终态映射。
 
 **聚焦测试：** `packages/pi-course/test/03-message-ir.test.ts`
 
@@ -102,8 +104,9 @@ helper；在 `event-stream.ts` 声明临时 `AssistantMessageEventStream`。实�
 **聚焦运行：** `npm run build -w @pi/course`，然后
 `node --test packages/pi-course/dist/test/03-*.test.js`
 
-**通过证据：** 2 项聚焦测试通过。第一项证明文本投影不修改原 content；第二项证明
-`error` 会自行结束流，并且 `result()` 返回事件中同一个 `AssistantMessage`。
+**通过证据：** 4 项聚焦测试通过。前 2 项聚焦测试分别证明文本投影不修改原 content，
+以及 `error` 会自行结束流、`result()` 返回事件中同一个 `AssistantMessage`；后 2 项证明
+system message 按顺序重放，并按固定顺序渲染成 prompt 文本。
 :::
 
 ## content 数组保留“说了什么”和“要做什么”
@@ -185,15 +188,12 @@ export interface ToolResultMessage<TDetails = unknown> {
   isError: boolean;
   timestamp: number;
 }
-
-export type AgentMessage =
-  | UserMessage
-  | AssistantMessage
-  | ToolResultMessage;
 ```
 
-`AgentMessage` 是三种消息的联合。读取一条消息时，先检查 `role`，随后才能访问该角色
-独有的字段。例如，只有 `toolResult` 拥有 `toolCallId` 和 `isError`。
+这三种消息足够保存 README 往返。`types.ts` 的 `AgentMessage` 联合里还有第四种
+`SystemMessage`，它保存 Agent 交给模型的指令，后面讲 `AgentContext` 时再展开。读取
+一条消息时，先检查 `role`，随后才能访问该角色独有的字段。例如，只有 `toolResult`
+拥有 `toolCallId` 和 `isError`。
 
 工具请求里的 `id` 与工具结果里的 `toolCallId` 是一对配对键：
 
@@ -245,23 +245,26 @@ export interface Usage {
 
 ## AgentContext 把 transcript 交给下一次模型调用
 
-工具结果到达后，下一次模型调用需要同时看到用户请求、工具请求和工具结果：
+工具结果到达后，下一次模型调用需要同时看到用户请求、工具请求和工具结果。如果要把
+开头的数组交给下一次调用，可以把它显式标成 `const transcript: AgentMessage[] = [...]`。
+三个对象的内容不变，只增加数组的类型。
 
-如果要把开头的数组交给下一次调用，可以把它显式标成
-`const transcript: AgentMessage[] = [...]`。三个对象的内容不变，只增加数组的类型。
+模型还需要 Agent 自己的指令，例如“回答前先读取相关文件。”这句指令同样写成一条消息，
+放在 transcript 最前面：
 
 ```ts
 const nextContext: AgentContext = {
-  systemPrompt: "回答前先读取相关文件。",
-  messages: transcript,
+  messages: [
+    { role: "system", content: "回答前先读取相关文件。", timestamp: 990 },
+    ...transcript,
+  ],
 };
 ```
 
-`AgentContext` 是本次模型调用的输入视图：
+`AgentContext` 是本次模型调用的输入视图。这一章的 target 里，它只有一个字段：
 
 ```ts
 export interface AgentContext {
-  systemPrompt?: string;
   messages: AgentMessage[];
 }
 ```
@@ -271,7 +274,119 @@ export interface AgentContext {
 会保存 session，第 11 章再根据预算构造 context。
 
 这一章的 target 还没有工具定义字段。第 05 章接入 Provider 时，`AgentContext` 才会
-增加可选的 `tools`。此处只保存模型已经看到的消息。
+增加可选的 `tools`。此处只保存模型已经看到的消息，指令也在其中。
+
+## system message 按顺序重放成当前 prompt
+
+开头那条 `role: "system"` 的消息使用下面的类型。它和另外三种消息一起组成
+`AgentMessage`：
+
+```ts
+export interface SystemMessage {
+  role: "system";
+  /** 开头一条：基础 prompt；之后：追加的说明。可以为空字符串。 */
+  content: string;
+  /** 具名段落。之后的 system message 按名字替换，null 表示删除。 */
+  sections?: Record<string, string | null>;
+  timestamp: number;
+}
+
+export type AgentMessage =
+  | SystemMessage
+  | UserMessage
+  | AssistantMessage
+  | ToolResultMessage;
+```
+
+transcript 中第一条 system message 是基础 prompt。之后若要改指令，Agent 不回头修改
+这条消息，而是在当前位置追加一条新的 system message，只写这次的变化：`content`
+追加一段说明；`sections` 按名字替换某个段落，值为 `null` 时删除该段。
+
+下面这段 transcript 改了两次指令：
+
+```text
+system     timestamp=10  content="You are Pi."
+                         sections={ rules: "RULE v1", scratch: "SCRATCH" }
+user       go
+system     timestamp=20  content=""
+                         sections={ rules: "RULE v2", scratch: null }
+assistant  ok
+system     timestamp=30  content="Prefer small diffs."
+```
+
+把三条 system message 按出现顺序合并，得到模型此刻应当遵守的那一条：
+
+```ts
+{
+  role: "system",
+  content: "You are Pi.\n\nPrefer small diffs.",
+  sections: { rules: "RULE v2" },
+  timestamp: 10,
+}
+```
+
+`rules` 被第二条换成 v2，`scratch` 被 `null` 删除，第三条的说明接在基础 prompt
+后面。合并后的时间戳沿用第一条 system message。`currentSystemMessage()` 就按这个顺序
+重放：
+
+```ts
+export function currentSystemMessage(
+  messages: readonly AgentMessage[],
+): SystemMessage | undefined {
+  const content: string[] = [];
+  const sections = new Map<string, string>();
+  let timestamp: number | undefined;
+  for (const message of messages) {
+    if (message.role !== "system") continue;
+    timestamp ??= message.timestamp;
+    if (message.content.length > 0) content.push(message.content);
+    for (const [name, value] of Object.entries(message.sections ?? {})) {
+      if (value === null) sections.delete(name);
+      else sections.set(name, value);
+    }
+  }
+  if (timestamp === undefined) return undefined;
+  return {
+    role: "system",
+    content: content.join("\n\n"),
+    ...(sections.size > 0 ? { sections: Object.fromEntries(sections) } : {}),
+    timestamp,
+  };
+}
+```
+
+函数跳过其他 role，只读不写。空的 `content` 不会留下多余的 `\n\n`；段落全部删除后，
+结果里也不再带空的 `sections`。transcript 中没有 system message 时，它返回
+`undefined`。
+
+模型最终读到的是一段文本。`systemMessageText()` 把 `content` 和各段落正文依次用
+`\n\n` 连接，空串跳过；`currentSystemPrompt()` 把两步组合起来：
+
+```ts
+export function systemMessageText(message: SystemMessage): string {
+  const parts = [message.content];
+  for (const value of Object.values(message.sections ?? {})) {
+    if (value !== null) parts.push(value);
+  }
+  return parts.filter((part) => part.length > 0).join("\n\n");
+}
+
+export function currentSystemPrompt(
+  messages: readonly AgentMessage[],
+): string | undefined {
+  const message = currentSystemMessage(messages);
+  return message ? systemMessageText(message) : undefined;
+}
+```
+
+上面那段 transcript 的当前 prompt 是 `"You are Pi.\n\nPrefer small diffs.\n\nRULE v2"`。
+
+这样设计以后，改 prompt 也成了一项追加到 transcript 末尾的事实。已经写下的消息一条
+都不改，第 10 章保存的会话文件仍然只追加，第 11 章从同一段 history 能重放出同一个
+prompt。已经发给 Provider 的请求前缀同样保持原样：模型若接受对话中途的 system
+message，补丁可以在原位发送，前面的字节完全相同，Provider 的 prompt cache 继续命中。
+Pi 1.0 正是为此把 system prompt 放进 transcript。第 05 章的课程 adapter 会把重放结果
+折叠成一条开头的 system message 再发出，transcript 本身仍保持这里的样子。
 
 ## textOf() 只提供文本视图
 
@@ -280,12 +395,16 @@ export interface AgentContext {
 
 ```ts
 export function textOf(message: AgentMessage): string {
+  if (message.role === "system") return systemMessageText(message);
   const blocks: readonly AssistantContent[] = message.content;
   return blocks.flatMap((block) =>
     block.type === "text" ? [block.text] : []
   ).join("\n");
 }
 ```
+
+system message 没有 content block 数组，所以第一行先把它交给 `systemMessageText()`。
+其余三种消息继续逐个检查 content block。
 
 把 transcript 中的 assistant message 传进去，结果是：
 
@@ -416,23 +535,25 @@ export class AssistantMessageEventStream
 最终 Promise，并把这条终态留给异步迭代器。第二段函数返回 `event.error`；所以
 `stream.result()` 与事件引用的是同一个 assistant message。
 
-:::lab title="实践 3.1 · 保存消息并读取文本"
+:::lab title="实践 3.1 · 保存消息、读取文本并重放 system"
 **目标：** 写出消息协议和 helper，让 README transcript 能保留完整 content，同时得到
-只含文本的显示结果。
+只含文本的显示结果；再从多条 system message 重放出当前 prompt。
 
 **文件：**
 - `packages/pi-course/src/types.ts`
 - `packages/pi-course/src/event-stream.ts`
 
 **动作：**
-1. 在 `types.ts` 定义 content block、三种 message、`Usage`、`StopReason`、
-   `AgentContext`、`ModelEvent`、`ModelStream` 和 `Model`。
+1. 在 `types.ts` 定义 content block、四种 message（含 `SystemMessage`）、`Usage`、
+   `StopReason`、`AgentContext`、`ModelEvent`、`ModelStream` 和 `Model`。
 2. 实现 `text()`、`userMessage()`、`assistantMessage()` 与 `textOf()`。
-3. 为了让整份测试文件能够编译，在 `event-stream.ts` 临时声明
+3. 实现 `currentSystemMessage()`、`systemMessageText()` 与 `currentSystemPrompt()`。
+4. 为了让整份测试文件能够编译，在 `event-stream.ts` 临时声明
    `AssistantMessageEventStream`。它继承
    `EventStream<ModelEvent, AssistantMessage>`；构造器暂时传入永不结束的判断函数，
    结果提取函数抛出 `"not implemented in lab 3.1"`。
-4. 只运行名称含“文本投影”的测试。它不会执行这个临时流。
+5. 先运行名称含“文本投影”的测试，再运行名称含“system”的两项测试。它们都不会执行
+   这个临时流。
 
 **运行：**
 
@@ -440,10 +561,14 @@ export class AssistantMessageEventStream
 npm run build -w @pi/course
 node --test --test-name-pattern="文本投影" \
   packages/pi-course/dist/test/03-*.test.js
+node --test --test-name-pattern="system" \
+  packages/pi-course/dist/test/03-*.test.js
 ```
 
-**预期：** `1/1`。`textOf()` 得到“先读取\n再回答”，中间的 `read` tool call 仍完整
-留在原消息中。
+**预期：** 先是 `1/1`。`textOf()` 得到“先读取\n再回答”，中间的 `read` tool call 仍完整
+留在原消息中。随后是 `2/2`。重放结果的 content 是“You are Pi.\n\nPrefer small
+diffs.”，`sections` 只剩 `rules: "RULE v2"`，时间戳是 `10`，原来的 messages 没有被
+改写；`systemMessageText()` 跳过空段落和 `null`，得到“A\n\nB”。
 :::
 
 :::lab title="实践 3.2 · 让 error 自己结束消息流"
@@ -465,21 +590,38 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/03-*.test.js
 ```
 
-**预期：** `2/2`。异步迭代只观察到 `"error"`，随后结束；`result()` 返回传给
-`push()` 的同一个错误消息，并保留 `errorMessage: "socket reset"`。
+**预期：** `4/4`。异步迭代只观察到 `"error"`，随后结束；`result()` 返回传给
+`push()` 的同一个错误消息，并保留 `errorMessage: "socket reset"`。实践 3.1 的三项测试
+继续通过。
 :::
 
 :::note title="测试覆盖到哪里"
-2 项聚焦测试直接证明：文本投影会跳过工具调用，而且不修改原 content；`error` 是流的
-终态，`result()` 返回事件里的同一条消息。正常 `start → delta → done` 时间线会在第 04、
-05 章进入可执行模型与 Provider 测试；tool call/result 的 id 配对由第 06、07 章接手。
+4 项聚焦测试直接证明：文本投影会跳过工具调用，而且不修改原 content；`error` 是流的
+终态，`result()` 返回事件里的同一条消息；system message 按顺序重放，追加 content、
+按名字覆盖或删除段落，且不改写任何原消息；`systemMessageText()` 按 content、段落的
+顺序拼接。正常 `start → delta → done` 时间线会在第 04、05 章进入可执行模型与 Provider
+测试；tool call/result 的 id 配对由第 06、07 章接手；system 折叠成一条请求消息在第 05 章
+完成。
 :::
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/ai/src/types.ts` 也使用 user、assistant、toolResult
-三种消息、content blocks、五种 `StopReason` 和 Context。上游还支持图片、thinking、
-签名、缓存和成本等字段。课程保留 README 往返需要的最小形状，让每个字段都能在后续
-调用链中找到用途。
+:::pi title="与上游 Pi v1.0.0 对照"
+Pi v1.0.0 的 `Message` 由 system、user、assistant、toolResult 四种消息组成
+（`packages/ai/src/types.ts:610`），同样使用 content blocks。8479bd8 时 `Message` 只有
+后三种（当时 `types.ts:414`），system prompt 是请求 Context 上的一个字符串；1.0 改为
+transcript 中的 `SystemMessage`（`packages/ai/src/types.ts:512-538`）。课程的三个重放
+函数对应上游 `packages/ai/src/utils/transcript.ts:73-102` 的 `getCurrentSystemMessage`、
+`getCurrentSystemPrompt`，以及 `packages/ai/src/utils/text.ts:15` 的
+`getSystemMessageText`：content 用 `\n\n` 追加，段落按名字覆盖，`null` 删除，时间戳取
+第一条 system message。
+
+课程简化：`SystemMessage.content` 只接受字符串，上游还接受 `TextContent[]`；上游的
+system message 还能用 `toolsAdded` / `toolsRemoved` 声明工具集合变化，课程不实现；
+没有 system message 时课程返回 `undefined`，上游 `getCurrentSystemPrompt` 返回空字符串。
+`StopReason` 课程保留五个值。8479bd8 时上游也是五个（当时 `types.ts:375`），1.0 改为
+七个（`packages/ai/src/types.ts:450`），新增的 `pending`、`deferred` 用于延迟请求。上游
+还支持图片、thinking、签名、缓存和成本等字段。课程保留 README 往返和 system 重放需要
+的最小形状，让每个字段都能在后续调用链中找到用途。1.0 的 system 消息模型全貌见
+[附录：Pi 1.0 的其他机制](/pi-1-0)。
 :::
 
 ## 用一次可观察的错误检查 textOf()
@@ -494,7 +636,7 @@ return blocks.flatMap((block) =>
 
 :::failure title="预期失败 · 把工具名混进文本投影"
 运行名称含“文本投影”的测试。实际结果会变成“先读取\nread\n再回答”，而期望结果是
-“先读取\n再回答”。恢复只提取 text block 的实现，并重新确认 2 项聚焦测试通过。
+“先读取\n再回答”。恢复只提取 text block 的实现，并重新确认 4 项聚焦测试通过。
 :::
 
 ## 本章验收
@@ -507,13 +649,15 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/03-*.test.js
 ```
 
-结果应为 `2/2`。再沿 README transcript 检查五个位置：
+结果应为 `4/4`。再沿 README transcript 检查六个位置：
 
 1. 用户请求保存在哪一种 message 中？
 2. assistant 的文字与 tool call 怎样保持原顺序？
 3. `id: "call_1"` 与 `toolCallId: "call_1"` 怎样配对？
 4. `stopReason: "toolUse"` 要求 Agent 接下来做什么？
 5. `textOf()` 省略了哪些信息，原信息还保存在何处？
+6. 要把 `rules` 段落换成新版本，Agent 往 transcript 里写什么？开头那条 system message
+   会被改动吗？
 
 `npm run checkpoint -w @pi/course -- 03` 可以重新定位 parent 与 target；
 `npm run practice -w @pi/course -- 03 <新目录>` 会从同一 parent 创建新的隔离练习目录。
@@ -525,7 +669,8 @@ node --test packages/pi-course/dist/test/03-*.test.js
 README 往返现在保存为三条有顺序的消息。user 记录请求，assistant 依次记录说明和工具
 调用，toolResult 使用同一个调用 id 记录环境返回。`StopReason` 说明模型为何停下，
 `AgentContext` 把这段 transcript 交给下一次调用，`textOf()` 则从完整消息中取出文本
-视图。
+视图。Agent 的指令也以 system message 的形式留在同一份 transcript 里；改指令只追加
+新的 system message，`currentSystemPrompt()` 按顺序重放出当前 prompt。
 
 `AssistantMessageEventStream` 把生成过程中的 `ModelEvent` 与最终
 `AssistantMessage` 接到第 02 章的同一个流上。下一章会在不接网络的情况下，让同一个

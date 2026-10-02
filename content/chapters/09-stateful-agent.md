@@ -91,8 +91,8 @@ interface ActiveRun {
 :::rebuild title="Checkpoint 09 · 让同一个 Agent 管理两次运行"
 **模式：** 重建
 
-**起终点：** `parent` `6b3b1b77` 是第 08 章完成后的起点；`target` `d055d832` 是
-两份教学文件完成、11 项聚焦测试通过后的终点。
+**起终点：** `parent` `c9256277` 是第 08 章完成后的起点；`target` `04542692` 是
+两份教学文件完成、12 项聚焦测试通过后的终点。
 
 **教学文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/agent-loop.ts`
@@ -121,8 +121,8 @@ interface ActiveRun {
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/09-*.test.js`
 
-**通过证据：** 五段局部测试依次得到 `2/2`、`2/2`、`2/2`、`2/2`、`3/3`。它们
-分别观察状态派生、两次顺序运行、公开副本、取消传播和队列取出时机。
+**通过证据：** 五段局部测试依次得到 `2/2`、`3/3`、`2/2`、`2/2`、`3/3`。它们
+分别观察状态派生、两次顺序运行与 system message、公开副本、取消传播和队列取出时机。
 :::
 
 ## `run_start` 把 run 1 投影成公开状态
@@ -162,6 +162,15 @@ reducer 不拥有输入对象。`run_start` 要深复制原有 `state.messages` 
 `event.message`；`run_end` 同样要深复制 `result.messages`。调用者稍后改动事件或
 结果时，已经派生出的状态不会随之变化。
 
+`run_start` 还有一个可选字段 `system`。它是本次运行随用户消息一起追加的 system
+补丁，下一节由 `prompt()` 生成。reducer 若看到它，就把它的副本放在用户消息前面：
+
+```text
+run_start(2, system = { sections: { rules: "RULE v1" } })
+  → messages 追加 system 补丁
+  → messages 追加 "提交结论"
+```
+
 run 2 开始以后，run 1 的事件仍可能迟到。若状态中的 `activeRunId` 已是 2，
 `loop(1, ...)` 和 `run_end(1)` 都原样返回当前状态。测试没有规定乱序到达的
 `run_start`；这个过滤只覆盖当前实现中的 `loop` 与 `run_end`。
@@ -176,7 +185,8 @@ TypeScript 对嵌套联合有时不会继续保留收窄结果。确认 `event.t
 **文件：** `packages/pi-course/src/agent.ts`
 
 **动作：**
-1. 实现 `run_start`，记录运行 id、用户消息与 `running` 状态，并深复制两部分消息。
+1. 实现 `run_start`，记录运行 id、用户消息与 `running` 状态，并深复制两部分消息；
+   事件带 `system` 时，把它的副本放在用户消息之前。
 2. 处理 `text_delta`、`tool_start`、`tool_end`、`tool_skipped` 与
    `assistant_message`。
 3. 实现 `run_end`，保存结果消息的深副本、结束原因和 `idle` 状态。
@@ -201,6 +211,7 @@ run 1 开始时，`prompt("检查 README")` 从两份数据构造局部 `context
 
 ```text
 Agent 中已经完成的历史
++ 可选的 system 补丁（下文再讲）
 + 当前用户消息 "检查 README"
 = run 1 的 contextMessages 深副本
 ```
@@ -245,9 +256,65 @@ run 1 因此用局部变量保留自己创建的 `ActiveRun`，清理时核对�
 `stopReason: "error"` 的 assistant 消息，追加后再返回；`Agent.prompt()` 外层的兜底
 只处理循环之外的意外错误。这样已经发生的副作用不会从 transcript 中消失。
 
+### system prompt 写在 transcript 开头
+
+`AgentOptions.systemPrompt` 仍是构造参数，但它不会作为请求字段交给 loop。它非空时，
+构造函数把它放成 transcript 的第一条消息：
+
+```ts
+const messages: AgentMessage[] = options.systemPrompt
+  ? [{ role: "system", content: options.systemPrompt, timestamp: 0 }]
+  : [];
+```
+
+缺省和空字符串都不产生 system message。带 `systemPrompt: "BASE"` 的 Agent 完成
+run 1 后，消息角色依次是 `system → user → assistant`。第 07 章的 loop 把这些消息原样交给
+模型，第 05 章的 adapter 在请求出线时才把 system message 重放成一条开头的 system。
+
+读取当前 prompt 用只读 getter：
+
+```ts
+get systemPrompt(): string | undefined {
+  return currentSystemPrompt(this.state.messages);
+}
+```
+
+它每次都按第 03 章的规则重放 transcript 中的全部 system message，没有 setter。要改
+prompt，就在下一次 `prompt()` 里带上一条补丁：
+
+```ts
+await agent.prompt("two", { system: { sections: { rules: "RULE v1" } } });
+await agent.prompt("three", {
+  system: { content: "Prefer small diffs.", sections: { rules: null } },
+});
+```
+
+`prompt()` 把 `options.system` 变成 `{ role: "system", content: content ?? "", sections,
+timestamp }`，放进 `contextMessages` 中用户消息的前面，并通过 `run_start.system` 发布。
+没有 `sections` 时，补丁里也不出现这个字段。三次运行之后，transcript 是：
+
+```text
+system("BASE")                                构造时放入
+user("one")    → assistant("first")
+system(sections.rules = "RULE v1")            run 2 的补丁
+user("two")    → assistant("second")
+system(content = "Prefer small diffs.",
+       sections.rules = null)                 run 3 的补丁
+user("three")  → assistant("third")
+```
+
+run 2 期间重放得到 `"BASE\n\nRULE v1"`；run 3 的 `null` 删除了 `rules` 段落，结果是
+`"BASE\n\nPrefer small diffs."`。开头三条消息始终没变，run 2 的模型请求里也确实有两条
+system message：补丁留在原位，折叠只发生在 adapter 出线那一刻。
+
+补丁只在运行开始时进入，与用户消息同属这一轮新增的消息。运行中途没有插入 system
+message 的入口，`steer()` 和 `followUp()` 也只产生 user message。这与两条队列遵守
+同一条边界：新消息只在完整边界进入 transcript，已经交给模型的前缀不改写。第 10 章
+持久化时因此只需追加，provider 的 prompt 缓存也能继续命中已发送的前缀。
+
 :::lab title="实践 9.2 · 让 run 1 和 run 2 顺序共享 transcript"
-**目标：** 用一个 `Agent` 完成两次顺序运行，拒绝并行 `prompt()`，并让重入回调看到
-稳定的生命周期顺序。
+**目标：** 用一个 `Agent` 完成两次顺序运行，拒绝并行 `prompt()`，让重入回调看到
+稳定的生命周期顺序，并把 system prompt 保存在 transcript 中。
 
 **文件：** `packages/pi-course/src/agent.ts`、
 `packages/pi-course/src/agent-loop.ts`
@@ -262,7 +329,11 @@ run 1 因此用局部变量保留自己创建的 `ActiveRun`，清理时核对�
    存在的 `import type`。
 6. 在 loop 内把模型请求异常转换为 error assistant，并保留当前 `messages`。
 7. 用对象身份清理本次运行，再发布唯一的 `run_end`。
-8. 删除 Lab 9.2 的显式异常，只运行本段测试。
+8. 构造函数在 `systemPrompt` 非空时放入开头 system message；`get systemPrompt()`
+   用 `currentSystemPrompt()` 重放 transcript。
+9. 给出 `options.system` 时，生成补丁，放在 `contextMessages` 的用户消息之前，并作为
+   `run_start.system` 发布。
+10. 删除 Lab 9.2 的显式异常，只运行本段测试。
 
 **运行：**
 
@@ -272,8 +343,9 @@ node --test --test-name-pattern="Lab 9.2" \
   packages/pi-course/dist/test/09-*.test.js
 ```
 
-**预期：** `2/2`。第一项观察 busy guard、两次顺序运行和模型失败后的完整消息；第二项
-从 run 1 的 `run_end` 回调启动 run 2，确认旧清理没有碰到新运行。
+**预期：** `3/3`。第一项观察 busy guard、两次顺序运行和模型失败后的完整消息；第二项
+从 run 1 的 `run_end` 回调启动 run 2，确认旧清理没有碰到新运行；第三项用上面的三次
+运行检查开头 system message、补丁位置、`null` 删除段落和未改写的前缀。
 :::
 
 ## 三个公开出口各自得到一份副本
@@ -433,7 +505,7 @@ node --test --test-name-pattern="Lab 9.5" \
 node --test packages/pi-course/dist/test/09-*.test.js
 ```
 
-**预期：** 局部 `3/3`，全章 `11/11`。三项测试分别观察工具批次后的 FIFO steering、
+**预期：** 局部 `3/3`，全章 `12/12`。三项测试分别观察工具批次后的 FIFO steering、
 文本 stop 期间到达的 steering，以及自然 stop 后的 follow-up；组合场景再检查取消
 优先、终态拒绝和失败队列隔离。
 :::
@@ -456,13 +528,13 @@ run 1 busy，测试只能等到超时。上面的变体先允许回调创建 run
 :::failure title="预期失败 · run 1 清掉了 run 2"
 只运行 Lab 9.2。run 1 的 `run_end` listener 会启动 run 2，随后第三次并行
 `prompt()` 本应得到 `Agent is busy`；新增的无条件清理会错误放行它。删除该行，恢复
-“只清理身份匹配的 ActiveRun，并在 `run_end` 前完成”后，局部测试应回到 `2/2`，全章
-回到 `11/11`。
+“只清理身份匹配的 ActiveRun，并在 `run_end` 前完成”后，局部测试应回到 `3/3`，全章
+回到 `12/12`。
 :::
 
 ## 这份 Agent 的边界是单实例、内存内生命周期
 
-11 项测试把当前层固定在三个范围内：
+12 项测试把当前层固定在三个范围内：
 
 - 一个 `Agent` 实例串行拥有一份 `ActiveRun`，subscriber 在 `emit()` 调用中同步执行。
   异步回调的背压与优先级需要另一层调度协议。
@@ -470,19 +542,39 @@ run 1 busy，测试只能等到超时。上面的变体先允许回调创建 run
   signal。steering 与 follow-up 在 `maxSteps` 边缘的取舍属于产品策略。
 - transcript 和公开状态都保存在当前进程。会话持久化、分支与压缩由后续章节加入；多个
   进程共同写一条会话需要更外层的协调。
+- system prompt 只有构造参数和 `prompt(value, { system })` 两个入口，都在运行开始前
+  写入。从已有 transcript 恢复 Agent 要等第 13 章的 `initialMessages`。
 
 聚焦测试通过修改返回对象，直接检查 `getState()`、subscriber event 与 `prompt()` result
 的副本边界。Loop 输入 context 和模型返回 assistant 也会深复制，但这两处目前只有源码
 路径，没有各自的别名变异用例。
 
-:::pi title="与固定上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/agent/src/agent.ts` 同样在底层循环外保存消息、工具和
-当前运行的 `AbortController`，也区分 steering 与 follow-up。上游还支持更多队列模式、
-运行中切换模型与配置、异步订阅回调和更多产品状态。
+:::pi title="与上游 Pi v1.0.0 对照"
+Pi v1.0.0 的 `packages/agent/src/agent.ts` 同样在底层循环外保存消息、工具和当前运行的
+`AbortController`，也区分 steering 与 follow-up：两条 `PendingMessageQueue` 在
+`agent.ts:143-170`，同一实例已有运行时拒绝新运行在 `:507-509`。上游还支持一次取一条的
+队列模式、运行中切换模型与配置、异步订阅回调（`:266`）、`waitForIdle()`（`:350`）
+和更多产品状态。
+
+system prompt 的位置变了。8479bd8 时 `AgentState.systemPrompt` 是可写字符串
+（`packages/agent/src/types.ts:324`），每次运行把它作为单独字段放进 loop context
+（`packages/agent/src/agent.ts:426`）；1.0 改为只读的重放结果
+（`packages/agent/src/types.ts:389`）。初始 `systemPrompt` 由
+`createInitialSystemMessage()`（`packages/ai/src/utils/transcript.ts:10-22`）变成
+`timestamp: 0` 的开头 system message，空字符串不产生消息（`agent.ts:77-90`）。课程的
+构造函数与 getter 对应这两处。上游会把初始工具声明也写进这条消息（`toolsAdded`），
+课程简化为继续使用 `context.tools`。
+
+上游改 prompt 的入口是 `prompt(AgentMessage[])`（`agent.ts:371-373`）：coding-agent
+把补丁 system message 放在本轮用户消息之前一起提交
+（`packages/coding-agent/src/core/agent-session.ts:2060`）。课程把这一步收进
+`prompt(value, { system })`。上游 `steer()`、`followUp()` 接收任意 `AgentMessage`
+（`agent.ts:299,304`）；课程只接受文本，因此运行中途没有写入 system message 的入口，
+这是课程简化。
 
 课程只保留这条时间线所需的形状：一个实例同一时刻只有一个运行；每次运行拥有独立
-控制器；公开数据不共享内部可变引用；两种消息只在规定的完整边界进入 transcript。
-这些课程约束不代表上游所有队列模式都与本章相同。
+控制器；公开数据不共享内部可变引用；system 补丁与两种队列消息只在规定的完整边界进入
+transcript。这些课程约束不代表上游所有队列模式都与本章相同。
 :::
 
 ## 两次运行的时间线与验收
@@ -495,7 +587,7 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/09-*.test.js
 ```
 
-结果应为 `11/11`。随后画出两条时间线。
+结果应为 `12/12`。随后画出两条时间线。
 
 第一条从 run 1 的结果开始：标出它何时清理自己的 `ActiveRun`、何时发布
 `run_end(1)`、listener 何时创建 run 2，以及第三次并行 `prompt()` 在哪里被拒绝。两个
@@ -507,7 +599,9 @@ listener 看到的顺序都应是 `start1 → end1 → start2 → end2`。
 已经完成的历史。
 
 还要分别用测试说明 `getState()`、订阅事件与 `prompt()` 返回值为什么不能修改内部
-状态，并在源码中找到对应的 `structuredClone()`。重新定位可运行
+状态，并在源码中找到对应的 `structuredClone()`。最后用 Lab 9.2 的三次运行说明：
+`agent.systemPrompt` 每一步重放出什么，补丁为什么排在用户消息之前，开头那条 system
+message 为什么一直没变。重新定位可运行
 `npm run checkpoint -w @pi/course -- 09`；重做时新建 practice 目录，不复用已改过的
 脚手架。
 :::
@@ -525,7 +619,8 @@ listener 看到的顺序都应是 `start1 → end1 → start2 → end2`。
 同一个 `Agent` 现在能完成 run 1，保存它的 transcript，再用这份历史开始 run 2。
 `ActiveRun` 给每次运行独立的 id、控制器和消息队列；身份检查保证旧运行不会清理新
 运行。reducer 把生命周期事件变成公开状态，事件 FIFO 让所有同步订阅者观察同一顺序，
-深副本隔离三个公开出口。
+深副本隔离三个公开出口。system prompt 也成了 transcript 的一部分：构造参数放入开头
+那条 system message，之后的修改只作为补丁随下一次运行追加。
 
 run 1 中到达的 steering 只在完整工具批次或文本 stop 后进入消息；follow-up 只在自然
 stop 后进入。取消和失败先结算当前运行，未消费队列不会泄漏到 run 2。

@@ -24,7 +24,7 @@ jobs:
       - name: Check out executable course history
         uses: actions/checkout@v7
         with:
-          repository: hahhforest/pi
+          repository: unofn/pi
           ref: course/build-your-own-pi
           path: pi-course
           fetch-depth: 0

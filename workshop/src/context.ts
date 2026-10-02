@@ -4,7 +4,13 @@ import {
   type SessionEntry,
   type SessionStore,
 } from "./session.js";
-import { text, type AgentContext, type AgentMessage } from "./types.js";
+import {
+  currentSystemMessage,
+  systemMessageText,
+  text,
+  type AgentContext,
+  type AgentMessage,
+} from "./types.js";
 
 type MessageEntry = Extract<SessionEntry, { type: "message" }>;
 type SessionCompactionEntry = Extract<
@@ -31,8 +37,8 @@ export type ContextSelectionReason =
 export interface ContextBuildResult {
   /**
    * 正文 API：projection 本身可以直接交给 model.stream。
+   * messages = [当前 system message?, compaction 摘要?, ...保留的后缀]。
    */
-  systemPrompt?: string;
   messages: AgentMessage[];
   usage: ContextUsage;
   sourceEntryIds: string[];
@@ -55,7 +61,6 @@ export interface ContextBuildResult {
 }
 
 export interface ContextOptions {
-  systemPrompt?: string;
   /**
    * 模型窗口中可供本次请求使用的总额度。输出预留与安全余量会先扣除。
    */
@@ -124,6 +129,10 @@ interface SelectedGroups {
   reason: ContextSelectionReason;
 }
 
+function isSystemEntry(entry: MessageEntry): boolean {
+  return entry.message.role === "system";
+}
+
 function defaultEstimate(message: AgentMessage): number {
   return Math.ceil(JSON.stringify(message).length / 4);
 }
@@ -172,6 +181,7 @@ function messageSources(
  *
  * 每个 user message 开启一个新组；其后的 assistant/toolResult 往返都留在
  * 同一组。toolResult 依靠 call id 配对，而不是依靠完成顺序或数组相邻性。
+ * system message 是固定成本，不属于任何 interaction，分组时直接跳过。
  */
 export function groupInteractions(
   input:
@@ -201,6 +211,7 @@ export function groupInteractions(
 
   for (const source of sources) {
     const message = source.message;
+    if (message.role === "system") continue;
     if (message.role === "user") {
       finish();
       current = {
@@ -288,7 +299,9 @@ function selectGroups(
  * results 不会被拆开；完整的 user-turn 安全边界由 groupInteractions/buildContext
  * 提供。
  */
-function legacySemanticGroups(messages: AgentMessage[]): AgentMessage[][] {
+function legacySemanticGroups(input: AgentMessage[]): AgentMessage[][] {
+  // system message 不参与尾部裁剪：它总是由 buildContext 作为固定成本重放。
+  const messages = input.filter((message) => message.role !== "system");
   const groups: AgentMessage[][] = [];
   for (let index = 0; index < messages.length; index += 1) {
     const message = messages[index];
@@ -493,9 +506,22 @@ function buildProjection(
     suffixStart = firstKeptIndex;
   }
 
+  const allMessageEntries = activePath.filter(
+    (entry): entry is MessageEntry => entry.type === "message",
+  );
+  // system message 从整条 active path（包括 compaction 之前）收集并重放，
+  // 作为固定成本放在最前面；它们不进入 interaction 分组。
+  const systemEntries = allMessageEntries.filter(isSystemEntry);
+  const systemIds = systemEntries.map((entry) => entry.id);
+  const systemMessage = currentSystemMessage(
+    systemEntries.map((entry) => entry.message),
+  );
   const candidateEntries = activePath
     .slice(suffixStart)
-    .filter((entry): entry is MessageEntry => entry.type === "message");
+    .filter(
+      (entry): entry is MessageEntry =>
+        entry.type === "message" && !isSystemEntry(entry),
+    );
   const candidateGroups = groupInteractions(candidateEntries);
 
   const summaryMessage = latestCompaction
@@ -512,14 +538,9 @@ function buildProjection(
       } satisfies AgentMessage)
     : undefined;
   const summaryCost = summaryMessage ? estimate(summaryMessage) : 0;
-  const summaryMarker = summaryMessage
-    ? "[Earlier session summary is included as the first context message]"
-    : "";
-  const systemPrompt = [options.systemPrompt ?? "", summaryMarker]
-    .filter(Boolean)
-    .join("\n\n")
-    .trim();
-  const systemTokens = estimateText(systemPrompt);
+  const systemTokens = systemMessage
+    ? estimateText(systemMessageText(systemMessage))
+    : 0;
   const availableInput = Math.max(
     0,
     options.tokenBudget - reservedOutput - safetyMargin,
@@ -540,23 +561,28 @@ function buildProjection(
     (group) => group.sourceEntryIds,
   );
   const selectedIdSet = new Set(selectedIds);
-  const allMessageEntries = activePath.filter(
-    (entry): entry is MessageEntry => entry.type === "message",
-  );
+  // system entry 总是被使用；used ∪ omitted 仍覆盖全部 message entry。
   const omittedIds = allMessageEntries
-    .filter((entry) => !selectedIdSet.has(entry.id))
+    .filter(
+      (entry) => !isSystemEntry(entry) && !selectedIdSet.has(entry.id),
+    )
     .map((entry) => entry.id);
-  const contextMessages = summaryMessage
+  const conversationMessages = summaryMessage
     ? [summaryMessage, ...selectedMessages]
     : selectedMessages;
-  const messageTokens = contextMessages.reduce(
+  const contextMessages = systemMessage
+    ? [systemMessage, ...conversationMessages]
+    : conversationMessages;
+  const messageTokens = conversationMessages.reduce(
     (sum, message) => sum + estimate(message),
     0,
   );
   const total = systemTokens + messageTokens;
-  const sourceEntryIds = latestCompaction
-    ? [latestCompaction.id, ...selectedIds]
-    : selectedIds;
+  const sourceEntryIds = [
+    ...systemIds,
+    ...(latestCompaction ? [latestCompaction.id] : []),
+    ...selectedIds,
+  ];
   const firstKeptEntryId =
     selected.groups[0]?.sourceEntryIds[0] ??
     projectionFields.firstKeptEntryId;
@@ -569,10 +595,7 @@ function buildProjection(
     );
   const tokensBefore =
     projectionFields.tokensBefore ?? estimatedBefore;
-  const context: AgentContext = {
-    systemPrompt: systemPrompt || undefined,
-    messages: contextMessages,
-  };
+  const context: AgentContext = { messages: contextMessages };
 
   return {
     ...context,
@@ -597,7 +620,7 @@ function buildProjection(
       firstKeptEntryId,
     },
     context,
-    usedEntryIds: selectedIds,
+    usedEntryIds: [...systemIds, ...selectedIds],
     omittedEntryIds: omittedIds,
     estimatedTokens: messageTokens,
   };
@@ -652,8 +675,10 @@ function appendCompaction(
   }
   assertNonNegativeInteger(input.tokensBefore, "tokensBefore");
   const branch = pathTo(entries, input.parentId);
+  // system message 不进入摘要，也不被 compaction 覆盖：buildContext 总会重放它们。
   const messageEntries = branch.filter(
-    (entry): entry is MessageEntry => entry.type === "message",
+    (entry): entry is MessageEntry =>
+      entry.type === "message" && !isSystemEntry(entry),
   );
   const groups = groupInteractions(messageEntries);
   const safeStarts = new Set(
@@ -692,8 +717,12 @@ async function compactStore(
 ): Promise<CompactionEntry> {
   const entries = await options.store.entries();
   const branch = pathTo(entries, options.leafId);
-  const messageEntries = branch.filter(
+  const branchMessages = branch.filter(
     (entry): entry is MessageEntry => entry.type === "message",
+  );
+  // 摘要输入与分组都排除 system message。
+  const messageEntries = branchMessages.filter(
+    (entry) => !isSystemEntry(entry),
   );
   const previousCompaction = branch.findLast(
     (entry): entry is SessionCompactionEntry =>
@@ -730,7 +759,7 @@ async function compactStore(
       .slice(0, firstKeptIndex)
       .map((item) => item.id),
     firstKeptEntryId,
-    tokensBefore: messageEntries.reduce(
+    tokensBefore: branchMessages.reduce(
       (sum, item) => sum + defaultEstimate(item.message),
       0,
     ),

@@ -140,7 +140,7 @@ upstream: packages/agent/src/agent-loop.ts
 - `:::mechanism`：关键机制；
 - `:::failure`：预期失败与首次偏差；
 - `:::checkpoint`：验收、恢复和下一状态；
-- `:::pi`：固定上游 commit 的源码对照；
+- `:::pi`：与固定上游 commit（Pi v1.0.0，`a13d35a7`）的源码对照；原固定提交 `8479bd8` 的说法已失效时，写明“8479bd8 时 X，1.0 改为 Y”；
 - `:::transfer`：完成 commit 引导重建后，再减少脚手架的可选 sibling task；
 - `:::note`：必要但非主线的说明。
 
@@ -189,5 +189,11 @@ upstream: packages/agent/src/agent-loop.ts
 - session 是 append-only tree log；context 是从 history 派生的视图。
 - compaction 追加摘要并重建 context，不删除历史。
 - Skill 是被读取的资源；Extension 是可执行代码和信任边界。
-- 当前上游使用 `typebox`；课程可用更小的验证器讲清机制。
+- 当前上游（v1.0.0）使用 `typebox`；课程可用更小的验证器讲清机制。
 - 当前上游 coding tools 没有内建 cwd jail；课程若做 containment，必须标为主动强化。
+- system prompt 是 transcript 的一部分：开头的 system message 是基础 prompt，之后的
+  system message 只做增量（追加说明、按名字替换或删除段落）；重放全部 system message
+  得到当前 prompt。改 prompt 只追加，不改写已有前缀。设计说明见
+  `docs/plans/2026-10-02-pi-1-0-system-messages.md`。
+- 上游 1.0 的 `StopReason` 有七个值（另含 `pending`、`deferred`），工具结果另有
+  `isError`、`structuredContent`；课程只保留五个停止原因和抛错转错误结果的路径。

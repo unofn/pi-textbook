@@ -17,11 +17,12 @@ upstream: packages/coding-agent/src/core/compaction/compaction.ts
 ## 同一段历史会产生一份更短的模型输入
 
 第 10 章最后得到的是一条 active path。这里沿用这个输入接口，但换成一组便于手算预算
-的九条 message entries。表中最后一列是测试估算器给每条消息返回的 token 数，不是真实
-provider 的 tokenizer 结果。
+的十条 message entries：开头一条 system message，后面九条对话。表中最后一列是测试
+估算器给每条消息返回的 token 数，不是真实 provider 的 tokenizer 结果。
 
 | entry id | message | 估算 token |
 |---|---|---:|
+| `sys` | system：基础 prompt `sys` | 3 |
 | `u1` | user：检查 session 恢复逻辑 | 3 |
 | `a1` | assistant：活动路径只恢复选中分支 | 4 |
 | `u2` | user：确认 JSONL 写入边界 | 3 |
@@ -35,7 +36,7 @@ provider 的 tokenizer 结果。
 `calls` 先声明 `read-1`，随后声明 `test-1`。测试先完成，所以 `r-test` 在路径中排在
 `r-read` 前面。每个 result 仍可通过 `toolCallId` 找回自己的 call。
 
-`groupInteractions()` 以 user 消息为起点，把这九条记录分成三组：
+`groupInteractions()` 跳过 `sys`，以 user 消息为起点，把其余九条记录分成三组：
 
 ```text
 group 1 = [u1, a1]
@@ -46,13 +47,18 @@ group 3 = [u3, calls, r-test, r-read, a3]
 第三组包含 user、两个 tool call、两个 result 和最终 assistant。它是预算可以整体保留
 或整体丢弃的最小单位。result 的出现顺序不影响配对，也不会把这一组拆开。
 
-现在把这条活动路径交给 `buildContext()`。例子中的 `maxTokens` 是 31；system prompt
-占 3，回答预留 4，安全余量占 2。消息还剩 22。三组成本依次为 7、7、15，所以函数从
-最新一组向前选择，结果正好保留第二、三组：
+现在把这条活动路径交给 `buildContext()`。例子中的 `maxTokens` 是 31；重放出的 system
+message 占 3，回答预留 4，安全余量占 2。消息还剩 22。三组成本依次为 7、7、15，所以
+函数从最新一组向前选择，结果正好保留第二、三组。返回的 `messages` 依次是：
+
+```text
+system("sys") → u2 → a2 → u3 → calls → r-test → r-read → a3
+```
+
+其余字段是：
 
 ```ts
 {
-  systemPrompt: "sys",
   keptEntryIds: [
     "u2", "a2",
     "u3", "calls", "r-test", "r-read", "a3",
@@ -70,6 +76,7 @@ group 3 = [u3, calls, r-test, r-read, a3]
 }
 ```
 
+`sys` 排在 `messages` 最前面，却不在 `keptEntryIds` 里；它不属于任何一组，后文再解释。
 `u1` 和 `a1` 仍在 session 中，只是没有进入这次模型请求。这里的有限消息数组叫
 context projection，也就是从历史派生出的临时视图。换一个模型窗口或预留量，同一段
 历史可以得到另一份视图。
@@ -77,9 +84,9 @@ context projection，也就是从历史派生出的临时视图。换一个模�
 :::rebuild title="Checkpoint 11 · 从固定 transcript 派生有限上下文"
 **模式：** 重建
 
-**起终点：** `parent` `555162636bf0a8fd6e667e366d0103891cef1d6c` 是第 10 章完成后的起点；
-`target` `5fb517c2012d8e6227c0e17ee65e530e18ac13e6` 是 compaction 记录、上下文投影和
-14 项聚焦测试完成后的终点。
+**起终点：** `parent` `4f5de3800ed6e68561c33ad4a3e753cf524e8495` 是第 10 章完成后的起点；
+`target` `19d902b4e18abd42018f30eb01a47cf04a7119de` 是 compaction 记录、上下文投影和
+15 项聚焦测试完成后的终点。
 
 **教学文件：** `packages/pi-course/src/session.ts`、
 `packages/pi-course/src/context.ts`
@@ -90,6 +97,7 @@ context projection，也就是从历史派生出的临时视图。换一个模�
 
 **动手前只需知道：** user message 开始一个 interaction，直到下一条 user message；
 组内每个 tool call 都由 `toolCallId` 找到唯一 result。预算只在这些完整组之间裁剪。
+system message 不属于任何组，它们被重放成结果最前面的一条。
 
 **第一步：** 先不看 target diff，让 `parseSessionEntry()` 收窄一条正常的 compaction
 记录，并让两种 Store 写入、读回它。预算选择留到后面的 Lab。
@@ -106,8 +114,8 @@ context projection，也就是从历史派生出的临时视图。换一个模�
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/11-*.test.js`
 
-**通过证据：** 14 项测试按 `3/3 → 3/3 → 3/3 → 2/2 → 3/3` 覆盖记录解析、
-交互分组、预算投影、摘要创建和重复恢复。
+**通过证据：** 15 项测试按 `3/3 → 3/3 → 3/3 → 2/2 → 4/4` 覆盖记录解析、
+交互分组、预算投影、摘要创建、重复恢复和跨 compaction 的 system 重放。
 :::
 
 ## 摘要先成为 session 中的一条普通事实
@@ -180,8 +188,10 @@ node --test --test-name-pattern="Lab 11.1" \
 
 ## 两个 tool result 仍属于 `u3` 开始的同一组
 
-`groupInteractions()` 接收活动路径中的 message entries。它遇到 `u1` 时创建第一组，
-遇到 `u2` 时结束第一组并创建第二组，遇到 `u3` 时做同样的事。路径结尾再结算第三组。
+`groupInteractions()` 接收活动路径中的 message entries。它先遇到 `sys`：system
+message 记录的是 prompt 状态，不属于对话中的任何一组，函数直接跳过。随后它遇到 `u1`
+时创建第一组，遇到 `u2` 时结束第一组并创建第二组，遇到 `u3` 时做同样的事。路径结尾
+再结算第三组。system message 出现在两组之间时也一样跳过，不会切开或混入哪一组。
 
 组内的工具事实靠 id 核对。处理 `calls` 时，函数记录 `read-1` 和 `test-1`；处理
 `r-test`、`r-read` 时，它读取各自的 `toolCallId`。所以结果反序出现仍然合法，返回的
@@ -207,7 +217,7 @@ entries 保持原路径顺序：
 **文件：** `packages/pi-course/src/context.ts`
 
 **动作：**
-1. user message 到达时结算上一组并开始新组。
+1. 跳过 system message；user message 到达时结算上一组并开始新组。
 2. 从 assistant content 中收集本组的 tool call id。
 3. 用 `toolCallId` 配对 result，不依赖相邻位置或完成顺序。
 4. 组结束时确认 call/result 完整且唯一。
@@ -233,19 +243,38 @@ node --test --test-name-pattern="Lab 11.2" \
 ```ts
 buildContext(activePath, {
   maxTokens: 31,
-  systemPrompt: "sys",
   reservedOutput: 4,
   safetyMargin: 2,
   estimateTokens,
 });
 ```
 
+选项里没有 prompt 字段。system prompt 已经写在 active path 里，`buildContext()` 自己从
+路径中取出它：
+
+```ts
+function replayedSystemMessage(
+  activePath: readonly SessionEntry[],
+): SystemMessage | undefined {
+  return currentSystemMessage(
+    activePath.flatMap((entry) =>
+      entry.type === "message" ? [entry.message] : []
+    ),
+  );
+}
+```
+
+`currentSystemMessage()` 是第 03 章的重放函数：非空 `content` 依次追加，`sections` 按名字
+覆盖，`null` 删除段落。开篇路径只有 `sys` 一条，重放结果就是它本身。估算器把这条
+重放出的消息当作一条普通消息计价，得到 3，记入 `tokens.system`。路径上没有 system
+message 时，这一项为 0，结果里也没有开头的 system。
+
 这个例子的扣除过程可以直接列成表：
 
 | 项目 | token | 扣除后的消息额度 |
 |---|---:|---:|
 | `maxTokens` | 31 | 31 |
-| system prompt | 3 | 28 |
+| 重放出的 system message | 3 | 28 |
 | `reservedOutput` | 4 | 24 |
 | `safetyMargin` | 2 | 22 |
 
@@ -254,9 +283,20 @@ buildContext(activePath, {
 变成负数。
 
 剩下的 22 从最新组向前使用。第三组成本 15，放得下；加上第二组正好是 22；再加第一
-组会变成 29，于是选择停在 `u2`。`keptEntryIds` 记录原始 entry 的来源，返回的
-`messages` 则是这些 entry 中消息的深副本。计入预算的 `systemPrompt` 也随结果返回，
-第 13 章可以把两者一起交给模型。
+组会变成 29，于是选择停在 `u2`。最后按固定顺序拼出结果：
+
+```ts
+const messages: AgentMessage[] = [
+  ...(systemMessage ? [systemMessage] : []),
+  ...fixedMessages,
+  ...selectedEntries.map((entry) => entry.message),
+];
+```
+
+`fixedMessages` 目前为空，留给后文的压缩摘要。`keptEntryIds` 只记录被选中组的原始
+entry，返回的 `messages` 则是深副本。重放出的 system message 可能由好几条 entry 合成，
+没有一个 entry id 能单独代表它，所以它不进入 `keptEntryIds`。第 13 章把这份
+`messages` 原样交给模型，prompt 已经在里面。
 
 另一个边界仍使用开篇第三组。假设消息额度只有 10，而第三组单独需要 15，函数仍返回
 完整的 `[u3, calls, r-test, r-read, a3]`，并把 reason 设为
@@ -270,10 +310,11 @@ call、result 或终态回答。上层看到这个 reason 后再决定摘要、�
 
 **动作：**
 1. 收窄 max、输出预留、安全余量和估算器返回值。
-2. 计算 system 成本与 `availableForMessages`。
+2. 从整条 active path 重放 system message，估算它的成本，再算 `availableForMessages`。
 3. 调用 `groupInteractions()`，从最新组向前累加成本。
 4. 最新组单独超限时完整保留，并返回 `single_group_overflow`。
-5. 返回 system prompt、消息副本、来源 id、reason 和各项 token 数。
+5. 返回 `[system?, ...保留消息]` 的副本、来源 id、reason 和各项 token 数；system 不进入
+   `keptEntryIds`。
 6. 确认估算器收到的是消息副本，返回结果也不引用 active path。
 7. 删除 Lab 11.3 的显式异常，只运行本段测试。
 
@@ -341,12 +382,12 @@ node --test --test-name-pattern="Lab 11.4" \
 
 ## 恢复时把最新摘要接在保留后缀前面
 
-`compact-1` 追加以后，九条原消息一条也没有删除：
+`compact-1` 追加以后，十条原消息一条也没有删除：
 
 ```text
-u1 → a1 → u2 → a2 → u3 → calls → r-test → r-read → a3 → compact-1
-              ↑                                           │
-              └──── firstKeptEntryId = u2 ────────────────┘
+sys → u1 → a1 → u2 → a2 → u3 → calls → r-test → r-read → a3 → compact-1
+                    ↑                                           │
+                    └──── firstKeptEntryId = u2 ────────────────┘
 ```
 
 新的 `u4 → a4` 可以继续追加在 `compact-1` 后面。下一次调用 `buildContext()` 时，函数从
@@ -356,9 +397,10 @@ u1 → a1 → u2 → a2 → u3 → calls → r-test → r-read → a3 → compac
 2. 从 `u2` 收集原消息，并继续收集 compaction 之后的 `u4`、`a4`；
 3. 跳过 metadata 与 compaction entry，再对消息后缀分组并应用预算。
 
-合成的摘要消息位于返回 messages 的最前面，它有自己的 token 成本。这个成本先从消息
-额度中扣除，余量才交给完整 groups。`keptEntryIds` 只列原 session 中保留的 message
-entries，不为合成消息制造虚假 id。
+结果的顺序是 `[system?, 摘要, ...保留的后缀]`。合成的摘要消息紧跟在重放出的 system
+message 后面，它有自己的 token 成本。这个成本先从消息额度中扣除，余量才交给完整
+groups。`keptEntryIds` 只列原 session 中保留的 message entries，不为合成消息制造虚假
+id。
 
 路径中若已经有 `compact-2`，恢复只读取它。`compact-1` 及更早消息仍在 session 中，
 但不会再生成第二份摘要消息。最新摘要负责接续此前事实；把所有摘要同时放入模型窗口会
@@ -372,8 +414,46 @@ leaf 后面。后续 `buildContext()` 先读取 `compact-2`，再从 `u3` 收集
 又是独立副本：修改第一次返回的摘要文字或工具参数，不会影响第二次构建，也不会改写
 session entries。
 
+### system 状态跨过 compaction 边界
+
+开篇路径里的 `sys` 在 `u2` 之前，按 `compact-1` 的 `firstKeptEntryId`，它属于被摘要
+替代的那一段。若 system message
+也只从保留后缀里收集，恢复后的请求就会丢掉基础 prompt。下面这条路径把问题放大：
+
+```text
+sys      system: content "BASE", sections.rules = "RULE v1"
+u1 → a1
+patch-1  system: sections.rules = "RULE v2"
+u2 → a2                                    ← firstKeptEntryId
+compact-1
+patch-2  system: content "Prefer small diffs."
+u3 → a3
+```
+
+`replayedSystemMessage()` 读取的是整条 active path，包括 compaction 之前的部分。三条
+system message 依次重放，得到：
+
+```ts
+{
+  role: "system",
+  content: "BASE\n\nPrefer small diffs.",
+  sections: { rules: "RULE v2" },
+  timestamp: 1,
+}
+```
+
+它的 `timestamp` 取第一条 system message。返回的 `messages` 依次是这条重放结果、
+压缩摘要、`u2 → a2 → u3 → a3`；`patch-2` 已经折进开头，不再在后缀中原位出现。
+
+compaction 本身不改变 system 状态。摘要消息只由七个字段生成，不携带 prompt 文本；
+system message 也不能成为切点，`createCompactionEntry()` 遇到 `firstKeptEntryId:
+"patch-2"` 会报告它不是完整 interaction 的首条 message。既然 system 状态只由 system
+message 决定，重放整条路径与在压缩边界另存一份快照得到的结果相同，课程因此不给
+compaction entry 增加 system 字段。
+
 :::lab title="实践 11.5 · 从最新摘要恢复并再次压缩"
-**目标：** 让重启、重复构建和第二次 compaction 遵循同一条确定路径。
+**目标：** 让重启、重复构建和第二次 compaction 遵循同一条确定路径，并让 system 状态
+跨过压缩边界。
 
 **文件：** `packages/pi-course/src/context.ts`
 
@@ -383,9 +463,10 @@ session entries。
 3. 按固定字段顺序生成 synthetic user message。
 4. 从 first kept 收集消息，跳过 metadata 和所有 compaction entries。
 5. 先扣摘要消息成本，再复用分组和预算选择。
-6. 重复调用并修改第一次结果，第二次结果与 active path 都应不变。
-7. 在恢复后的路径上创建第二条 compaction，再验证完整组边界。
-8. 删除 Lab 11.5 的显式异常，运行本段和全章测试。
+6. system message 仍从整条 active path 重放，摘要排在它后面。
+7. 重复调用并修改第一次结果，第二次结果与 active path 都应不变。
+8. 在恢复后的路径上创建第二条 compaction，再验证完整组边界。
+9. 删除 Lab 11.5 的显式异常，运行本段和全章测试。
 
 **运行：**
 
@@ -396,7 +477,8 @@ node --test --test-name-pattern="Lab 11.5" \
 node --test packages/pi-course/dist/test/11-*.test.js
 ```
 
-**预期：** 本段 `3/3`，全章 `14/14`。
+**预期：** 本段 `4/4`，全章 `15/15`。第四项就是上面的 `sys → patch-1 → compact-1 →
+patch-2` 路径。
 :::
 
 ## 损坏记录在进入预算前就会被拒绝
@@ -433,16 +515,16 @@ interaction，再核对上一节的四个 id 关系；result 的数组位置、`
 被截成 `r-test、r-read、a3`；`u3` 和声明两个 call 的 `calls` 消失。
 
 聚焦测试期望最新超限组完整返回五条记录，因此 `keptEntryIds` 和角色序列都会立即失败。
-恢复“从最新 group 向前选择”后，Lab 11.3 应回到 `3/3`，全章回到 `14/14`。
+恢复“从最新 group 向前选择”后，Lab 11.3 应回到 `3/3`，全章回到 `15/15`。
 :::
 
-## 14 项测试固定到哪里
+## 15 项测试固定到哪里
 
 这些测试固定了课程实现的确定性规则：严格 compaction schema、两个 Store 的重开、
 user 分组、call/result 配对、固定成本、完整组裁剪、最新组超限、纯创建、最新摘要恢复、
-二次压缩和公开副本隔离。
+二次压缩、跨压缩边界的 system 重放和公开副本隔离。
 
-这 14 项测试把 compaction 固定在四个范围内：
+这 15 项测试把 compaction 固定在四个范围内：
 
 - 预算使用调用者提供的确定性估算器，并扣除本章列出的固定成本。真实 tokenizer、tool
   schema、图片和缓存成本需要由 Provider 层给出另一套估算。
@@ -453,14 +535,29 @@ user 分组、call/result 配对、固定成本、完整组裁剪、最新组超
 - `single_group_overflow` 只报告最新一组无法放入当前窗口。截短工具输出、生成专用摘要、
   换模型、自动触发时机和并发摘要写入都由上层生命周期选择。
 
-:::pi title="与上游 Pi 的固定提交对照"
-固定提交 `8479bd8` 的 coding-agent 也把 compaction 作为 session entry 追加，记录
-`firstKeptEntryId` 和 `tokensBefore`。`buildContextEntries()` 沿当前 leaf 取最新
-compaction，把摘要消息与保留后缀交给模型；早期摘要和已概括前缀仍留在 session。
+:::pi title="与上游 Pi v1.0.0 对照"
+Pi v1.0.0 的 coding-agent 仍把 compaction 作为 session entry 追加，记录
+`firstKeptEntryId` 和 `tokensBefore`（`packages/coding-agent/src/core/compaction/compaction.ts:105-108`）。
+`buildContextEntries()`（`packages/coding-agent/src/core/session-manager.ts:476-512`）沿当前
+leaf 取最新 compaction，把它与保留后缀交给模型；早期摘要和已概括前缀仍留在 session。
+上游的 `summary` 主体仍是字符串，产品压缩代码还能在超大 turn 中间切开，为前缀单独
+生成摘要（`isSplitTurn`，`compaction.ts:427,780`）。课程使用七字段对象，并把整个 user
+interaction 设为不可拆分单位。
 
-上游该提交的 `summary` 主体是字符串，并且产品压缩代码还能为超大 turn 生成前缀摘要。
-课程使用七字段对象，并把整个 user interaction 设为不可拆分单位。课程的严格 parser、
-确定性估算器和 `single_group_overflow` 是教学契约，不能当作上游实现的逐行复刻。
+两边对 system message 的结论一致：它是 prompt 状态，不进入摘要。1.0 在挑选摘要输入时
+过滤掉 system message（`compaction.ts:101`），估算上下文时也只把重放出的当前 system
+message 计一次（`compaction.ts:256-259`），与课程的 `tokens.system` 对应。
+
+做法不同。8479bd8 时 system prompt 在 transcript 之外，compaction entry 也不含 system
+状态；1.0 给 compaction entry 增加
+`systemMessage` 快照，保存压缩边界处完整的 prompt 与工具状态（`session-manager.ts:103`）。
+恢复时这条快照与摘要一起成为开头两条消息（`:461-464`），保留区间里的旧 system message
+被丢弃（`:506`）；compaction 之后的补丁仍按原位置出现，由 provider 层决定原位发送还是
+折叠（`packages/ai/src/utils/transcript.ts:108-123`）。
+这样恢复只需读取 compaction 及其之后的 entry。课程不存快照，而是每次从整条 active path
+重放全部 system message，并把补丁也折进开头那一条。system 状态只由 system message
+决定，在课程只有 `content` 与 `sections` 的范围内，两种做法得到同样的 prompt。课程的严格 parser、确定性估算器和
+`single_group_overflow` 是教学契约，不能当作上游实现的逐行复刻。
 :::
 
 ## 本章验收
@@ -473,12 +570,15 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/11-*.test.js
 ```
 
-结果应为 `14/14`。随后用开篇九条记录说明以下四段数据流：
+结果应为 `15/15`。随后用开篇十条记录说明以下五段数据流：
 
-1. `groupInteractions()` 为什么得到 `[u1,a1]`、`[u2,a2]` 和包含完整工具往返的第三组；
-2. 31 token 预算怎样先扣 system、输出预留和安全余量，再保留第二、三组；
+1. `groupInteractions()` 为什么跳过 `sys`，得到 `[u1,a1]`、`[u2,a2]` 和包含完整工具
+   往返的第三组；
+2. 31 token 预算怎样先扣重放出的 system message、输出预留和安全余量，再保留第二、
+   三组；
 3. `compact-1` 为什么以 `a3` 为 parent、以 `u2` 为 first kept，并且不修改旧记录；
-4. 恢复为什么只生成最新摘要消息，再从 first kept 接上原消息后缀。
+4. 恢复为什么只生成最新摘要消息，再从 first kept 接上原消息后缀；
+5. `sys` 位于被摘要替代的那一段，为什么恢复后的请求仍以它开头。
 
 还要修改一次 `buildContext()` 返回的工具参数，证明 active path 不变；再创建第二条
 compaction，证明下一次恢复只使用最新摘要。重新定位可运行
@@ -499,11 +599,12 @@ compaction，证明下一次恢复只使用最新摘要。重新定位可运行
 
 ## 小结
 
-开篇九条消息始终留在 session 中。`groupInteractions()` 把它们分成三个 user
-interactions，第三组完整保存两个 call、反序到达的两个 result 和终态 assistant。
+开篇十条消息始终留在 session 中。`groupInteractions()` 跳过 `sys`，把其余九条分成三个
+user interactions，第三组完整保存两个 call、反序到达的两个 result 和终态 assistant。
 `buildContext()` 扣除固定成本后，从最新组向前选择，因此 31 token 的例子只把第二、
 三组交给模型。
 
 compaction 把摘要、first kept 和压缩前规模追加成一条新记录。恢复读取活动路径上的
-最新摘要，再接上完整消息后缀；第二次压缩仍然只追加，不删除旧事实。第 12 章会把项目
-资源产生的提示加入这里返回的 `systemPrompt`，继续使用同一个上下文入口。
+最新摘要，再接上完整消息后缀；第二次压缩仍然只追加，不删除旧事实。system message
+始终从整条路径重放，排在摘要之前，不进入任何一组。第 12 章会把项目资源整理成 system
+message 中的一个具名段落，它同样经过这里的重放，继续使用同一个上下文入口。

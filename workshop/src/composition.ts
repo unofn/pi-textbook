@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { Agent, type AgentEvent } from "./agent.js";
+import { Agent, type AgentEvent, type SystemUpdate } from "./agent.js";
 import type { AgentRunResult } from "./agent-loop.js";
 import { createCodingTools, type ContainmentMode } from "./coding-tools.js";
 import {
   activateSkill,
   createExtensionHost,
+  formatResourceContext,
+  RESOURCE_SECTION,
   type ActivatedSkill,
   type ExtensionHost,
   type ResourceCatalog,
@@ -13,6 +15,7 @@ import {
 import {
   InMemorySessionStore,
   JsonlSessionStore,
+  pathTo,
   type SessionEntry,
   type SessionStore,
 } from "./session.js";
@@ -20,9 +23,11 @@ import {
   ToolRegistry,
   type Tool,
 } from "./tool.js";
-import type {
-  AssistantMessage,
-  Model,
+import {
+  currentSystemMessage,
+  type AgentMessage,
+  type AssistantMessage,
+  type Model,
 } from "./types.js";
 
 /**
@@ -55,7 +60,10 @@ export interface RuntimeDeps {
 
 export interface ResolvedRuntimeConfig {
   cwd: string;
+  /** 期望的基础 prompt；只在 transcript 还没有 system message 时写入一次。 */
   systemPrompt?: string;
+  /** 期望的具名段落；资源为空时不含 RESOURCE_SECTION。 */
+  systemSections: Readonly<Record<string, string>>;
   containment: ContainmentMode;
   maxSteps?: number;
   tokenBudget: number;
@@ -64,6 +72,12 @@ export interface ResolvedRuntimeConfig {
 
 export interface Runtime {
   agent: Agent;
+  /**
+   * 产品入口：先把期望的 system 状态与 transcript 重放结果比较，只在有变化时
+   * 通过 agent.prompt(value, { system }) 追加补丁。直接调用 agent.prompt
+   * 会跳过这一步。
+   */
+  prompt(value: string): Promise<AgentRunResult>;
   session: SessionStore;
   resources: ResourceCatalog;
   activatedSkills: readonly ActivatedSkill[];
@@ -104,37 +118,46 @@ function resolveTools(
   });
 }
 
-function composeSystemPrompt(
-  base: string | undefined,
-  resources: ResourceCatalog,
-  activatedSkills: readonly ActivatedSkill[],
-): string | undefined {
-  const index = [
-    ...resources.templates.map(
-      (resource) =>
-        `- template ${resource.name}: ${resource.description || "(无描述)"} [${resource.source}]`,
-    ),
-    ...resources.skills.map(
-      (resource) =>
-        `- skill ${resource.name}: ${resource.description || "(无描述)"} [${resource.source}]`,
-    ),
-  ];
-  const active = activatedSkills.flatMap((item) =>
-    item.skill
-      ? [
-          `## Activated skill: ${item.skill.name}\nSource: ${item.skill.source}\n${item.skill.body}`,
-        ]
-      : [],
+/**
+ * 比较重放出的段落与期望段落，返回 SystemMessage.sections 补丁；
+ * 期望中不存在的段落写 null，没有变化时返回 undefined。
+ */
+export function diffSystemSections(
+  previous: Readonly<Record<string, string | null>>,
+  desired: Readonly<Record<string, string>>,
+): Record<string, string | null> | undefined {
+  const patch: Record<string, string | null> = {};
+  for (const [name, value] of Object.entries(desired)) {
+    if (previous[name] !== value) patch[name] = value;
+  }
+  for (const name of Object.keys(previous)) {
+    if (desired[name] === undefined) patch[name] = null;
+  }
+  return Object.keys(patch).length > 0 ? patch : undefined;
+}
+
+/**
+ * transcript 是事实：还没有 system message 时写入开头一条（基础 prompt + 段落）；
+ * 已有时只为变化的段落生成补丁，基础 prompt 的配置差异被忽略。
+ */
+function planSystemUpdate(
+  messages: readonly AgentMessage[],
+  config: Pick<ResolvedRuntimeConfig, "systemPrompt" | "systemSections">,
+): SystemUpdate | undefined {
+  const current = currentSystemMessage(messages);
+  const hasSections = Object.keys(config.systemSections).length > 0;
+  if (!current) {
+    if (!config.systemPrompt && !hasSections) return undefined;
+    return {
+      content: config.systemPrompt ?? "",
+      ...(hasSections ? { sections: { ...config.systemSections } } : {}),
+    };
+  }
+  const sections = diffSystemSections(
+    current.sections ?? {},
+    config.systemSections,
   );
-  return [
-    base?.trim() ?? "",
-    index.length > 0
-      ? `## Available resources\n${index.join("\n")}`
-      : "",
-    ...active,
-  ]
-    .filter(Boolean)
-    .join("\n\n") || undefined;
+  return sections ? { sections } : undefined;
 }
 
 /**
@@ -163,12 +186,12 @@ export async function createRuntime(
   for (const name of activeSkills) {
     activatedSkills.push(await activateSkill(resources, name));
   }
+  const resourceText = formatResourceContext(resources, activatedSkills);
   const resolvedConfig: ResolvedRuntimeConfig = {
     cwd: path.resolve(config.cwd),
-    systemPrompt: composeSystemPrompt(
-      config.systemPrompt,
-      resources,
-      activatedSkills,
+    systemPrompt: config.systemPrompt?.trim() || undefined,
+    systemSections: Object.freeze<Record<string, string>>(
+      resourceText ? { [RESOURCE_SECTION]: resourceText } : {},
     ),
     containment: config.containment ?? "workspace",
     maxSteps: config.maxSteps,
@@ -185,17 +208,24 @@ export async function createRuntime(
   const createId = injected.createId ?? randomUUID;
   const now = injected.now ?? Date.now;
   const existingEntries = await session.entries();
-  let parentId = existingEntries.at(-1)?.id ?? null;
+  const leaf = existingEntries.at(-1);
+  let parentId = leaf?.id ?? null;
+  // 恢复 active path 上的 transcript；之后只在其后追加，前缀永不改写。
+  const restored = leaf
+    ? pathTo(existingEntries, leaf.id).flatMap((entry) =>
+        entry.type === "message" ? [entry.message] : [],
+      )
+    : [];
 
   const agent = new Agent({
     model: injected.model,
     tools,
     toolExecutor: extensions.executeToolCall,
-    systemPrompt: resolvedConfig.systemPrompt,
+    messages: restored,
     maxSteps: resolvedConfig.maxSteps,
   });
 
-  let persistedMessages = 0;
+  let persistedMessages = restored.length;
   let persistence = Promise.resolve();
   const unsubscribePersistence = agent.subscribe((event) => {
     if (event.type !== "run_end") return;
@@ -219,6 +249,13 @@ export async function createRuntime(
   let disposed = false;
   return {
     agent,
+    prompt(value) {
+      const system = planSystemUpdate(
+        agent.getState().messages,
+        resolvedConfig,
+      );
+      return agent.prompt(value, system ? { system } : {});
+    },
     session,
     resources,
     activatedSkills,
@@ -363,7 +400,7 @@ export async function runMode(
 
   let result: AgentRunResult;
   try {
-    result = await runtime.agent.prompt(prompt);
+    result = await runtime.prompt(prompt);
     await runtime.flush();
   } finally {
     unsubscribe();

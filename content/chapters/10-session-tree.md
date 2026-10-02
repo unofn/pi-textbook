@@ -89,7 +89,7 @@ leaf 无损恢复为模型消息？**
 
 ```text
 第 09 章的完成消息
-  user / assistant / toolResult
+  system / user / assistant / toolResult
           │ 加 id、parentId、timestamp
           ▼
 第 10 章的会话记录
@@ -98,6 +98,10 @@ leaf 无损恢复为模型消息？**
           ▼
 active path → AgentMessage[]
 ```
+
+第 09 章把 system prompt 写进了 transcript：开头一条基础 prompt，之后每次修改追加一条
+补丁。它们也是完成消息，所以和 user、assistant 一样保存为 `message` entry，不需要新的
+entry 类型。
 
 第 11 章才会从这条真实路径派生较短的模型上下文。当前 checkpoint 的 entry union 因此
 只有 `message` 和 `metadata` 两种成员；compaction entry 留到下一章，由压缩需求引入。
@@ -118,9 +122,9 @@ TypeScript 编译，但每段行为都还没有实现。
 
 **模式：** 重建
 
-**起终点：** `parent` `d055d832cec5b95b0d5c7bdc46e6dc689d846ad0` 是第 09 章
-完成后的起点；`target` `555162636bf0a8fd6e667e366d0103891cef1d6c` 是会话树与
-14 项聚焦测试通过的终点。
+**起终点：** `parent` `04542692f3439865d8bd704badb23cea495a7beb` 是第 09 章
+完成后的起点；`target` `4f5de3800ed6e68561c33ad4a3e753cf524e8495` 是会话树与
+15 项聚焦测试通过的终点。
 
 **教学文件：** `packages/pi-course/src/session.ts`
 
@@ -143,7 +147,7 @@ root 的 `parentId` 为 `null`。`pathTo()` 从调用者给出的 leaf 选择路
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/10-*.test.js`。
 
-**通过证据：** 14 项测试按 `2/2 → 2/2 → 2/2 → 3/3 → 3/3 → 2/2` 检查路径、外部
+**通过证据：** 15 项测试按 `2/2 → 3/3 → 2/2 → 3/3 → 3/3 → 2/2` 检查路径、外部
 数据收窄、内存副本、JSONL 恢复、writer 状态和消息投影。
 
 第一次尝试先不看 target diff。卡住时只比较当前 Lab 的输入、输出与第一次偏差，不把
@@ -260,7 +264,7 @@ entry a-read
 | --- | --- |
 | entry base | 非空 `id`；`parentId` 为非空字符串或 `null`；有限 `timestamp` |
 | entry 类型 | 当前 checkpoint 只接受 `message`、`metadata` |
-| message | 完整的 `user`、`assistant` 或 `toolResult` |
+| message | 完整的 `system`、`user`、`assistant` 或 `toolResult` |
 | metadata value | `null`、布尔、字符串、有限数、这些值组成的数组或普通对象 |
 | object 字段 | 接受该结构声明的字段；遇到拼错或未知字段就在当前路径报错 |
 
@@ -273,6 +277,24 @@ entry a-read
 因此 metadata 中的 object 要有普通对象的 prototype，数组中的每个位置都有实际值，
 数值保持有限，并且嵌套值能继续通过同一检查。Lab 10.2 的测试证据再覆盖完整的非法值
 矩阵；正文先用上面三个可观察结果说明这条边界为何存在。
+
+system message 的检查最短，却有一处容易写错。第 09 章的补丁
+`{ content: "", sections: { rules: "RULE v2", scratch: null } }` 落盘后，`scratch: null`
+表示“删除这个段落”。解析器若把 `null` 当作缺失值丢掉，重放时 `scratch` 就会留在
+prompt 里。所以 `systemMessageAt()` 只接受 `role`、`content`、`sections`、`timestamp`
+四个字段，并逐个检查段落值：
+
+```ts
+if (value !== null && typeof value !== "string") {
+  throw new Error(
+    `${label}.sections.${name} 必须是 string 或 null`,
+  );
+}
+parsed[name] = value;
+```
+
+`content` 必须是字符串，空串也合法；没有 `sections` 的 system message 解析后也不会多出
+一个空对象。
 
 解析成功后返回新对象。这样 `parseSessionEntry()` 同时完成两件事：证明形状符合协议，
 并切断外部对象对内部记录的可变引用。
@@ -287,7 +309,8 @@ entry a-read
 
 1. 先验证普通 JSON object、精确字段、非空字符串与有限数。
 2. 分别解析 `message` 和 `metadata`，未知 entry type 立即失败。
-3. 逐层解析三种 `AgentMessage` 及其 content block、usage 和 tool details。
+3. 逐层解析四种 `AgentMessage` 及其 content block、usage 和 tool details。
+   system message 的 `content` 是字符串，`sections` 的值只能是字符串或 `null`。
 4. 递归验证 JSON-safe 值，并检测循环引用和数组空洞。
 5. 让错误路径指出失败字段，例如 `session entry a-read.message.content[0]`。
 6. 返回深副本，删除 Lab 10.2 的显式异常。
@@ -300,7 +323,8 @@ node --test --test-name-pattern="Lab 10.2" \
   packages/pi-course/dist/test/10-*.test.js
 ```
 
-**预期：** `2/2`。一项接受完整 message 与 metadata；另一项覆盖错误 role、未知字段、
+**预期：** `3/3`。第一项接受完整 message 与 metadata；第二项接受基础 prompt、带
+`null` 的补丁和不带 `sections` 的 system message；第三项覆盖错误 role、未知字段、
 非有限数、非 JSON 值、循环引用和返回副本。
 
 :::
@@ -553,6 +577,9 @@ entries + "meta-cwd"
 `details`。若先调用有损的 `textOf()`，下一次模型调用就无法知道 `call-1` 的请求和结果
 如何配对。
 
+路径上若有 system message，它们按原位置留在结果里，和 user、assistant 一样是普通消息。
+把它们重放成一条开头 system 是第 11 章 `buildContext()` 的工作。
+
 `pathTo()` 已经返回 entry 深副本，`messagesOnPath()` 仍应保证公开结果不与输入共享嵌套
 对象。测试会修改返回的 tool arguments 和 result details，再次投影时仍应得到原值。
 
@@ -580,7 +607,7 @@ node --test --test-name-pattern="Lab 10.6" \
 node --test packages/pi-course/dist/test/10-*.test.js
 ```
 
-**预期：** 本段 `2/2`，全章 `14/14`。第一项覆盖 active branch、sibling 与 metadata；
+**预期：** 本段 `2/2`，全章 `15/15`。第一项覆盖 active branch、sibling 与 metadata；
 第二项覆盖完整 tool call/result 和返回副本。
 
 :::
@@ -597,15 +624,16 @@ node --test packages/pi-course/dist/test/10-*.test.js
 
 错误实现会把下一条 JSON 接到半行后面。重开时，原本的 `unterminated_tail` 可能变成
 以换行结束的坏行，连 committed prefix 都无法正常恢复。恢复 `tainted` 状态后，本段应
-回到 `3/3`，全章回到 `14/14`。
+回到 `3/3`，全章回到 `15/15`。
 
 :::
 
-## 14 项测试证明到哪里
+## 15 项测试证明到哪里
 
 这些测试证明：单个 Store 实例按调用顺序工作；输入与输出使用深副本；指定路径能诊断
-重复 id、缺 parent 与环；JSONL 能区分 committed bad line 和非空白 unterminated tail；一次
-可能半写的 I/O 失败会让当前 writer 停止。
+重复 id、缺 parent 与环；system 补丁中的 `null` 段落经过解析仍然保留；JSONL 能区分
+committed bad line 和非空白 unterminated tail；一次可能半写的 I/O 失败会让当前 writer
+停止。
 
 这些证据把 Store 固定在三个范围内：
 
@@ -616,16 +644,28 @@ node --test packages/pi-course/dist/test/10-*.test.js
 - `pathTo()` 验证指定 leaf 的祖先链，不扫描所有未选分支，也不承担超大文件的资源治理。
   Agent 接线、compaction 与 token budget 会在后续章节加入。
 
-:::pi title="与上游 Pi 的固定提交对照"
+:::pi title="与上游 Pi v1.0.0 对照"
 
-固定提交 `8479bd8` 的 `packages/coding-agent/src/core/session-manager.ts` 同样使用 `id`、
+Pi v1.0.0 的 `packages/coding-agent/src/core/session-manager.ts` 同样使用 `id`、
 `parentId` 和 leaf 表达历史树，从旧节点 branch 时继续追加。产品格式还包含 header、
-版本、compaction、模型变化、label 与扩展数据。
+版本（仍为 3，`session-manager.ts:41`）、compaction、模型变化、label 与扩展数据。
 
-课程 checkpoint 没有照搬上游全部容错细节。该固定提交会跳过部分无法解析的行，路径
-构造也不负责诊断重复 id、缺 parent 或环。本章采用自己的可执行契约：换行结束的坏行
-立即失败，指定路径必须可验证，公开返回值使用深副本。这些保证属于课程契约，不代表
-固定上游提交已经提供同样行为。
+system message 在 1.0 中同样只是 `message` entry，`SessionEntry` union 里没有专门的
+system 类型（`session-manager.ts:183-194`）。`packages/coding-agent/docs/session-format.md`
+的 message 一节说明：会话第一次请求写入完整 prompt，之后的变化作为补丁 system message
+追加，重放它们就得到当前 prompt。上游的 system message 还可以携带 `toolsAdded`、
+`toolsRemoved`，`content` 也可以是 text block 数组（`packages/ai/src/types.ts:522-538`）；
+课程只保留字符串 `content` 和 `sections`，解析器会拒绝其余字段，这是课程简化。
+
+1.0 另外新增了 `usage` entry（`:81`）、`context_edit` entry（`:176`）和
+`CompactionEntry.systemMessage`（`:103`）。课程不实现它们，第 11 章再说明最后一个字段
+与课程做法的差别。
+
+课程 checkpoint 没有照搬上游全部容错细节。1.0 仍会跳过无法解析的行（`:355-367`），
+`buildSessionPath()` 也不诊断重复 id、缺 parent 或环；leaf 找不到时，它退回到最后一条
+entry（`:390-415`）。本章采用自己的可执行契约：换行结束的坏行立即失败，指定路径必须
+可验证，system 段落值逐个校验，公开返回值使用深副本。这些保证属于课程主动强化，不代表
+上游已经提供同样行为。
 
 :::
 
@@ -636,7 +676,7 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/10-*.test.js
 ```
 
-结果应为 `14/14`。随后用开头那棵树逐项说明：
+结果应为 `15/15`。随后用开头那棵树逐项说明：
 
 1. 为什么追加 `a-alt` 不会覆盖 `a-read → r-read → a-final`。
 2. 为什么 `meta-cwd` 在 active path 上，却不进入 `AgentMessage[]`。
@@ -650,8 +690,8 @@ node --test packages/pi-course/dist/test/10-*.test.js
 **完成状态：** `u-1` 下的两个分支都保留；选择 `meta-cwd` 时，只恢复
 `u-1 → a-read → r-read → a-final` 四条完整消息。
 
-**观察证据：** 六段聚焦测试依次为 `2/2、2/2、2/2、3/3、3/3、2/2`，全章
-`14/14`；半写故障注入会准确打红，恢复 fail-closed 后回绿。
+**观察证据：** 六段聚焦测试依次为 `2/2、3/3、2/2、3/3、3/3、2/2`，全章
+`15/15`；半写故障注入会准确打红，恢复 fail-closed 后回绿。
 
 **责任边界：** parser 负责外部数据，Store 负责快照与顺序，JSONL 换行负责提交边界，
 调用者提供 leaf，`pathTo()` 与 `messagesOnPath()` 负责恢复当前对话。
@@ -663,7 +703,7 @@ node --test packages/pi-course/dist/test/10-*.test.js
 
 :::transfer title="陪练迁移 · 统计另一条 active path"
 
-完成 `14/14` 后，自己写一个纯函数：输入 entries 与 leaf id，返回路径深度、消息数、
+完成 `15/15` 后，自己写一个纯函数：输入 entries 与 leaf id，返回路径深度、消息数、
 tool call 数和错误 toolResult 数。让陪练先给验收例子，不直接给实现。
 
 例子至少包含纯文本路径、成功工具往返、错误 toolResult 和 sibling leaves。函数必须复用
@@ -676,15 +716,17 @@ tool call 数和错误 toolResult 数。让陪练先给验收例子，不直接�
 
 一份 session 同时有两种顺序：JSONL 保存追加顺序，`parentId` 保存逻辑关系。调用者给出
 leaf，`pathTo()` 才能恢复 active path；`messagesOnPath()` 再跳过 metadata，保留完整的
-user、assistant 与 toolResult。
+system、user、assistant 与 toolResult。
 
-外部 JSON 要从 `unknown` 逐层收窄。Store 在 `append()` 调用时取得快照，在公开读取时
+外部 JSON 要从 `unknown` 逐层收窄，system message 也一样：段落值只能是字符串或表示
+删除的 `null`。Store 在 `append()` 调用时取得快照，在公开读取时
 返回新副本，并用 FIFO 让 parent 先于 child 提交。JSONL 的换行是提交标记：非空白的
 无换行尾部只读恢复，换行结束的坏行立即失败。一次底层 append 失败可能已经写出半行，所以当前
 writer 进入 `tainted`，不再碰文件。
 
 下一章会把 `pathTo()` 返回的 active path 交给 `buildContext()`。它读取路径上最新的
-compaction，把摘要转换成一条合成消息；metadata 与 compaction entry 本身不进入模型
-消息。随后函数按完整 interaction 选择原始 message entries，返回消息的深副本，并在
-`keptEntryIds` 中记录这些消息对应的 source entry id。整个投影只读 active path，原始
+compaction，把摘要转换成一条合成消息；路径上的全部 system message 重放成最前面的一条；
+metadata 与 compaction entry 本身不进入模型消息。随后函数按完整 interaction 选择原始
+message entries，返回消息的深副本，并在 `keptEntryIds` 中记录这些消息对应的 source
+entry id。整个投影只读 active path，原始
 session 仍是 append-only，不会为了缩短上下文而改写过去。

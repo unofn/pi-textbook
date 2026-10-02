@@ -463,11 +463,17 @@ signal 已预取消   → error(reason="aborted", errorMessage="Request was abor
 生产日志。网络中的时间间隔、背压和中途取消会由下一章的 transport 接手。
 :::
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/ai/src/providers/faux.ts` 提供更丰富的确定性 provider，
-可以生成内容、usage、错误和取消事件。课程版把范围缩到两个对象：按 cursor 消费的
-`ScriptedTurn[]`，以及按调用保存的 `requests[]`。两者都遵守真实 provider 使用的流
-协议，因此上层消费者不需要 `if (model is fake)` 分支。
+:::pi title="与上游 Pi v1.0.0 对照"
+1.0 的 `packages/ai/src/providers/faux.ts` 仍是更丰富的确定性 provider，可以生成内容、
+usage、错误和取消事件（例如 `:348-351` 在 signal 已取消时推出 `aborted` 终态）。两处与
+8479bd8 时不同。8479bd8 时脚本工厂收到带 `systemPrompt` 字段的 `Context`，1.0 改为
+`TranscriptContext`（`packages/ai/src/types.ts:746`），只有 `messages`，system prompt 以
+system message 的形式在其中。1.0 还能模拟延迟请求，产生 `stopReason: "deferred"`
+（`faux.ts:302`），课程不涉及。
+
+课程版把范围缩到两个对象：按 cursor 消费的 `ScriptedTurn[]`，以及按调用保存的
+`requests[]`。两者都遵守真实 provider 使用的流协议，因此上层消费者不需要
+`if (model is fake)` 分支。
 :::
 
 ## Checkpoint 04 验收

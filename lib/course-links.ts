@@ -1,4 +1,4 @@
-export const COURSE_REPOSITORY_URL = "https://github.com/hahhforest/pi";
+export const COURSE_REPOSITORY_URL = "https://github.com/unofn/pi";
 export const UPSTREAM_REPOSITORY_URL = "https://github.com/earendil-works/pi";
 
 export function courseBranchUrl(branch: string): string {

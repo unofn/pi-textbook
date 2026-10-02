@@ -23,7 +23,7 @@ npm run build
 
 ```bash
 git clone --branch course/build-your-own-pi \
-  https://github.com/hahhforest/pi.git /path/to/pi
+  https://github.com/unofn/pi.git /path/to/pi
 
 PI_COURSE_ROOT=/path/to/pi npm run history:verify
 ```
@@ -33,6 +33,8 @@ PI_COURSE_ROOT=/path/to/pi npm run history:verify
 ```bash
 PI_COURSE_ROOT=/path/to/pi npm run history:sync
 ```
+
+`history:sync` 默认读取课程仓库的 `course/build-your-own-pi` 分支；要从别的分支同步，设置 `PI_COURSE_BRANCH`，例如 `PI_COURSE_BRANCH=course/build-your-own-pi-1.0 npm run history:sync`。
 
 未设置 `PI_COURSE_ROOT` 时，脚本为本地开发便利仍会尝试默认位置 `../pi-course`；这只是默认值，不是公开仓库结构的一部分。
 

@@ -421,11 +421,16 @@ Agent Loop 已经出现后处理；这里不提前引入调度规则。
 过程增加可执行证据。
 :::
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/agent/src/types.ts` 与
-`packages/ai/src/types.ts` 使用带标签的联合类型表达消息和事件，并通过 `import type`
-连接只存在于编译期的类型。课程用四个 `DemoEvent` 练习同一组语言机制，没有复制
-上游的 Provider 字段、复杂泛型和完整运行时验证。
+:::pi title="与上游 Pi v1.0.0 对照"
+上游同样用带标签的联合类型表达消息和事件：`packages/ai/src/types.ts:610` 的 `Message`
+按 `role` 区分，`:767` 的 `AssistantMessageEvent` 按 `type` 区分；
+`packages/agent/src/types.ts:374` 的 `AgentMessage` 与 `:514` 的 `AgentEvent` 在此之上扩展。
+`packages/agent/src/types.ts:1` 起的 `import type` 连接只存在于编译期的类型。8479bd8 时
+`Message` 只有 user、assistant、toolResult 三种成员，1.0 增加了 `SystemMessage`
+（`packages/ai/src/types.ts:522`），system prompt 从此作为消息留在 transcript 里，第 03 章
+会讲这一点。
+课程用四个 `DemoEvent` 练习同一组语言机制，没有复制上游的 Provider 字段、复杂泛型和
+完整运行时验证。
 :::
 
 ## 完成正常路径后的诊断实验

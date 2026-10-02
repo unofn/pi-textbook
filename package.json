@@ -7,10 +7,10 @@
   "author": "Chunhao Zhang",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hahhforest/pi-textbook.git"
+    "url": "git+https://github.com/unofn/pi-textbook.git"
   },
   "bugs": {
-    "url": "https://github.com/hahhforest/pi-textbook/issues"
+    "url": "https://github.com/unofn/pi-textbook/issues"
   },
   "engines": {
     "node": ">=22.13.0"

@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://build-your-own-pi-cn.enochzhang.chatgpt.site">Read the textbook in Chinese</a>
-  · <a href="https://github.com/hahhforest/pi/tree/course/build-your-own-pi/packages/pi-course">Course code</a>
+  · <a href="https://github.com/unofn/pi/tree/course/build-your-own-pi/packages/pi-course">Course code</a>
 </p>
 
 <p align="center">
@@ -58,7 +58,7 @@ The 15 checkpoints follow one Agent execution path. First you establish messages
 Open the [online textbook](https://build-your-own-pi-cn.enochzhang.chatgpt.site), currently available in Chinese, or run it locally:
 
 ```bash
-git clone https://github.com/hahhforest/pi-textbook.git
+git clone https://github.com/unofn/pi-textbook.git
 cd pi-textbook
 npm install
 npm run dev
@@ -68,15 +68,15 @@ npm run dev
 
 | Repository | Purpose |
 | --- | --- |
-| [`pi-textbook`](https://github.com/hahhforest/pi-textbook) | The textbook website and its source code |
-| [The `pi` course branch](https://github.com/hahhforest/pi/tree/course/build-your-own-pi) | Runnable code for all 15 checkpoints, located under `packages/pi-course/` |
+| [`pi-textbook`](https://github.com/unofn/pi-textbook) | The textbook website and its source code |
+| [The `pi` course branch](https://github.com/unofn/pi/tree/course/build-your-own-pi) | Runnable code for all 15 checkpoints, located under `packages/pi-course/` |
 
-The course branch is based on upstream commit `8479bd84` and contains commits `course(00)` through `course(14)`. The `pi-course-v1` and `course-v1/00` through `course-v1/14` tags preserve the course's first release.
+The course branch is based on upstream Pi v1.0.0 (`a13d35a7`) and contains commits `course(00)` through `course(14)`, rewritten for Pi 1.0's system message model (see `docs/plans/2026-10-02-pi-1-0-system-messages.md`). The first release was based on upstream `8479bd84`; the `pi-course-v1` and `course-v1/00` through `course-v1/14` tags preserve it.
 
 ## Practice with an Agent
 
 ```bash
-git clone --branch course/build-your-own-pi https://github.com/hahhforest/pi.git
+git clone --branch course/build-your-own-pi https://github.com/unofn/pi.git
 cd pi
 npm install
 npm run checkpoint -w @pi/course -- 05

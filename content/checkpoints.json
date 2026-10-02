@@ -1,8 +1,8 @@
 [
   {
     "id": "00",
-    "commit": "f9798b7ce690abeca3539e3410e5f402bc65862d",
-    "parentCommit": "8479bd84743e8889f728acb21a62794102db0529",
+    "commit": "3a295225ab38797709387c36ac52d41409ccefee",
+    "parentCommit": "a13d35a742c6ef8462812a28fbe1d8c8b7431c32",
     "subject": "course(00): observe a complete offline agent trace",
     "sourceDelta": [
       "packages/pi-course/src/demo/prologue.ts"
@@ -15,8 +15,8 @@
   },
   {
     "id": "01",
-    "commit": "a4d35a1b630b196dd38a95033ed18d6cbdf309bf",
-    "parentCommit": "f9798b7ce690abeca3539e3410e5f402bc65862d",
+    "commit": "81ffb806112017b9629f031a4493a054771b3170",
+    "parentCommit": "3a295225ab38797709387c36ac52d41409ccefee",
     "subject": "course(01): establish TypeScript protocol evidence",
     "sourceDelta": [
       "packages/pi-course/src/survival/events.ts"
@@ -29,8 +29,8 @@
   },
   {
     "id": "02",
-    "commit": "febad6212da194f10bb5395429a61c672060f75a",
-    "parentCommit": "a4d35a1b630b196dd38a95033ed18d6cbdf309bf",
+    "commit": "20c59dbc2c7bbc296964f9bf133510fd6f945ded",
+    "parentCommit": "81ffb806112017b9629f031a4493a054771b3170",
     "subject": "course(02): make model time an explicit EventStream",
     "sourceDelta": [
       "packages/pi-course/src/event-stream.ts"
@@ -43,8 +43,8 @@
   },
   {
     "id": "03",
-    "commit": "f14e72ada045ccd3d6dc5d1b5054dc3604e1c3dc",
-    "parentCommit": "febad6212da194f10bb5395429a61c672060f75a",
+    "commit": "d96f9b49d2073bac2d775640f6904fdd3ebade4d",
+    "parentCommit": "20c59dbc2c7bbc296964f9bf133510fd6f945ded",
     "subject": "course(03): define the canonical message IR",
     "sourceDelta": [
       "packages/pi-course/src/event-stream.ts",
@@ -53,13 +53,15 @@
     "focusedTest": "packages/pi-course/test/03-message-ir.test.ts",
     "testTitles": [
       "文本投影有损，但不修改 canonical content",
-      "error 也是协议终态，result resolve 最终消息"
+      "error 也是协议终态，result resolve 最终消息",
+      "system message 按顺序重放：content 追加、sections 覆盖与 null 删除",
+      "systemMessageText 按 content、sections 顺序拼接并跳过空串"
     ]
   },
   {
     "id": "04",
-    "commit": "f471390720ffae304c407b2de07b75bbbf7a1b97",
-    "parentCommit": "f14e72ada045ccd3d6dc5d1b5054dc3604e1c3dc",
+    "commit": "92ed28ced4cbb5f9396b7caf7771e542956e3c29",
+    "parentCommit": "d96f9b49d2073bac2d775640f6904fdd3ebade4d",
     "subject": "course(04): turn model behavior into executable scripts",
     "sourceDelta": [
       "packages/pi-course/src/scripted-model.ts"
@@ -73,8 +75,8 @@
   },
   {
     "id": "05",
-    "commit": "e6d3058a12632b17dc50000ac0ab89b573f07ab0",
-    "parentCommit": "f471390720ffae304c407b2de07b75bbbf7a1b97",
+    "commit": "035d7c91d14df631a304bd0cd7def00c78a3cb02",
+    "parentCommit": "92ed28ced4cbb5f9396b7caf7771e542956e3c29",
     "subject": "course(05): isolate the real provider streaming boundary",
     "sourceDelta": [
       "packages/pi-course/src/provider-adapter.ts",
@@ -84,6 +86,7 @@
     "testTitles": [
       "normalized transport 经 adapter 保留首次出现顺序，并累计完整 partial",
       "出站转换只在 adapter 边界完成 canonical 到 wire role 映射",
+      "多条 system message 在出线时折叠成一条开头 system，中途的不进入 wire",
       "normalized transport 异常保留 partial 并进入 error",
       "normalized transport 的 length 保留原始 arguments",
       "fetch transport 发出完整请求且不把 API key 写进 JSON body",
@@ -97,8 +100,8 @@
   },
   {
     "id": "06",
-    "commit": "f27c7a552b1e6087de4c99daf561fbfc80b7d786",
-    "parentCommit": "e6d3058a12632b17dc50000ac0ab89b573f07ab0",
+    "commit": "14ae333e363ccc42972407e6a0bbf4c5da085d46",
+    "parentCommit": "035d7c91d14df631a304bd0cd7def00c78a3cb02",
     "subject": "course(06): make tool execution a closed contract",
     "sourceDelta": [
       "packages/pi-course/src/tool.ts"
@@ -113,8 +116,8 @@
   },
   {
     "id": "07",
-    "commit": "f33bd46e65bf07ffc230a914e0aa3b6c1ae56571",
-    "parentCommit": "f27c7a552b1e6087de4c99daf561fbfc80b7d786",
+    "commit": "bf8e846724d4a533c08c94e32b5809d2845776ec",
+    "parentCommit": "14ae333e363ccc42972407e6a0bbf4c5da085d46",
     "subject": "course(07): close the Agent feedback loop",
     "sourceDelta": [
       "packages/pi-course/src/agent-loop.ts"
@@ -122,6 +125,7 @@
     "focusedTest": "packages/pi-course/test/07-agent-loop.test.ts",
     "testTitles": [
       "Lab 7.1 · 纯文本 stop 保留输入并完整传递模型 context",
+      "Lab 7.2 · loop 从不写入 system message：transcript 只追加，请求以调用方 messages 为前缀",
       "Lab 7.2 · 单工具往返传递 signal/progress 并完整回填下一请求",
       "Lab 7.3 · 非执行终态：length、error 与 aborted 的 calls 全部跳过并逐一配对",
       "Lab 7.3 · 非执行终态：stop 夹带 call 与 toolUse 无 call 都以协议 error 结束",
@@ -134,8 +138,8 @@
   },
   {
     "id": "08",
-    "commit": "6b3b1b77fbdd0790926ceea4bce443c99f6e8cf8",
-    "parentCommit": "f33bd46e65bf07ffc230a914e0aa3b6c1ae56571",
+    "commit": "c9256277efc97a2460f15633d63a17d8e13843c1",
+    "parentCommit": "bf8e846724d4a533c08c94e32b5809d2845776ec",
     "subject": "course(08): let tools touch files and processes safely",
     "sourceDelta": [
       "packages/pi-course/src/coding-tools.ts"
@@ -158,8 +162,8 @@
   },
   {
     "id": "09",
-    "commit": "d055d832cec5b95b0d5c7bdc46e6dc689d846ad0",
-    "parentCommit": "6b3b1b77fbdd0790926ceea4bce443c99f6e8cf8",
+    "commit": "04542692f3439865d8bd704badb23cea495a7beb",
+    "parentCommit": "c9256277efc97a2460f15633d63a17d8e13843c1",
     "subject": "course(09): add the stateful Agent lifecycle",
     "sourceDelta": [
       "packages/pi-course/src/agent-loop.ts",
@@ -171,6 +175,7 @@
       "Lab 9.1 · reducer 忽略不属于当前 run 的迟到事件",
       "Lab 9.2 · busy guard 拒绝并行 prompt，顺序运行共享 transcript",
       "Lab 9.2 · run_end listener 启动的新运行不受旧 cleanup 影响",
+      "Lab 9.2 · systemPrompt 成为开头 system message，prompt 的 system 补丁只追加在用户消息之前",
       "Lab 9.3 · state 先更新再通知，坏 subscriber 与 unsubscribe 互不干扰",
       "Lab 9.3 · state、subscriber event 与 prompt result 不共享可变引用",
       "Lab 9.4 · 预取消只产生一个 run_end，下一次 prompt 使用新 controller",
@@ -182,8 +187,8 @@
   },
   {
     "id": "10",
-    "commit": "555162636bf0a8fd6e667e366d0103891cef1d6c",
-    "parentCommit": "d055d832cec5b95b0d5c7bdc46e6dc689d846ad0",
+    "commit": "4f5de3800ed6e68561c33ad4a3e753cf524e8495",
+    "parentCommit": "04542692f3439865d8bd704badb23cea495a7beb",
     "subject": "course(10): persist history with a fail-closed session log",
     "sourceDelta": [
       "packages/pi-course/src/session.ts"
@@ -193,6 +198,7 @@
       "Lab 10.1 · pathTo 选择分支，只诊断所选祖先链",
       "Lab 10.1 · pathTo 全局拒绝重复 id，并返回深副本",
       "Lab 10.2 · parseSessionEntry 收窄两种 entry，并复制嵌套 payload",
+      "Lab 10.2 · parseSessionEntry 接受 system message 并校验 sections",
       "Lab 10.2 · parseSessionEntry 拒绝未知形状和非 JSON-safe 数据",
       "Lab 10.3 · InMemory append 在调用时取快照，并按 FIFO 提交",
       "Lab 10.3 · InMemory 拒绝缺失 parent 和重复 id，失败不污染队列",
@@ -208,8 +214,8 @@
   },
   {
     "id": "11",
-    "commit": "5fb517c2012d8e6227c0e17ee65e530e18ac13e6",
-    "parentCommit": "555162636bf0a8fd6e667e366d0103891cef1d6c",
+    "commit": "19d902b4e18abd42018f30eb01a47cf04a7119de",
+    "parentCommit": "4f5de3800ed6e68561c33ad4a3e753cf524e8495",
     "subject": "course(11): project bounded context from immutable history",
     "sourceDelta": [
       "packages/pi-course/src/context.ts",
@@ -230,13 +236,14 @@
       "Lab 11.4 · createCompactionEntry 只接受完整 interaction 的首条 message",
       "Lab 11.5 · 恢复只用最新 compaction 摘要，并从 firstKept 保留后缀",
       "Lab 11.5 · 多次 compaction 只读取最新一条，重复构建结果确定且隔离",
-      "Lab 11.5 · 恢复后的路径可以再次压缩，预算仍只截完整 group"
+      "Lab 11.5 · 恢复后的路径可以再次压缩，预算仍只截完整 group",
+      "Lab 11.5 · system message 从整条 active path 重放，不进入 interaction 与摘要"
     ]
   },
   {
     "id": "12",
-    "commit": "03541892bcd533444af599d1813401f79807de3c",
-    "parentCommit": "5fb517c2012d8e6227c0e17ee65e530e18ac13e6",
+    "commit": "eeeafcc13ab0d00bc55bfd4871f6b18a8f1af3f7",
+    "parentCommit": "19d902b4e18abd42018f30eb01a47cf04a7119de",
     "subject": "course(12): load resources and isolate extensions",
     "sourceDelta": [
       "packages/pi-course/src/resources.ts"
@@ -249,7 +256,7 @@
       "Lab 12.2 · activateSkill 显式读取 root 内文件并返回每个来源",
       "Lab 12.2 · activateSkill 用 realpath 拒绝 traversal、绝对路径和 symlink 逃逸",
       "Lab 12.3 · renderTemplate 使用唯一占位协议并返回 UserMessage",
-      "Lab 12.3 · formatResourceContext 只生成 systemPrompt，并接入唯一 buildContext",
+      "Lab 12.3 · formatResourceContext 只生成资源段落，经 system message 接入唯一 buildContext",
       "Lab 12.4 · trust gate 严格发生在 import 之前",
       "Lab 12.4 · factory 使用 staging registration，失败或重名都零残留",
       "Lab 12.5 · before deny 生成配对 error result，core 不执行",
@@ -259,8 +266,8 @@
   },
   {
     "id": "13",
-    "commit": "1caf1082b3f92504346bbeda969e4cfbb0f8f636",
-    "parentCommit": "03541892bcd533444af599d1813401f79807de3c",
+    "commit": "1d16a6e728186cee93ac3d5bd85e1a3eced0b0a8",
+    "parentCommit": "eeeafcc13ab0d00bc55bfd4871f6b18a8f1af3f7",
     "subject": "course(13): assemble one durable runtime",
     "sourceDelta": [
       "packages/pi-course/src/agent.ts",
@@ -274,6 +281,7 @@
       "Lab 13.2 · context adapter 先扣固定成本，再只保留完整的最近 interaction",
       "Lab 13.2 · context adapter 保留 tools 与 signal，同时隔离 inner model 的输入",
       "Lab 13.3 · Runtime 接通 resources 与 extension，并等持久化后串行 resolve",
+      "Lab 13.3 · system 只在变化时打补丁，恢复后以 transcript 的基础 prompt 为准，已持久化前缀不改写",
       "Lab 13.3 · 只追加恢复历史之后的新 suffix，写入失败后 Runtime poison",
       "Lab 13.3 · flush 等待当前队列，dispose 等待落盘并永久关闭 prompt",
       "Lab 13.4 · interactive 与 print 都只调用一次 Runtime.prompt，并写最终文本",
@@ -282,8 +290,8 @@
   },
   {
     "id": "14",
-    "commit": "d2bfac24e212fec05299679e8af18abc6c1bbc67",
-    "parentCommit": "1caf1082b3f92504346bbeda969e4cfbb0f8f636",
+    "commit": "9c5c0228dfcb7411c46e0658083844f0e57c6684",
+    "parentCommit": "1d16a6e728186cee93ac3d5bd85e1a3eced0b0a8",
     "subject": "course(14): evaluate complete agents with safe evidence",
     "sourceDelta": [
       "packages/pi-course/test-support/eval.ts",
@@ -296,6 +304,7 @@
       "Lab 14.1 · 执行故障与收集故障由 runner 分成不同 infra phase",
       "Lab 14.2 · task verdict 只决定任务成败，自相矛盾的 verdict 属于 judge infra",
       "Lab 14.2 · active path 拒绝不一致 transcript、跨 assistant 补交、重复或悬空 call",
+      "Lab 14.2 · active path 接受 system message，且不参与 tool call / result 配对检查",
       "Lab 14.2 · prepare 与 judge 的异常只留下固定分层，不泄露异常正文",
       "Lab 14.3 · SafeEvidence 只保留计数，不包含 transcript、文件、路径或 callId",
       "Lab 14.3 · dispose 与 cleanup 不覆盖已有 primary，只按发生顺序追加 secondary",

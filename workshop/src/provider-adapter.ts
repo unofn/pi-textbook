@@ -2,6 +2,7 @@ import { AssistantMessageEventStream } from "./event-stream.js";
 import {
   EMPTY_USAGE,
   assistantMessage,
+  currentSystemPrompt,
   type AgentContext,
   type AssistantMessage,
   type Model,
@@ -501,16 +502,24 @@ function textValue(
     .join("\n");
 }
 
+/**
+ * Chat Completions 不保证接受对话中途的 system message：重放出的当前 prompt
+ * 折叠成唯一一条开头的 system message，其余 system message 不上线。
+ * 折叠只发生在出线这一刻，从不回写 transcript。
+ */
 export function toProviderMessages(
   context: AgentContext,
 ): ProviderWireMessage[] {
   const result: ProviderWireMessage[] = [];
-  if (context.systemPrompt) {
-    result.push({ role: "system", content: context.systemPrompt });
+  const systemPrompt = currentSystemPrompt(context.messages);
+  if (systemPrompt) {
+    result.push({ role: "system", content: systemPrompt });
   }
 
   for (const message of context.messages) {
-    if (message.role === "user") {
+    if (message.role === "system") {
+      continue;
+    } else if (message.role === "user") {
       result.push({ role: "user", content: textValue(message.content) });
     } else if (message.role === "toolResult") {
       result.push({
@@ -519,7 +528,7 @@ export function toProviderMessages(
         name: message.toolName,
         content: textValue(message.content),
       });
-    } else {
+    } else if (message.role === "assistant") {
       const textContent = textValue(message.content);
       const toolCalls = message.content
         .filter((block) => block.type === "toolCall")

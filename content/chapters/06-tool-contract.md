@@ -649,12 +649,18 @@ progress、details、显式领域错误和有限 timestamp。
 loop 负责。
 :::
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 中，`packages/agent/src/types.ts` 的 `AgentTool` 同样组合 schema、
-execute、signal、进度回调、模型 content 和结构化 details。
-`packages/agent/src/agent-loop.ts` 在执行前验证参数，并把工具异常转换成错误结果。上游
-使用 `typebox`，还支持 UI label、增量更新、hooks 和更多执行模式。课程用小型 validator
-展示同一条 `lookup → parse → execute → result` 路径。
+:::pi title="与上游 Pi v1.0.0 对照"
+1.0 的 `packages/agent/src/types.ts:464` 的 `AgentTool` 同样组合 schema、execute、signal、
+进度回调，`:424` 的 `AgentToolResult` 同样分开模型 content 和结构化 details。
+`packages/agent/src/agent-loop.ts:726` 先验证参数再执行。准备和验证阶段的异常在 `:769`、
+execute 抛出的异常在 `:841`、`afterToolCall` 钩子的异常在 `:892` 被转换成错误结果。上游使用 `typebox` 1.3.27，
+还支持 UI label、增量更新、hooks 和更多执行模式。
+
+工具契约本身比 8479bd8 时更宽。8479bd8 时工具只能靠抛错表示失败，1.0 允许返回
+`isError: true`，并保留 content 与 details，这与课程的 `ToolOutput.isError` 一致。1.0 的
+`AgentTool` 还新增 `outputSchema` 和 `replay`，`AgentToolResult` 新增 `structuredContent`、
+`usage`，并删除了 8479bd8 时的 `addedToolNames`。课程简化：这些字段都不进入课程契约，
+课程用小型 validator 展示同一条 `lookup → parse → execute → result` 路径。
 :::
 
 ## 完成正常实现后再检查执行顺序

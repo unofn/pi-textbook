@@ -169,7 +169,7 @@ assistant
 
 | README 请求中的动作 | 后续代码中的名字 |
 |---|---|
-| 汇集当前 system prompt 和有序消息，形成一次模型调用的输入 | `AgentContext` |
+| 汇集有序消息（其中的 system message 给出当前 system prompt），形成一次模型调用的输入 | `AgentContext` |
 | 让模型开始产生回复 | `Model.stream()` |
 | 逐项交付生成事件，并保留最终 assistant message | `EventStream` |
 | 根据模型的结束原因决定执行工具还是结束运行 | Agent loop |
@@ -242,10 +242,12 @@ Chapter 00 的 practice 会导出 target 供你观察，不要求从空白重写
 执行和消息持久化会在后续 checkpoint 中分别加入。
 :::
 
-:::pi title="与当前上游 Pi 对照"
-固定参考提交为 `8479bd8`。真实入口还会加载配置、模型和扩展，但进入核心后仍沿着
-“消息 → 模型流 → 工具结果 → 下一轮”推进。课程序章省略网络、并发和会话树，只留下
-七个便于观察的里程碑；真实 Pi 的运行事件不止这七种。
+:::pi title="与上游 Pi v1.0.0 对照"
+真实入口是 `packages/coding-agent/src/main.ts:573` 的 `main()`。它先加载设置、会话、模型和
+扩展，进入核心后仍沿着“消息 → 模型流 → 工具结果 → 下一轮”推进。8479bd8 时 system
+prompt 是每次请求另带的字符串，1.0 改为 transcript 里的 system message，开头一条就是
+基础 prompt（`packages/ai/src/types.ts:522`）；第 03 章起课程沿用这个形状。课程序章省略网络、并发和会话树，只留下七个便于观察的
+里程碑；真实 Pi 的运行事件不止这七种。
 :::
 
 ## 本章验收

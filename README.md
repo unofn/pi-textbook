@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://build-your-own-pi-cn.enochzhang.chatgpt.site">在线阅读</a>
-  · <a href="https://github.com/hahhforest/pi/tree/course/build-your-own-pi/packages/pi-course">课程代码</a>
+  · <a href="https://github.com/unofn/pi/tree/course/build-your-own-pi/packages/pi-course">课程代码</a>
 </p>
 
 <p align="center">
@@ -58,7 +58,7 @@
 直接打开[在线教材](https://build-your-own-pi-cn.enochzhang.chatgpt.site)，或在本地运行：
 
 ```bash
-git clone https://github.com/hahhforest/pi-textbook.git
+git clone https://github.com/unofn/pi-textbook.git
 cd pi-textbook
 npm install
 npm run dev
@@ -68,15 +68,15 @@ npm run dev
 
 | 仓库 | 作用 |
 | --- | --- |
-| [`pi-textbook`](https://github.com/hahhforest/pi-textbook) | 你正在看的 HTML 教材与网站 |
-| [`pi` 的课程分支](https://github.com/hahhforest/pi/tree/course/build-your-own-pi) | 15 个 checkpoint 的可运行代码；课程源码位于仓库内的 `packages/pi-course/` |
+| [`pi-textbook`](https://github.com/unofn/pi-textbook) | 你正在看的 HTML 教材与网站 |
+| [`pi` 的课程分支](https://github.com/unofn/pi/tree/course/build-your-own-pi) | 15 个 checkpoint 的可运行代码；课程源码位于仓库内的 `packages/pi-course/` |
 
-课程分支从固定上游 commit `8479bd84` 出发，以 `course(00)` 到 `course(14)` 组织完整历史；`pi-course-v1` 与 `course-v1/00` 到 `course-v1/14` tags 固定第一版课程。
+课程分支从上游 Pi v1.0.0（`a13d35a7`）出发，以 `course(00)` 到 `course(14)` 组织完整历史，并按 Pi 1.0 的 system message 模型重写（设计说明见 `docs/plans/2026-10-02-pi-1-0-system-messages.md`）。第一版课程基于上游 `8479bd84`，由 `pi-course-v1` 与 `course-v1/00` 到 `course-v1/14` tags 固定。
 
 ## 和 Agent 一起练习
 
 ```bash
-git clone --branch course/build-your-own-pi https://github.com/hahhforest/pi.git
+git clone --branch course/build-your-own-pi https://github.com/unofn/pi.git
 cd pi
 npm install
 npm run checkpoint -w @pi/course -- 05
