@@ -2,6 +2,15 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { AgentMessage } from "./types.js";
 
+/** 可以原样写入 JSONL 或 durable 存储的值。 */
+export type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 interface EntryBase {
   id: string;
   parentId: string | null;
@@ -64,7 +73,8 @@ const MESSAGE_ROLES = ["system", "user", "assistant", "toolResult"];
 
 /**
  * system message 没有新的 entry 类型，就是普通 message entry；
- * 它的形状在这里校验：content 为字符串，sections 的值只能是 string 或 null。
+ * 它的形状在这里校验：content 为字符串，sections 的值只能是 string 或 null，
+ * toolsAdded / toolsRemoved 若出现必须是非空列表。
  */
 function assertMessage(value: unknown): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -82,17 +92,67 @@ function assertMessage(value: unknown): void {
     throw new Error("system message content 必须是字符串");
   }
   const sections = message.sections;
-  if (sections === undefined) return;
   if (
-    !sections ||
-    typeof sections !== "object" ||
-    Array.isArray(sections) ||
-    Object.values(sections).some(
-      (section) => section !== null && typeof section !== "string",
-    )
+    sections !== undefined &&
+    (!sections ||
+      typeof sections !== "object" ||
+      Array.isArray(sections) ||
+      Object.values(sections).some(
+        (section) => section !== null && typeof section !== "string",
+      ))
   ) {
     throw new Error("system message sections 的值必须是 string 或 null");
   }
+  if (message.toolsAdded !== undefined) {
+    assertToolList(message.toolsAdded, "toolsAdded", [
+      "name",
+      "description",
+      "parameters",
+    ]);
+  }
+  if (message.toolsRemoved !== undefined) {
+    assertToolList(message.toolsRemoved, "toolsRemoved", ["name"]);
+  }
+}
+
+/**
+ * 工具声明只有模型看得到的字段。空列表没有意义：loop 生成补丁时省略空字段，
+ * 所以空列表、未知字段与非 object 的 parameters 都按不合法拒绝。
+ */
+function assertToolList(
+  value: unknown,
+  label: string,
+  keys: readonly string[],
+): void {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(`system message ${label} 必须是非空 array`);
+  }
+  value.forEach((item: unknown, index) => {
+    const where = `system message ${label}[${index}]`;
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error(`${where} 必须是 object`);
+    }
+    const record = item as Record<string, unknown>;
+    const unknownKey = Object.keys(record).find((key) => !keys.includes(key));
+    if (unknownKey !== undefined) {
+      throw new Error(`${where} 有未知字段 ${unknownKey}`);
+    }
+    if (typeof record.name !== "string" || record.name.length === 0) {
+      throw new Error(`${where}.name 必须是非空 string`);
+    }
+    if (!keys.includes("parameters")) return;
+    if (typeof record.description !== "string") {
+      throw new Error(`${where}.description 必须是 string`);
+    }
+    const parameters = record.parameters;
+    if (
+      !parameters ||
+      typeof parameters !== "object" ||
+      Array.isArray(parameters)
+    ) {
+      throw new Error(`${where}.parameters 必须是 JSON object`);
+    }
+  });
 }
 
 export function recoverJsonl(value: string): {

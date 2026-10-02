@@ -36,7 +36,16 @@ export interface SystemMessage {
   content: string;
   /** 具名段落。之后的 system message 按名字替换，null 表示删除。 */
   sections?: Record<string, string | null>;
+  /** 从这一点开始对模型可见的工具的完整定义。 */
+  toolsAdded?: ToolDefinition[];
+  /** 从这一点开始不再对模型可见的工具。 */
+  toolsRemoved?: ToolReference[];
   timestamp: number;
+}
+
+/** 按名字引用一个已声明的工具。 */
+export interface ToolReference {
+  name: string;
 }
 
 export interface UserMessage {
@@ -121,10 +130,18 @@ export interface ModelStream extends AsyncIterable<ModelEvent> {
   result(): Promise<AssistantMessage>;
 }
 
+/** 推理强度。参考实现的 provider 不解释它，只由虚拟模型路由决定并随请求传递。 */
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high";
+
+export interface ModelStreamOptions {
+  signal?: AbortSignal;
+  thinkingLevel?: ThinkingLevel;
+}
+
 export interface Model {
   stream(
     context: AgentContext,
-    options?: { signal?: AbortSignal },
+    options?: ModelStreamOptions,
   ): ModelStream;
 }
 
@@ -188,6 +205,77 @@ export function currentSystemPrompt(
 ): string | undefined {
   const message = currentSystemMessage(messages);
   return message ? systemMessageText(message) : undefined;
+}
+
+/**
+ * 按顺序重放所有 system message 的 toolsRemoved / toolsAdded，得到此刻对模型
+ * 可见的工具集合。先删后加，所以同一条消息里“删除再声明”等于重新定义。
+ * 返回值按首次声明顺序排列，并与 transcript 不共享引用。
+ */
+export function currentTools(
+  messages: readonly AgentMessage[],
+): ToolDefinition[] {
+  const tools = new Map<string, ToolDefinition>();
+  for (const message of messages) {
+    if (message.role !== "system") continue;
+    for (const { name } of message.toolsRemoved ?? []) tools.delete(name);
+    for (const tool of message.toolsAdded ?? []) {
+      tools.set(tool.name, toToolDeclaration(tool));
+    }
+  }
+  return [...tools.values()];
+}
+
+/** 只保留模型看得到的三个字段，并做一次 JSON 往返，让比较与持久化看到同一形状。 */
+export function toToolDeclaration(tool: ToolDefinition): ToolDefinition {
+  return {
+    name: tool.name,
+    description: tool.description,
+    parameters: JSON.parse(JSON.stringify(tool.parameters)) as Record<
+      string,
+      unknown
+    >,
+  };
+}
+
+/** 两个工具是否向模型声明了同一个接口。 */
+export function declarationsEqual(
+  left: ToolDefinition,
+  right: ToolDefinition,
+): boolean {
+  return (
+    JSON.stringify(toToolDeclaration(left)) ===
+    JSON.stringify(toToolDeclaration(right))
+  );
+}
+
+export interface ToolStateChanges {
+  toolsAdded: ToolDefinition[];
+  toolsRemoved: ToolReference[];
+}
+
+/**
+ * 比较两个完整的工具集合。定义变化的工具同时出现在 toolsRemoved 与
+ * toolsAdded 里：重放时先删后加，就得到新定义。
+ */
+export function toolStateChanges(
+  previous: readonly ToolDefinition[],
+  current: readonly ToolDefinition[],
+): ToolStateChanges {
+  const before = new Map(previous.map((tool) => [tool.name, tool]));
+  const after = new Map(current.map((tool) => [tool.name, tool]));
+  const changed = (
+    tool: ToolDefinition,
+    other: ToolDefinition | undefined,
+  ) => other === undefined || !declarationsEqual(tool, other);
+  return {
+    toolsAdded: current
+      .filter((tool) => changed(tool, before.get(tool.name)))
+      .map(toToolDeclaration),
+    toolsRemoved: previous
+      .filter((tool) => changed(tool, after.get(tool.name)))
+      .map((tool) => ({ name: tool.name })),
+  };
 }
 
 /**

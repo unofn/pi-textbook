@@ -157,11 +157,11 @@ active path 校验接受 system message；system message 不参与 tool call / r
 
 ## 明确不做（只在 `:::pi` 中说明）
 
-- `toolsAdded` / `toolsRemoved`：上游用 system message 声明工具集合变化；课程仍用 `context.tools`。
-- 工具结果的 `isError`（作为不抛异常的失败）、`structuredContent`、`outputSchema`、`replay`。
+- `toolsAdded` / `toolsRemoved`：上游用 system message 声明工具集合变化；03–14 仍用 `context.tools`。**已由第五部覆盖**（第 15 章）。
+- 工具结果的 `isError`（作为不抛异常的失败）、`structuredContent`、`outputSchema`、`replay`。（`replay` 已由第 19 章的 durable harness 覆盖，声明在 `DurableToolRegistration` 上。）
 - `StopReason` 的 `pending`、`deferred`。
 - compaction entry 的 `systemMessage` 快照、`usage` / `context_edit` entry。
-- codemode、工具暴露级别、MCP、虚拟模型、pi-durable：放进教材附录，不进入 checkpoint。
+- codemode、工具暴露级别、MCP、虚拟模型、pi-durable：原计划只放进教材附录。**已由第五部覆盖**（第 15–19 章各有 checkpoint；附录改为“Pi 1.0 机制与章节对照”）。
 
 ## 受影响的 checkpoint
 

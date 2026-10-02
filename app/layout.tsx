@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { ProgressProvider } from "@/components/progress-provider";
 import { SiteHeader } from "@/components/site-header";
+import { chapters } from "@/lib/course";
 import {
   COURSE_REPOSITORY_URL,
   UPSTREAM_REPOSITORY_URL,
@@ -29,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s · 动手学 Pi",
     },
     description:
-      "沿 15 个 checkpoint，从一条离线轨迹开始，用 TypeScript 逐步实现 Pi。",
+      "沿 20 个 checkpoint，从一条离线轨迹开始，用 TypeScript 逐步实现 Pi：00–14 核心课程，15–19 进阶。",
     applicationName: "动手学 Pi",
     authors: [{ name: "Pi Textbook Project" }],
     keywords: [
@@ -42,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     openGraph: {
       title: "动手学 Pi",
-      description: "15 个 checkpoint，亲手实现一个可运行、可恢复、可扩展的 Pi。",
+      description: "20 个 checkpoint，亲手实现一个可运行、可恢复、可扩展的 Pi。",
       type: "website",
       locale: "zh_CN",
       images: [
@@ -57,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
     twitter: {
       card: "summary_large_image",
       title: "动手学 Pi",
-      description: "15 个 checkpoint，亲手实现一个可运行、可恢复、可扩展的 Pi。",
+      description: "20 个 checkpoint，亲手实现一个可运行、可恢复、可扩展的 Pi。",
       images: [socialImage],
     },
   };
@@ -78,7 +79,7 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body>
         <ProgressProvider>
-          <SiteHeader />
+          <SiteHeader totalChapters={chapters.length} />
           {children}
           <footer className="site-footer">
             <div>

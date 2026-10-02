@@ -31,7 +31,7 @@ export default function Home() {
     <main>
       <section className="home-hero">
         <div className="hero-copy">
-          <p className="eyebrow">15 CHECKPOINTS · TYPESCRIPT</p>
+          <p className="eyebrow">20 CHECKPOINTS · TYPESCRIPT</p>
           <h1>
             从一条运行轨迹开始，
             <br />
@@ -100,10 +100,11 @@ export default function Home() {
 
       <section id="course" className="home-course">
         <header className="section-heading">
-          <p>15 CHECKPOINTS · ONE RUNNING SYSTEM</p>
+          <p>20 CHECKPOINTS · ONE RUNNING SYSTEM</p>
           <h2>沿同一条主链路，逐层增加真实复杂性</h2>
           <span>
             章节不是仓库目录导览。每一章只引入一种主要复杂性，并让上一章的知识在新约束下再次被调用。
+            00–14 是核心课程，15–19 在完整 Runtime 之上进阶到 Pi 1.0 的新机制。
           </span>
         </header>
         <CourseMap parts={courseParts} chapters={courseNav} />

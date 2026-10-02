@@ -615,13 +615,13 @@ transcript 中的 `SystemMessage`（`packages/ai/src/types.ts:512-538`）。课�
 第一条 system message。
 
 课程简化：`SystemMessage.content` 只接受字符串，上游还接受 `TextContent[]`；上游的
-system message 还能用 `toolsAdded` / `toolsRemoved` 声明工具集合变化，课程不实现；
+system message 还能用 `toolsAdded` / `toolsRemoved` 声明工具集合变化，第 15 章补上；
 没有 system message 时课程返回 `undefined`，上游 `getCurrentSystemPrompt` 返回空字符串。
 `StopReason` 课程保留五个值。8479bd8 时上游也是五个（当时 `types.ts:375`），1.0 改为
 七个（`packages/ai/src/types.ts:450`），新增的 `pending`、`deferred` 用于延迟请求。上游
 还支持图片、thinking、签名、缓存和成本等字段。课程保留 README 往返和 system 重放需要
 的最小形状，让每个字段都能在后续调用链中找到用途。1.0 的 system 消息模型全貌见
-[附录：Pi 1.0 的其他机制](/pi-1-0)。
+[附录：Pi 1.0 机制与章节对照](/pi-1-0)。
 :::
 
 ## 用一次可观察的错误检查 textOf()

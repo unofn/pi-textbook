@@ -6,6 +6,7 @@ import {
 } from "./session.js";
 import {
   currentSystemMessage,
+  currentTools,
   systemMessageText,
   text,
   type AgentContext,
@@ -513,9 +514,14 @@ function buildProjection(
   // 作为固定成本放在最前面；它们不进入 interaction 分组。
   const systemEntries = allMessageEntries.filter(isSystemEntry);
   const systemIds = systemEntries.map((entry) => entry.id);
-  const systemMessage = currentSystemMessage(
-    systemEntries.map((entry) => entry.message),
-  );
+  const systemMessages = systemEntries.map((entry) => entry.message);
+  const merged = currentSystemMessage(systemMessages);
+  // 合并成一条时，工具声明也按重放结果折叠成 toolsAdded，declaration 不丢失。
+  const declaredTools = currentTools(systemMessages);
+  const systemMessage =
+    merged && declaredTools.length > 0
+      ? { ...merged, toolsAdded: declaredTools }
+      : merged;
   const candidateEntries = activePath
     .slice(suffixStart)
     .filter(

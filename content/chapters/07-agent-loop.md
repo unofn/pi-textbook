@@ -628,8 +628,8 @@ system prompt 和工具声明都由 transcript 里的 system message 承载（`t
 课程的请求形状与 1.0 一致。不同之处在于，上游 loop 会自己写 system message：
 `declareToolChanges`（`agent-loop.ts:333-363`，在 `:110`、`:211` 调用）比较
 `context.tools` 与重放出的工具集合，有差异时在待发送消息前插入一条带
-`toolsAdded` / `toolsRemoved` 的 system message。课程简化：不实现这两个字段，工具集合
-仍由每次请求的 `tools` 给出，loop 因而从不写入 system message。
+`toolsAdded` / `toolsRemoved` 的 system message。本章的 loop 不处理这两个字段，工具集合
+仍由每次请求的 `tools` 给出，loop 因而从不写入 system message；第 15 章补上这一步。
 
 上游还处理 hooks（如 `prepareNextTurn` `:186`、`prepareRequest` `:219`、`finishTurn`
 `:286`）、steering、follow-up、动态模型切换和更多队列状态。课程在 Chapter 07 只保留

@@ -5,6 +5,7 @@ import {
   type AssistantMessage,
   type Model,
   type ModelEvent,
+  type ModelStreamOptions,
   type ToolCall,
 } from "./types.js";
 
@@ -37,16 +38,23 @@ function partialFrom(message: AssistantMessage): AssistantMessage {
  */
 export class ScriptedModel implements Model {
   readonly requests: AgentContext[] = [];
+  /** 与 requests 一一对应：每次请求收到的推理强度（signal 不记录）。 */
+  readonly requestOptions: Pick<ModelStreamOptions, "thinkingLevel">[] = [];
   private cursor = 0;
 
   constructor(private readonly turns: ScriptedTurn[]) {}
 
   stream(
     context: AgentContext,
-    options: { signal?: AbortSignal } = {},
+    options: ModelStreamOptions = {},
   ): AssistantMessageEventStream {
     const stream = new AssistantMessageEventStream();
     this.requests.push(structuredClone(context));
+    this.requestOptions.push(
+      options.thinkingLevel === undefined
+        ? {}
+        : { thinkingLevel: options.thinkingLevel },
+    );
     const turn = this.turns[this.cursor++];
 
     queueMicrotask(() => {

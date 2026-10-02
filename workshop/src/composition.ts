@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Agent, type AgentEvent, type SystemUpdate } from "./agent.js";
-import type { AgentRunResult } from "./agent-loop.js";
+import type {
+  AgentRequest,
+  AgentRunResult,
+  PreparedRequest,
+} from "./agent-loop.js";
 import { createCodingTools, type ContainmentMode } from "./coding-tools.js";
 import {
   activateSkill,
@@ -16,6 +20,7 @@ import {
   InMemorySessionStore,
   JsonlSessionStore,
   pathTo,
+  type JsonValue,
   type SessionEntry,
   type SessionStore,
 } from "./session.js";
@@ -48,12 +53,41 @@ export interface RuntimeConfig {
   model?: Model;
 }
 
+/**
+ * 额外的 system 段落来源（例如 MCP 服务器清单）。每次 prompt 前调用一次，
+ * 返回的段落并入期望 system 状态，仍只在变化时打补丁。
+ */
+export interface SystemSectionProvider {
+  sections(): Promise<Record<string, string>> | Record<string, string>;
+}
+
+/**
+ * 请求前钩子看到的 session 视角：branch 是当前 active path 加上本轮已记录但
+ * 尚未落盘的 metadata；record 只是缓冲，等本轮消息 suffix 落盘后再追加。
+ */
+export interface RuntimeRequestSession {
+  branch(): readonly SessionEntry[];
+  record(key: string, value: JsonValue): void;
+}
+
+export type RuntimePrepareRequest = (
+  request: AgentRequest,
+  session: RuntimeRequestSession,
+  signal?: AbortSignal,
+) =>
+  | PreparedRequest
+  | undefined
+  | void
+  | Promise<PreparedRequest | undefined | void>;
+
 export interface RuntimeDeps {
   model: Model;
   tools?: ToolRegistry | readonly Tool[];
   session?: SessionStore;
   resources?: ResourceCatalog;
   extensionHost?: ExtensionHost;
+  sectionProviders?: readonly SystemSectionProvider[];
+  prepareRequest?: RuntimePrepareRequest;
   createId?: () => string;
   now?: () => number;
 }
@@ -78,6 +112,13 @@ export interface Runtime {
    * 会跳过这一步。
    */
   prompt(value: string): Promise<AgentRunResult>;
+  /**
+   * 在当前 leaf 之后追加一条 metadata entry（例如虚拟模型的 model_change）；
+   * 进行中的 prompt 先结束、它的 suffix 先排队，再追加这一条。
+   */
+  appendMetadata(key: string, value: JsonValue): Promise<void>;
+  /** active path 的最后一条 entry；空 session 为 null。 */
+  getActiveLeafId(): string | null;
   session: SessionStore;
   resources: ResourceCatalog;
   activatedSkills: readonly ActivatedSkill[];
@@ -209,13 +250,51 @@ export async function createRuntime(
   const now = injected.now ?? Date.now;
   const existingEntries = await session.entries();
   const leaf = existingEntries.at(-1);
-  let parentId = leaf?.id ?? null;
-  // 恢复 active path 上的 transcript；之后只在其后追加，前缀永不改写。
-  const restored = leaf
-    ? pathTo(existingEntries, leaf.id).flatMap((entry) =>
-        entry.type === "message" ? [entry.message] : [],
-      )
+  // active path 在内存里保留一份：请求前钩子同步读取分支，不必等落盘。
+  const activePath: SessionEntry[] = leaf
+    ? pathTo(existingEntries, leaf.id)
     : [];
+  // 恢复 active path 上的 transcript；之后只在其后追加，前缀永不改写。
+  const restored = activePath.flatMap((entry) =>
+    entry.type === "message" ? [entry.message] : [],
+  );
+  /** 本轮请求前钩子记录、尚未落盘的 metadata。 */
+  const pendingMetadata: { key: string; value: JsonValue }[] = [];
+
+  const metadataEntry = (
+    key: string,
+    value: JsonValue,
+    parentId: string | null,
+    id = createId(),
+  ): SessionEntry => ({
+    id,
+    parentId,
+    timestamp: now(),
+    type: "metadata",
+    key,
+    value: structuredClone(value),
+  });
+
+  const requestSession: RuntimeRequestSession = {
+    branch: () => {
+      let parentId = activePath.at(-1)?.id ?? null;
+      const pending = pendingMetadata.map(({ key, value }, index) => {
+        const entry = metadataEntry(
+          key,
+          value,
+          parentId,
+          `__runtime_pending_${index}`,
+        );
+        parentId = entry.id;
+        return entry;
+      });
+      return [...structuredClone(activePath), ...pending];
+    },
+    record: (key, value) => {
+      pendingMetadata.push({ key, value: structuredClone(value) });
+    },
+  };
+  const prepareRequest = injected.prepareRequest;
 
   const agent = new Agent({
     model: injected.model,
@@ -223,39 +302,76 @@ export async function createRuntime(
     toolExecutor: extensions.executeToolCall,
     messages: restored,
     maxSteps: resolvedConfig.maxSteps,
+    ...(prepareRequest
+      ? {
+          prepareRequest: (request, signal) =>
+            prepareRequest(request, requestSession, signal),
+        }
+      : {}),
   });
 
   let persistedMessages = restored.length;
   let persistence = Promise.resolve();
+  /** 先同步接到 active path，再排进落盘队列；顺序就是 parent 链。 */
+  const enqueue = (
+    build: (parentId: string | null) => SessionEntry,
+  ): void => {
+    const entry = build(activePath.at(-1)?.id ?? null);
+    activePath.push(structuredClone(entry));
+    persistence = persistence.then(() => session.append(entry));
+  };
   const unsubscribePersistence = agent.subscribe((event) => {
     if (event.type !== "run_end") return;
     const additions = event.result.messages.slice(persistedMessages);
     persistedMessages = event.result.messages.length;
-    persistence = persistence.then(async () => {
-      for (const message of additions) {
-        const entry: SessionEntry = {
-          id: createId(),
-          parentId,
-          timestamp: now(),
-          type: "message",
-          message,
-        };
-        await session.append(entry);
-        parentId = entry.id;
-      }
-    });
+    for (const message of additions) {
+      enqueue((parentId) => ({
+        id: createId(),
+        parentId,
+        timestamp: now(),
+        type: "message",
+        message,
+      }));
+    }
+    // 本轮记录的 metadata 跟在消息 suffix 之后落盘，顺序是一个有记录的事实。
+    for (const { key, value } of pendingMetadata.splice(0)) {
+      enqueue((parentId) => metadataEntry(key, value, parentId));
+    }
   });
 
+  const sectionProviders = injected.sectionProviders ?? [];
+  /** 期望段落 = 配置与资源的段落 + 各段落提供者本次给出的段落。 */
+  const desiredSections = async (): Promise<Record<string, string>> => {
+    const sections = { ...resolvedConfig.systemSections };
+    for (const provider of sectionProviders) {
+      Object.assign(sections, await provider.sections());
+    }
+    return sections;
+  };
+
+  let running: Promise<unknown> = Promise.resolve();
   let disposed = false;
   return {
     agent,
-    prompt(value) {
-      const system = planSystemUpdate(
-        agent.getState().messages,
-        resolvedConfig,
-      );
-      return agent.prompt(value, system ? { system } : {});
+    async prompt(value) {
+      const systemSections = await desiredSections();
+      const system = planSystemUpdate(agent.getState().messages, {
+        systemPrompt: resolvedConfig.systemPrompt,
+        systemSections,
+      });
+      // 缓冲的 metadata 由 run_end 处理器在消息 suffix 之后取走；这里不清空，
+      // 否则一次被 "Agent is busy" 拒绝的并发调用会丢掉进行中那轮的记录。
+      const run = agent.prompt(value, system ? { system } : {});
+      running = Promise.all([running, run.catch(() => undefined)]);
+      return run;
     },
+    async appendMetadata(key, value) {
+      if (disposed) throw new Error("Runtime 已 dispose");
+      await running;
+      enqueue((parentId) => metadataEntry(key, value, parentId));
+      await persistence;
+    },
+    getActiveLeafId: () => activePath.at(-1)?.id ?? null,
     session,
     resources,
     activatedSkills,

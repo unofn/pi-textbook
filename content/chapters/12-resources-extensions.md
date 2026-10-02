@@ -775,7 +775,10 @@ SettingsManager 已有的 trust 状态加载。这个流程比课程的单个 `i
 `on()` 订阅 `tool_call`、`tool_result`（`:1609-1610`）和 `resources_discover`（`:1547`）
 等事件。1.0 又加入 `registerMcpServer()`（`:1839`）、`registerVirtualModel()`（`:1856`）、
 `registerMarkdownTransformer()`（`:1666`），工具定义还能用 `exposure`（`ToolExposure`，
-`:509`）决定模型怎样接触这个工具。这些机制见[附录：Pi 1.0 的其他机制](/pi-1-0)。课程的
+`:509`）决定模型怎样接触这个工具。这些机制在第 15–18 章动手实现：工具暴露见
+[第 15 章](/learn/tool-exposure)，codemode 见[第 16 章](/learn/codemode)，MCP server 见
+[第 17 章](/learn/mcp)，虚拟模型见[第 18 章](/learn/virtual-models)；
+`registerMarkdownTransformer()` 没有对应章节。课程的
 `beforeToolCall/afterToolResult` 只保留最适合练习“策略先于动作、观察晚于事实”的一小段
 执行语义。
 
