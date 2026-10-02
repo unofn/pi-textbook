@@ -498,8 +498,8 @@ test("practice helper creates an answer-free chapter sandbox", async (t) => {
   );
   assert.equal(
     [...chapter09Test.matchAll(/test\(/g)].length,
-    11,
-    "chapter 09 must expose eleven independently named proofs",
+    12,
+    "chapter 09 must expose twelve independently named proofs",
   );
   assert.match(
     chapter09Test,

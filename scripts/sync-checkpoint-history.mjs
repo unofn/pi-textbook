@@ -8,7 +8,7 @@ const historyRoot = process.env.PI_COURSE_ROOT
   ? path.resolve(process.env.PI_COURSE_ROOT)
   : path.resolve(root, "..", "pi-course");
 const manifestFile = path.join(root, "content", "checkpoints.json");
-const courseBranch = "course/build-your-own-pi";
+const courseBranch = process.env.PI_COURSE_BRANCH ?? "course/build-your-own-pi";
 const expectedIds = Array.from(
   { length: 15 },
   (_, index) => String(index).padStart(2, "0"),

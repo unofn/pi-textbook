@@ -61,7 +61,7 @@ OpenAI-compatible API 接收的同一条消息更扁平：
 { role: "user", content: "读取 README.md" }
 ```
 
-`toProviderMessages()` 读取前一个对象，写出后一个对象。system prompt、assistant 的
+`toProviderMessages()` 读取前一个对象，写出后一个对象。system message、assistant 的
 工具调用和 tool result 也在这里转换。完成转换后，它们和模型名一起组成
 `ProviderRequest`。
 
@@ -161,7 +161,7 @@ chunk 分支。
 :::rebuild title="Checkpoint 05 · 接入 OpenAI-compatible Provider"
 **模式：** 重建
 
-**起终点：** `parent` 是第 04 章完成后的起点；`target` 是 11 项聚焦测试通过的终点。
+**起终点：** `parent` 是第 04 章完成后的起点；`target` 是 12 项聚焦测试通过的终点。
 
 **教学文件：**
 - `packages/pi-course/src/types.ts`
@@ -186,8 +186,8 @@ transport 从外部响应中读出的三种流式片段；adapter 在一次 `str
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/05-*.test.js`
 
-**通过证据：** 11 项测试分别观察出站消息、normalized chunk 的顺序与 partial、SSE
-分帧、外部数据验证、结束原因、usage、取消和密钥脱敏。
+**通过证据：** 12 项测试分别观察出站消息、system 折叠、normalized chunk 的顺序与
+partial、SSE 分帧、外部数据验证、结束原因、usage、取消和密钥脱敏。
 :::
 
 ## 把消息写成 Provider 请求
@@ -203,7 +203,6 @@ export interface ToolDefinition {
 }
 
 export interface AgentContext {
-  systemPrompt?: string;
   messages: AgentMessage[];
   tools?: ToolDefinition[];
 }
@@ -215,8 +214,8 @@ export interface AgentContext {
 
 ```ts
 const context: AgentContext = {
-  systemPrompt: "回答要简洁。",
   messages: [
+    { role: "system", content: "回答要简洁。", timestamp: 0 },
     userMessage("读取 README.md"),
     assistantMessage([
       {
@@ -266,9 +265,10 @@ const context: AgentContext = {
 ]
 ```
 
-四种 role 在这个例子里都出现了。system prompt 变成第一条 system message；user 的
-text block 合并成字符串；assistant 的工具调用进入 `tool_calls`；课程中的
-`toolResult` 则写成 Provider 的 `role: "tool"`，并继续使用原来的 call id。
+四种 role 在这个例子里都出现了。transcript 开头的 system message 变成 wire 上的
+第一条 system 消息；user 的 text block 合并成字符串；assistant 的工具调用进入
+`tool_calls`；课程中的 `toolResult` 则写成 Provider 的 `role: "tool"`，并继续使用原来的
+call id。
 
 工具参数优先采用 `rawArguments`：
 
@@ -285,6 +285,53 @@ arguments:
 `{ type: "function", function: ... }`。没有工具时返回 `undefined`，请求体也就不会
 带一个空数组。这两个转换都是纯函数；传入的 context 在调用后保持原样。
 
+### 多条 system message 在出线时折叠成一条
+
+第 03 章的 transcript 可以含有多条 system message：开头一条是基础 prompt，之后的只
+追加说明或修改段落。并非每个 OpenAI-compatible 模型都接受对话中途的 system 消息，
+上游在没有明确声明支持时也按不支持处理。课程只写所有模型都接受的形状：一条开头的
+system。`toProviderMessages()` 先用 `currentSystemPrompt()` 重放出当前 prompt，放在
+最前面；遍历 transcript 时，再跳过所有 `role === "system"` 的消息：
+
+```ts
+const result: ProviderWireMessage[] = [];
+const systemPrompt = currentSystemPrompt(context.messages);
+if (systemPrompt) {
+  result.push({ role: "system", content: systemPrompt });
+}
+
+for (const message of context.messages) {
+  if (message.role === "system") continue;
+  // ...
+}
+```
+
+假设 transcript 在两轮对话之间修改过一次段落：
+
+```text
+system     content="BASE"  sections={ rules: "RULE v1", scratch: "SCRATCH" }
+user       first
+assistant  ok
+system     content=""  sections={ rules: "RULE v2", scratch: null }
+user       second
+```
+
+wire 上只剩一条 system，内容就是重放结果：
+
+```ts
+[
+  { role: "system", content: "BASE\n\nRULE v2" },
+  { role: "user", content: "first" },
+  { role: "assistant", content: "ok" },
+  { role: "user", content: "second" },
+]
+```
+
+中途那条补丁没有留在原位，它的效果已经合进开头的 system。折叠只发生在构造请求的
+这一刻：`context.messages` 里两条 system message 都还在，调用前后的快照完全相同。
+transcript 中一条 system message 也没有时，wire 消息也不带 system；重放结果是空串时
+同样不写。
+
 :::lab title="实践 5.1 · 完成类型与出站转换"
 **目标：** 让完整的 canonical context 变成 wire messages 和 wire tools。
 
@@ -293,9 +340,11 @@ arguments:
 
 **动作：**
 1. 加入 `ToolDefinition` 和 `AgentContext.tools`。
-2. 实现 `toProviderMessages()` 的四种 role 映射。
+2. 实现 `toProviderMessages()` 的四种 role 映射：开头写一条重放后的 system，遍历时
+   跳过 transcript 中的每条 system message。
 3. assistant tool call 优先使用 `rawArguments`，并保留 id 与 name。
 4. 实现 `toProviderTools()`，不改动输入对象。
+5. 先运行出站转换测试，再运行 system 折叠测试。
 
 **运行：**
 
@@ -303,9 +352,13 @@ arguments:
 npm run build -w @pi/course
 node --test --test-name-pattern="出站转换" \
   packages/pi-course/dist/test/05-*.test.js
+node --test --test-name-pattern="折叠" \
+  packages/pi-course/dist/test/05-*.test.js
 ```
 
-**预期：** `1/1`。测试比较完整的 messages、tools 和调用前后的 context 快照。
+**预期：** 两次都是 `1/1`。第一项比较完整的 messages、tools 和调用前后的 context
+快照；第二项确认 wire 上只有一条 system，内容等于 `currentSystemPrompt()` 的重放结果，
+而 transcript 保持原样。
 :::
 
 ## 从 ProviderChunk 读回模型回复
@@ -566,7 +619,7 @@ transport 最后需要写出完整的 fetch 选项。base URL 去掉末尾斜杠
   method: "POST",
   headers: {
     Accept: "text/event-stream",
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${options.apiKey}`,
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
@@ -574,7 +627,7 @@ transport 最后需要写出完整的 fetch 选项。base URL 去掉末尾斜杠
     stream: true,
     stream_options: { include_usage: true },
   }),
-  signal,
+  signal: streamOptions.signal,
 }
 ```
 
@@ -606,7 +659,7 @@ node --test --test-name-pattern="fetch transport" \
 node --test packages/pi-course/dist/test/05-*.test.js
 ```
 
-**预期：** 局部测试 `2/2`，完整聚焦测试 `11/11`。离线 fetch 会精确记录请求，并让
+**预期：** 局部测试 `2/2`，完整聚焦测试 `12/12`。离线 fetch 会精确记录请求，并让
 一条底层错误主动带上测试密钥；最终消息中只留下 `[redacted]`。
 :::
 
@@ -617,9 +670,10 @@ node --test packages/pi-course/dist/test/05-*.test.js
 :::
 
 :::note title="测试覆盖到哪里"
-这 11 项聚焦测试直接验证 adapter 与 transport 的三段边界：
+这 12 项聚焦测试直接验证 adapter 与 transport 的三段边界：
 
-- canonical context 会稳定映射为 wire messages、tools 与可观察的 fetch 请求；
+- canonical context 会稳定映射为 wire messages、tools 与可观察的 fetch 请求；多条
+  system message 在出线时折叠成一条开头 system，transcript 不被回写；
 - 两次网络读取会重组为 SSE payload，外部 `unknown` 经过字段检查后才产出
   `ProviderChunk`；transport 还负责汇合结束原因与 usage、传递取消并脱敏测试中的密钥；
 - `ProviderChunk` 的顺序与参数分片会形成对应的 partial `ModelEvent` 和最终
@@ -628,11 +682,23 @@ node --test packages/pi-course/dist/test/05-*.test.js
 工具执行与 transcript 更新从第 06、07 章继续。
 :::
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/ai/src/api/openai-completions.ts` 同样会累积文本和
-工具参数、映射结束原因、解析 usage，并把捕获的异常转换成流内终态。上游还处理
-reasoning、图片、签名、成本和更多兼容差异。课程保留这条调用链的核心部分，并用
-`ProviderChunk` 把网络解析与 canonical 事件生成分开。
+:::pi title="与上游 Pi v1.0.0 对照"
+Pi v1.0.0 的 `packages/ai/src/api/openai-completions.ts` 同样累积工具参数（`:650`）、
+在 `finish_reason` 到达时映射结束原因（`:576-578`）、解析 usage（`:564`），并把捕获的
+异常转换成流内的 `error` 或 `aborted` 终态（`:702-723`）。1.0 还在 assistant 上另存
+Provider 原始的 `rawStopReason`（`:577`），课程不保存。
+
+system 的出线方式变了。8479bd8 时 adapter 读取 `context.systemPrompt`，有值就写一条
+开头的 system；1.0 的 `convertMessages` 先调用 `resolveTranscript`（`:1191`）。模型的
+compat 把 `supportsMidConvoSystemMessages` 设为 `true` 时，中途的 system message 原位
+发送，已经发出的前缀保持不变。这个选项默认是 `false`（`:1669`），此时由
+`collapseSystemMessages` 把重放结果折叠成一条开头的 system，并丢掉其余 system message
+（`packages/ai/src/utils/transcript.ts:108-120`）。课程简化：
+`toProviderMessages()` 只实现折叠这一条路径。代价是 prompt 一旦打补丁，wire 上的开头
+system 会随之变化；transcript 本身仍只追加。
+
+上游还处理 reasoning、图片、签名、成本、`developer` 角色和更多兼容差异。课程保留这条
+调用链的核心部分，并用 `ProviderChunk` 把网络解析与 canonical 事件生成分开。
 :::
 
 ## 故意把它弄坏
@@ -663,13 +729,14 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/05-*.test.js
 ```
 
-结果应为 `11/11`。再沿本章的调用顺序检查五件事：
+结果应为 `12/12`。再沿本章的调用顺序检查六件事：
 
 1. 一条 user message 怎样写成 Provider wire message？
-2. Provider tool index 与 canonical content index 分别记录什么？
-3. 一段 SSE 字节在哪一步变成 `ProviderChunk`？
-4. finish reason 和尾随 usage 怎样汇合？
-5. API key 在调用期间出现在哪里？
+2. transcript 中途的 system message 去了哪里？折叠之后 `context.messages` 有没有变？
+3. Provider tool index 与 canonical content index 分别记录什么？
+4. 一段 SSE 字节在哪一步变成 `ProviderChunk`？
+5. finish reason 和尾随 usage 怎样汇合？
+6. API key 在调用期间出现在哪里？
 
 `npm run checkpoint -w @pi/course -- 05` 可以重新定位本章的 parent 与 target；
 `npm run practice -w @pi/course -- 05 <新目录>` 会从同一 parent 创建新的隔离练习目录。

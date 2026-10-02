@@ -104,9 +104,10 @@ export async function runAgentLoop(
       emit(options, { type: "turn_end", reason: "aborted" });
       return { reason: "aborted", messages, steps: steps - 1 };
     }
+    // 请求只由 messages 与 tools 组成：system prompt 已在 messages 里。
+    // loop 自己从不写入 system message，只追加 assistant 与 toolResult。
     const stream = options.model.stream(
       {
-        systemPrompt: options.context.systemPrompt,
         messages,
         tools: options.tools.definitions(),
       },

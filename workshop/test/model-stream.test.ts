@@ -10,9 +10,28 @@ import {
 import { ScriptedModel } from "../src/scripted-model.js";
 import {
   assistantMessage,
+  currentSystemMessage,
+  currentSystemPrompt,
+  systemMessageText,
   text,
+  textOf,
   userMessage,
+  type AgentMessage,
+  type SystemMessage,
 } from "../src/types.js";
+
+function system(
+  content: string,
+  sections?: SystemMessage["sections"],
+  timestamp = 1,
+): SystemMessage {
+  return {
+    role: "system",
+    content,
+    ...(sections ? { sections } : {}),
+    timestamp,
+  };
+}
 
 function sseResponse(payloads: unknown[]): Response {
   const encoder = new TextEncoder();
@@ -66,8 +85,8 @@ test("模型错误是 error 终态，result resolve canonical message", async ()
 
 test("adapter 在唯一边界完成 canonical 到 wire role 转换", () => {
   const messages = toProviderMessages({
-    systemPrompt: "You are precise.",
     messages: [
+      system("You are precise."),
       userMessage("read a.txt"),
       assistantMessage(
         [
@@ -102,6 +121,92 @@ test("adapter 在唯一边界完成 canonical 到 wire role 转换", () => {
       ? messages[2].tool_calls?.[0].function.name
       : undefined,
     "read",
+  );
+});
+
+test("system message 按顺序重放：content 追加，sections 替换，null 删除", () => {
+  const transcript: AgentMessage[] = [
+    system("base", { tools: "read only", style: "terse" }, 10),
+    userMessage("one"),
+    system("", { tools: "read and write" }, 20),
+    assistantMessage([text("ok")]),
+    system("Also cite files.", { style: null }, 30),
+  ];
+
+  assert.deepEqual(currentSystemMessage(transcript), {
+    role: "system",
+    content: "base\n\nAlso cite files.",
+    sections: { tools: "read and write" },
+    timestamp: 10,
+  });
+  assert.equal(
+    currentSystemPrompt(transcript),
+    "base\n\nAlso cite files.\n\nread and write",
+  );
+  assert.equal(
+    systemMessageText(system("", { a: "A", gone: null, empty: "", b: "B" })),
+    "A\n\nB",
+  );
+  assert.equal(textOf(transcript[0]), "base\n\nread only\n\nterse");
+  assert.equal(currentSystemMessage([userMessage("x")]), undefined);
+  assert.equal(currentSystemPrompt([userMessage("x")]), undefined);
+  // 只有空 system message 时仍然“有” system 状态，只是文本为空。
+  assert.equal(currentSystemPrompt([system("")]), "");
+});
+
+test("adapter 把重放结果折叠成唯一开头 system，丢掉中途 system message", () => {
+  const transcript: AgentMessage[] = [
+    system("base", { resources: "old" }),
+    userMessage("one"),
+    assistantMessage([text("first")]),
+    system("Prefer tests.", { resources: "new" }),
+    userMessage("two"),
+  ];
+  const before = structuredClone(transcript);
+  const wire = toProviderMessages({ messages: transcript });
+
+  assert.deepEqual(wire, [
+    { role: "system", content: "base\n\nPrefer tests.\n\nnew" },
+    { role: "user", content: "one" },
+    { role: "assistant", content: "first" },
+    { role: "user", content: "two" },
+  ]);
+  assert.deepEqual(transcript, before);
+  assert.deepEqual(
+    toProviderMessages({ messages: [userMessage("hi")] }).map(
+      (message) => message.role,
+    ),
+    ["user"],
+  );
+  // 段落全部删除且 content 为空时，不发送空 system message。
+  assert.deepEqual(
+    toProviderMessages({
+      messages: [
+        system("", { a: "A" }),
+        system("", { a: null }),
+        userMessage("hi"),
+      ],
+    }).map((message) => message.role),
+    ["user"],
+  );
+});
+
+test("ScriptedModel 保存完整 context，system prompt 从 messages 重放", async () => {
+  const model = new ScriptedModel([assistantMessage([text("ok")])]);
+  const context = {
+    messages: [
+      system("base"),
+      userMessage("hi"),
+      system("", { extra: "patched" }),
+    ],
+  };
+  await model.stream(context).result();
+  context.messages.push(userMessage("mutated later"));
+
+  assert.equal(model.requests[0].messages.length, 3);
+  assert.equal(
+    currentSystemPrompt(model.requests[0].messages),
+    "base\n\npatched",
   );
 });
 

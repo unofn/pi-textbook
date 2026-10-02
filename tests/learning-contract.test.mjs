@@ -238,7 +238,7 @@ test("第三章披露两个真实源文件，并让两段实验都可独立运�
   );
   assert.match(
     chapter.source,
-    /2 项聚焦测试.*文本投影.*不修改.*error.*`result\(\)`/s,
+    /4 项聚焦测试.*文本投影.*不修改.*error.*`result\(\)`/s,
   );
   assert.doesNotMatch(chapter.source, /预期失败[^]*丢掉 toolCallId/);
 });
@@ -294,10 +294,10 @@ test("第五章披露两个源文件，并把 provider 边界拆成可运行的�
     chapter.source,
     /实践 5\.3.*--test-name-pattern="SSE"/s,
   );
-  assert.match(chapter.source, /实践 5\.4.*11\/11/s);
+  assert.match(chapter.source, /实践 5\.4.*12\/12/s);
   assert.match(
     chapter.source,
-    /11 项聚焦测试.*三段边界.*canonical context.*wire messages.*网络读取.*SSE payload.*unknown.*ProviderChunk.*取消.*脱敏.*AssistantMessage/s,
+    /12 项聚焦测试.*三段边界.*canonical context.*wire messages.*网络读取.*SSE payload.*unknown.*ProviderChunk.*取消.*脱敏.*AssistantMessage/s,
   );
   assert.match(
     chapter.source,
@@ -392,7 +392,7 @@ test("第七章把 Agent Loop 拆成五段可单独验证的状态迁移", async
   );
   assert.match(
     chapter.source,
-    /context.*不修改.*systemPrompt.*tool definitions.*唯一.*turn_end/s,
+    /context.*不修改.*system.*tool definitions.*唯一.*turn_end/s,
   );
   assert.match(
     chapter.source,
@@ -484,7 +484,7 @@ test("第九章用两份脚手架分五段建立跨运行所有权", async () =>
   assert.match(body, /第一次红灯.*Lab 9\.1 reducer 尚未实现/s);
   for (const [lab, count] of [
     ["9.1", "2/2"],
-    ["9.2", "2/2"],
+    ["9.2", "3/3"],
     ["9.3", "2/2"],
     ["9.4", "2/2"],
     ["9.5", "3/3"],

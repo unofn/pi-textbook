@@ -30,6 +30,15 @@ export type StopReason =
   | "error"
   | "aborted";
 
+export interface SystemMessage {
+  role: "system";
+  /** 开头一条：基础 prompt；之后：追加的说明。可以为空字符串。 */
+  content: string;
+  /** 具名段落。之后的 system message 按名字替换，null 表示删除。 */
+  sections?: Record<string, string | null>;
+  timestamp: number;
+}
+
 export interface UserMessage {
   role: "user";
   content: TextContent[];
@@ -58,6 +67,7 @@ export interface ToolResultMessage<TDetails = unknown> {
 }
 
 export type AgentMessage =
+  | SystemMessage
   | UserMessage
   | AssistantMessage
   | ToolResultMessage;
@@ -68,8 +78,10 @@ export interface ToolDefinition {
   parameters: Record<string, unknown>;
 }
 
+/**
+ * system prompt 不再是独立字段：它是 messages 中 system message 的重放结果。
+ */
 export interface AgentContext {
-  systemPrompt?: string;
   messages: AgentMessage[];
   tools?: ToolDefinition[];
 }
@@ -135,9 +147,54 @@ export function userMessage(value: string): UserMessage {
 }
 
 /**
+ * 按顺序重放所有 system message：非空 content 依次追加，sections 按名字覆盖，
+ * null 删除。没有任何 system message 时返回 undefined；时间戳取第一条。
+ */
+export function currentSystemMessage(
+  messages: readonly AgentMessage[],
+): SystemMessage | undefined {
+  const content: string[] = [];
+  const sections = new Map<string, string>();
+  let timestamp: number | undefined;
+  for (const message of messages) {
+    if (message.role !== "system") continue;
+    timestamp ??= message.timestamp;
+    if (message.content.length > 0) content.push(message.content);
+    for (const [name, value] of Object.entries(message.sections ?? {})) {
+      if (value === null) sections.delete(name);
+      else sections.set(name, value);
+    }
+  }
+  if (timestamp === undefined) return undefined;
+  return {
+    role: "system",
+    content: content.join("\n\n"),
+    ...(sections.size > 0 ? { sections: Object.fromEntries(sections) } : {}),
+    timestamp,
+  };
+}
+
+/** content 后接各段落正文；空串跳过，以空行连接。 */
+export function systemMessageText(message: SystemMessage): string {
+  const parts = [message.content];
+  for (const value of Object.values(message.sections ?? {})) {
+    if (value !== null) parts.push(value);
+  }
+  return parts.filter((part) => part.length > 0).join("\n\n");
+}
+
+export function currentSystemPrompt(
+  messages: readonly AgentMessage[],
+): string | undefined {
+  const message = currentSystemMessage(messages);
+  return message ? systemMessageText(message) : undefined;
+}
+
+/**
  * 面向搜索与显示的有损投影。它只读取 text block，不能用于持久化或重建消息。
  */
 export function textOf(message: AgentMessage): string {
+  if (message.role === "system") return systemMessageText(message);
   const blocks: readonly AssistantContent[] = message.content;
   return blocks
     .flatMap((block) =>

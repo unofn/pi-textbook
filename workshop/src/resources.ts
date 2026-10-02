@@ -551,6 +551,47 @@ export async function activateSkill(
 }
 
 /**
+ * 资源文本在 system message 中占用的具名段落。资源变化时只替换这一段，
+ * 基础 prompt 与已经持久化的 transcript 前缀保持不变。
+ */
+export const RESOURCE_SECTION = "pi-resources";
+
+/**
+ * 把资源 metadata 与已激活 skill 的正文渲染成一段文本；没有内容时返回空串。
+ * 它只返回文本，由调用方放进 sections[RESOURCE_SECTION]，而不是拼进基础 prompt。
+ */
+export function formatResourceContext(
+  catalog: ResourceCatalog,
+  activatedSkills: readonly ActivatedSkill[],
+): string {
+  const index = [
+    ...catalog.templates.map(
+      (resource) =>
+        `- template ${resource.name}: ${resource.description || "(无描述)"} [${resource.source}]`,
+    ),
+    ...catalog.skills.map(
+      (resource) =>
+        `- skill ${resource.name}: ${resource.description || "(无描述)"} [${resource.source}]`,
+    ),
+  ];
+  const active = activatedSkills.flatMap((item) =>
+    item.skill
+      ? [
+          `## Activated skill: ${item.skill.name}\nSource: ${item.skill.source}\n${item.skill.body}`,
+        ]
+      : [],
+  );
+  return [
+    index.length > 0
+      ? `## Available resources\n${index.join("\n")}`
+      : "",
+    ...active,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/**
  * 兼容早期 eager API：它显式激活全部 skill。新调用方应优先使用
  * discoverResources + activateSkill，以免所有正文常驻 context。
  */

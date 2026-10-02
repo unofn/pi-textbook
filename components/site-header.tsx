@@ -32,6 +32,7 @@ export function SiteHeader() {
           方法
         </Link>
         <Link href="/glossary">术语</Link>
+        <Link href="/pi-1-0">附录</Link>
       </nav>
       <div className="header-actions">
         <CourseSearch />

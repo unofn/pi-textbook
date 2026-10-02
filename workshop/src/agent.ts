@@ -6,9 +6,11 @@ import {
 import type { ToolExecutor, ToolRegistry } from "./tool.js";
 import {
   assistantMessage,
+  currentSystemPrompt,
   userMessage,
   type AgentMessage,
   type Model,
+  type SystemMessage,
   type UserMessage,
 } from "./types.js";
 
@@ -23,7 +25,13 @@ export interface AgentState {
 }
 
 export type AgentEvent =
-  | { type: "run_start"; runId: number; message: UserMessage }
+  | {
+      type: "run_start";
+      runId: number;
+      message: UserMessage;
+      /** 本次运行在用户消息之前追加的 system message。 */
+      system?: SystemMessage;
+    }
   | { type: "loop"; runId: number; event: LoopEvent }
   | { type: "run_end"; runId: number; result: AgentRunResult };
 
@@ -36,7 +44,11 @@ export function reduceAgentState(
       ...state,
       status: "running",
       activeRunId: event.runId,
-      messages: [...state.messages, event.message],
+      messages: [
+        ...state.messages,
+        ...(event.system ? [event.system] : []),
+        event.message,
+      ],
       streamingText: "",
       pendingToolCallIds: [],
     };
@@ -86,32 +98,63 @@ export function reduceAgentState(
   return state;
 }
 
+export interface AgentOptions {
+  model: Model;
+  tools: ToolRegistry;
+  toolExecutor?: ToolExecutor;
+  /**
+   * 初始 transcript 不以 system message 开头时，非空 systemPrompt 成为开头那条
+   * system message。之后只能通过 prompt(value, { system }) 追加修改。
+   */
+  systemPrompt?: string;
+  /** 恢复出的 transcript；Agent 只在其后追加。 */
+  messages?: AgentMessage[];
+  maxSteps?: number;
+}
+
+/** 追加一条 system message 的增量：content 追加说明，sections 按名字替换，null 删除。 */
+export interface SystemUpdate {
+  content?: string;
+  sections?: Record<string, string | null>;
+}
+
+export interface PromptOptions {
+  system?: SystemUpdate;
+}
+
 export class Agent {
-  private state: AgentState = {
-    status: "idle",
-    messages: [],
-    streamingText: "",
-    pendingToolCallIds: [],
-    diagnostics: [],
-  };
+  private state: AgentState;
   private readonly subscribers = new Set<(event: AgentEvent) => void>();
   private readonly steering: UserMessage[] = [];
   private readonly followUps: UserMessage[] = [];
   private abortController?: AbortController;
   private nextRunId = 1;
 
-  constructor(
-    private readonly options: {
-      model: Model;
-      tools: ToolRegistry;
-      toolExecutor?: ToolExecutor;
-      systemPrompt?: string;
-      maxSteps?: number;
-    },
-  ) {}
+  constructor(private readonly options: AgentOptions) {
+    const messages = structuredClone(options.messages ?? []);
+    if (messages[0]?.role !== "system" && options.systemPrompt) {
+      messages.unshift({
+        role: "system",
+        content: options.systemPrompt,
+        timestamp: 0,
+      });
+    }
+    this.state = {
+      status: "idle",
+      messages,
+      streamingText: "",
+      pendingToolCallIds: [],
+      diagnostics: [],
+    };
+  }
 
   getState(): AgentState {
     return structuredClone(this.state);
+  }
+
+  /** transcript 中所有 system message 的重放结果；只读。 */
+  get systemPrompt(): string | undefined {
+    return currentSystemPrompt(this.state.messages);
   }
 
   subscribe(listener: (event: AgentEvent) => void): () => void {
@@ -156,24 +199,40 @@ export class Agent {
     this.abortController?.abort();
   }
 
-  async prompt(value: string): Promise<AgentRunResult> {
+  async prompt(
+    value: string,
+    options: PromptOptions = {},
+  ): Promise<AgentRunResult> {
     if (this.state.status === "running") {
       throw new Error("Agent is busy");
     }
 
     const runId = this.nextRunId++;
     const message = userMessage(value);
+    // system 增量只能在运行开始、用户消息之前进入 transcript；运行中途不能插入。
+    const system: SystemMessage | undefined = options.system
+      ? {
+          role: "system",
+          content: options.system.content ?? "",
+          ...(options.system.sections
+            ? { sections: structuredClone(options.system.sections) }
+            : {}),
+          timestamp: message.timestamp,
+        }
+      : undefined;
     this.abortController = new AbortController();
-    this.emit({ type: "run_start", runId, message });
+    this.emit({
+      type: "run_start",
+      runId,
+      message,
+      ...(system ? { system } : {}),
+    });
 
     try {
       const result = await runAgentLoop({
         model: this.options.model,
         tools: this.options.tools,
-        context: {
-          systemPrompt: this.options.systemPrompt,
-          messages: this.state.messages,
-        },
+        context: { messages: this.state.messages },
         signal: this.abortController.signal,
         maxSteps: this.options.maxSteps,
         executeToolCall: this.options.toolExecutor,

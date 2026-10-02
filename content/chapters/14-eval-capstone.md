@@ -83,7 +83,7 @@ observation.files    = { "answer.txt": "ok" }
   id: "write-answer",
   status: "passed",
   evidence: {
-    messages: { user: 1, assistant: 2, toolResult: 1 },
+    messages: { system: 0, user: 1, assistant: 2, toolResult: 1 },
     tools: { calls: 1, results: 1, errors: 0 },
     files: { requested: 1, read: 1 },
     checks: { passed: 2, failed: 0 },
@@ -98,8 +98,8 @@ judge 判断任务条件，report 只留下可公开的分类和计数。
 :::rebuild title="Checkpoint 14 · 让一个 EvalCase 走完整条评测链"
 **模式：** 重建
 
-**起终点：** `parent` `1caf1082b3f92504346bbeda969e4cfbb0f8f636` 是第 13 章 Runtime 完成后的起点；
-`target` `d2bfac24e212fec05299679e8af18abc6c1bbc67` 是独立 runner、9 项公开测试和
+**起终点：** `parent` `1d16a6e728186cee93ac3d5bd85e1a3eced0b0a8` 是第 13 章 Runtime 完成后的起点；
+`target` `9c5c0228dfcb7411c46e0658083844f0e57c6684` 是独立 runner、10 项公开测试和
 3 项 target held-out 测试完成后的终点。
 
 **教学文件：** `packages/pi-course/test-support/eval.ts`、
@@ -127,7 +127,7 @@ judge 判断任务条件，report 只留下可公开的分类和计数。
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/14-*.test.js`
 
-**通过证据：** 三个 Lab 各 `3/3`，公开测试共 `9/9`。target 另有 3 项 held-out 回归；
+**通过证据：** 三个 Lab 依次 `3/3 → 4/4 → 3/3`，公开测试共 `10/10`。target 另有 3 项 held-out 回归；
 它们不随 practice 分发。
 :::
 
@@ -328,6 +328,40 @@ toolResult(call-write)
 `protocol/unpaired_tool_call`，不允许跨 assistant 补交。重复 call、孤立 result、重复
 result、toolName 错配和结尾未配对都有各自固定 code。
 
+### system message 是合法成员，但不参与配对
+
+第 13 章的 Runtime 会把 system message 写进 session：开头一条是基础 prompt，之后每次
+prompt 变化再追加一条补丁。它们都是普通 `message` entry，所以 active path 里可能出现：
+
+```text
+system("BASE", sections.rules = "RULE v1")
+user("first")
+assistant(toolCall system-path-call)
+toolResult(system-path-call)
+assistant("done first")
+system("", sections.rules = "RULE v2")
+user("second")
+assistant("done second")
+```
+
+扫描遇到 `role === "system"` 时直接跳过：
+
+```ts
+for (const message of messages) {
+  if (message.role === "system") continue;
+  if (message.role === "user") {
+    // ...
+```
+
+所以 system message 不开启、也不结束 interaction，更不能充当 tool result。把上面路径里
+的 toolResult 删掉，runner 在 `assistant("done first")` 处就返回
+`protocol/unpaired_tool_call`；路径里有没有 system message，这个结论都不变。
+
+上面这条完整路径的报告是 `passed`，evidence 中的消息计数为
+`{ system: 2, user: 2, assistant: 3, toolResult: 1 }`，序列化后的报告不含 `BASE` 或 `RULE`。
+system message 只留下数量，正文和段落都不进入报告。开篇的 `write-answer` 没有配置
+system prompt 和资源，所以它的 `messages.system` 是 0。
+
 扫描结束后，runner 再比较 active messages 与 Runtime result。工具协议完整但两份
 transcript 不同，会得到 `protocol/result_session_mismatch`。Judge 不会看到这组互相冲突
 的事实。
@@ -340,7 +374,8 @@ status。
 
 **动作：**
 1. 检查 verdict 形状，并要求 `passed === checks.every(Boolean)`。
-2. 用固定 code 表示协议偏差，内部扫描 user、assistant 和 toolResult。
+2. 用固定 code 表示协议偏差，内部扫描 user、assistant 和 toolResult；遇到 system
+   message 直接跳过。
 3. 在新 user 或 assistant 到达前检查未配对 call。
 4. 核对 call/result 的 id、name、唯一性和最终配对状态。
 5. 深比较 active-path messages 与 `result.messages`。
@@ -355,7 +390,12 @@ node --test --test-name-pattern="Lab 14.2" \
   packages/pi-course/dist/test/14-*.test.js
 ```
 
-**预期：** `3/3`，累计 `6/6`。三项覆盖 verdict、活动路径协议与固定失败分层。
+**预期：** `4/4`，累计 `7/7`。四项覆盖 verdict、活动路径协议、system message 与配对检查、
+固定失败分层。新增那一项的名称是：
+
+```text
+Lab 14.2 · active path 接受 system message，且不参与 tool call / result 配对检查
+```
 :::
 
 ## SafeEvidence 从事实中计数，不转述事实
@@ -364,7 +404,7 @@ node --test --test-name-pattern="Lab 14.2" \
 
 | evidence | 来源 |
 |---|---|
-| `messages.user/assistant/toolResult` | active path 中三种 canonical role |
+| `messages.system/user/assistant/toolResult` | active path 中四种 canonical role |
 | `tools.calls` | assistant content 中的 toolCall blocks |
 | `tools.results/errors` | toolResult 总数与 `isError=true` 数量 |
 | `files.requested/read` | case 声明数量与成功读取数量 |
@@ -441,7 +481,7 @@ node --test --test-name-pattern="Lab 14.3" \
 node --test packages/pi-course/dist/test/14-*.test.js
 ```
 
-**预期：** 本段 `3/3`，公开测试 `9/9`。三项分别覆盖报告脱敏、主次故障和串行 suite。
+**预期：** 本段 `3/3`，公开测试 `10/10`。三项分别覆盖报告脱敏、主次故障和串行 suite。
 :::
 
 ## 移除 transcript 交叉验证会制造假通过
@@ -469,12 +509,12 @@ runner 会继续读文件并调用 judge，测试因此变红。
 **第一次偏差：** protocol 阶段没有产生 `result_session_mismatch`，两份不同 transcript
 进入同一个 task 判定。
 
-**恢复：** 重新启用深比较，只重跑上面的单项。它回绿后，再确认公开测试 `9/9`。
+**恢复：** 重新启用深比较，只重跑上面的单项。它回绿后，再确认公开测试 `10/10`。
 :::
 
 ## 公开测试与真正的 held-out 检查
 
-practice 目录只注入 `14-eval-capstone.test.ts` 的 9 项公开测试。官方 target 还保存 3 项
+practice 目录只注入 `14-eval-capstone.test.ts` 的 10 项公开测试。官方 target 还保存 3 项
 `capstone-held-out.test.ts` 回归，用新的实例检查同一套公开协议。它们在 reference target
 上通过，证明 target 的实现满足这些回归；运行 reference target 不能证明你在 practice
 目录写出的实现也通过。
@@ -485,7 +525,7 @@ JavaScript，`tsconfig`、导入的 `src/**`、依赖锁和旧 `dist` 都会改�
 迁移交给另一名 reviewer 或 Agent。
 
 :::transfer title="Held-out 迁移 · 用未见过的 EvalCase 检查冻结实现"
-1. 公开 `9/9` 后，把完整 practice workspace 连同 package 配置、依赖锁和 Node 版本做成
+1. 公开 `10/10` 后，把完整 practice workspace 连同 package 配置、依赖锁和 Node 版本做成
    独立快照；记录 source tree hash，停止在这份快照上修改。
 2. 从该快照执行 clean build，记录生成的 `dist/test-support/eval.js` hash。source tree 与
    编译产物的两个 hash 共同标识被评实现。
@@ -501,13 +541,14 @@ JavaScript，`tsconfig`、导入的 `src/**`、依赖锁和旧 `dist` 都会改�
 不属于 held-out。
 :::
 
-## 9 项公开测试固定到哪里
+## 10 项公开测试固定到哪里
 
 公开测试固定了：每次重新 prepare；prompt、flush、dispose、cleanup 的顺序；active path
 和声明文件的观察范围；深复制与冻结；execute/collect 分层；verdict 校验；工具协议；
-result/session 一致性；固定 failure；SafeEvidence；primary/secondary；串行 suite。
+system message 不参与配对；result/session 一致性；固定 failure；SafeEvidence；
+primary/secondary；串行 suite。
 
-这九项证据也给 runner 划出三个范围：
+这十项证据也给 runner 划出三个范围：
 
 - 它是进程内、受信任的评测 harness。Freeze 防止 judge 改写 observation，report 过滤原始
   内容；两者都不隔离 judge 的读取与外传，也不把任意远程 benchmark 变成安全输入。
@@ -516,13 +557,23 @@ result/session 一致性；固定 failure；SafeEvidence；primary/secondary；�
 - 串行 suite 和 SafeEvidence 服务于可重复的正确性判断，不是性能基准或完整根因日志。
   Reference target 的 held-out 结果也只描述 target，学习者实现要走前面的冻结快照流程。
 
-target 的 3 项 held-out 加上公开测试得到 Chapter 14 `12/12`，目标提交的课程全量是
-`120/120`。这些数字是固定 reference snapshot 的回归证据。
+target 的 3 项 held-out 加上公开测试得到 Chapter 14 `13/13`，目标提交的课程全量是
+`129/129`。这些数字是固定 reference snapshot 的回归证据。
 
-:::pi title="与固定上游 Pi 的测试边界对照"
-固定提交 `8479bd8` 的上游 Pi 在 agent loop、session、compaction 和产品入口附近分别有
-专项测试。它们直接验证各自模块，没有本章这套 `EvalCase → EvalObservation →
-TaskVerdict → EvalReport` 公共 runner。
+:::pi title="与上游 Pi v1.0.0 对照"
+上游 Pi 1.0 与 8479bd8 时一样，在 agent loop、session、compaction 和产品入口附近分别有
+专项测试，例如 `packages/agent/test/agent-loop.test.ts` 与
+`packages/coding-agent/test/agent-session-compaction.test.ts`。1.0 为 system 消息模型又加了
+专门的测试：`packages/ai/test/system-message-replay.test.ts` 检查重放与折叠，
+`packages/coding-agent/test/system-prompt-updates.test.ts` 检查段落补丁与恢复后的复用。
+它们直接验证各自模块，没有本章这套 `EvalCase → EvalObservation → TaskVerdict →
+EvalReport` 公共 runner。
+
+本章 active path 接受 system message 的依据也来自上游：1.0 没有为 system message 新增
+entry 类型，它就是普通的 `SessionMessageEntry`（`type: "message"`，
+`packages/coding-agent/src/core/session-manager.ts:64-67`），`SessionEntry` 联合类型里
+没有单独的 system entry（`:183-194`）。因此 runner 读到的 system message 与其他消息走同一
+条路径；它不产生 tool call，也不承担 tool result，所以不进入配对检查。
 
 课程把完整教学 Runtime 放进 `packages/pi-course/test-support/eval.ts`，增加 frozen
 observation、固定 failure、SafeEvidence 和 held-out 方法。这个文件留在 test-support；
@@ -539,16 +590,17 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/14-*.test.js
 ```
 
-结果应为公开 `9/9`。随后沿 `write-answer` 逐项指出：
+结果应为公开 `10/10`。随后沿 `write-answer` 逐项指出：
 
 1. 第一次和第二次 `prepare()` 分别创建了哪些新对象；
 2. prompt、flush、active path、文件读取、judge、dispose、cleanup 的实际顺序；
 3. sibling 为什么不在 observation，未声明文件为什么没有读取能力；
 4. tool call/result 和两份 transcript 在哪里完成交叉验证；
 5. passing verdict 怎样变成只含计数的 SafeEvidence；
-6. 已有 primary 后出现 dispose/cleanup 故障时，report 怎样保留顺序。
+6. 已有 primary 后出现 dispose/cleanup 故障时，report 怎样保留顺序；
+7. active path 里的 system message 为什么只计数，不参与 tool call / result 配对。
 
-故障注入恢复后，重新运行公开 `9/9`。若执行 held-out transfer，还要核对 source tree 与
+故障注入恢复后，重新运行公开 `10/10`。若执行 held-out transfer，还要核对 source tree 与
 编译产物的两个 hash 都和 reviewer 返回值相同。重新定位可运行
 `npm run checkpoint -w @pi/course -- 14`；重做时新建 practice 目录，不复用已改过的
 脚手架。

@@ -397,12 +397,12 @@ node --test packages/pi-course/dist/test/02-*.test.js
 异步迭代器会争抢同一批事件，而不是各得一份副本。第 03 章把 `T/R` 换成 Agent 消息并
 加入错误终态，第 04、05 章接入模型行为与传输，第 09 章再由运行控制器管理取消。
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/ai/src/utils/event-stream.ts` 也让
-`EventStream<T, R>` 实现 `AsyncIterable<T>`，并提供 `result(): Promise<R>`。
-上游的 `AssistantMessageEventStream` 在这个通用容器上把 `done` 和 `error` 识别为
-终态，并从两者提取最终 `AssistantMessage`。通用类不认识消息业务类型；第 03 章会沿用
-同一分工完成课程里的消息特化。
+:::pi title="与上游 Pi v1.0.0 对照"
+1.0 的 `packages/ai/src/utils/event-stream.ts:26` 仍让 `EventStream<T, R>` 实现
+`AsyncIterable<T>`，`:86` 提供 `result(): Promise<R>`。同一文件 `:91-101` 的
+`AssistantMessageEventStream` 在这个通用容器上把 `done` 和 `error` 识别为终态，并从两者
+提取最终 `AssistantMessage`。这一分工与 8479bd8 时相同：通用类不认识消息业务类型；第 03 章
+会沿用同一分工完成课程里的消息特化。
 :::
 
 ## 完成正常路径后再做一次诊断

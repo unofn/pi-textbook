@@ -57,6 +57,42 @@ function assertEntry(value: unknown): asserts value is SessionEntry {
   ) {
     throw new Error("session entry 缺少基础字段");
   }
+  if (entry.type === "message") assertMessage(entry.message);
+}
+
+const MESSAGE_ROLES = ["system", "user", "assistant", "toolResult"];
+
+/**
+ * system message 没有新的 entry 类型，就是普通 message entry；
+ * 它的形状在这里校验：content 为字符串，sections 的值只能是 string 或 null。
+ */
+function assertMessage(value: unknown): void {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("message entry 缺少 message");
+  }
+  const message = value as Record<string, unknown>;
+  if (!MESSAGE_ROLES.includes(String(message.role))) {
+    throw new Error(`未知 message role：${String(message.role)}`);
+  }
+  if (typeof message.timestamp !== "number") {
+    throw new Error("message 缺少 timestamp");
+  }
+  if (message.role !== "system") return;
+  if (typeof message.content !== "string") {
+    throw new Error("system message content 必须是字符串");
+  }
+  const sections = message.sections;
+  if (sections === undefined) return;
+  if (
+    !sections ||
+    typeof sections !== "object" ||
+    Array.isArray(sections) ||
+    Object.values(sections).some(
+      (section) => section !== null && typeof section !== "string",
+    )
+  ) {
+    throw new Error("system message sections 的值必须是 string 或 null");
+  }
 }
 
 export function recoverJsonl(value: string): {

@@ -450,7 +450,7 @@ export async function runEvalCase(testCase: EvalCase): Promise<EvalResult> {
     phase = "run";
     let run: AgentRunResult;
     try {
-      run = await runtime.agent.prompt(testCase.prompt);
+      run = await runtime.prompt(testCase.prompt);
       await runtime.flush();
     } finally {
       unsubscribe();

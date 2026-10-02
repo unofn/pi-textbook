@@ -545,11 +545,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 用一段 README transcript 看清文本、工具调用和工具结果怎样成为可保存的消息。 第一部 · 建立可执行语言 canonical IR, content block, AgentContext, StopReason, projection 你将得到什么 content 数组保留“说了什么”和“要做什么” 三个 role 记录三种来源 stopReason 说明这次模型调用为何停下 AgentContext 把 transcript 交给下一次模型调用 textOf() 只提供文本视图 模型事件最终汇合成一条 assistant message 用一次可观察的错误检查 textOf() 本章验收 小结"
+    "searchText": "保存一次完整的工具往返 用一段 README transcript 看清文本、工具调用和工具结果怎样成为可保存的消息。 第一部 · 建立可执行语言 canonical IR, content block, system message, AgentContext, StopReason, projection 你将得到什么 content 数组保留“说了什么”和“要做什么” 三个 role 记录三种来源 stopReason 说明这次模型调用为何停下 AgentContext 把 transcript 交给下一次模型调用 system message 按顺序重放成当前 prompt textOf() 只提供文本视图 模型事件最终汇合成一条 assistant message 用一次可观察的错误检查 textOf() 本章验收 小结"
   },
   {
     "id": "03-你将得到什么",
@@ -562,11 +563,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 你将得到什么 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 你将得到什么 canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-content-数组保留说了什么和要做什么",
@@ -579,11 +581,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 content 数组保留“说了什么”和“要做什么” canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 content 数组保留“说了什么”和“要做什么” canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-三个-role-记录三种来源",
@@ -596,11 +599,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 三个 role 记录三种来源 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 三个 role 记录三种来源 canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-stopreason-说明这次模型调用为何停下",
@@ -613,11 +617,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 stopReason 说明这次模型调用为何停下 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 stopReason 说明这次模型调用为何停下 canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-agentcontext-把-transcript-交给下一次模型调用",
@@ -630,11 +635,30 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 AgentContext 把 transcript 交给下一次模型调用 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 AgentContext 把 transcript 交给下一次模型调用 canonical IR content block system message AgentContext StopReason projection"
+  },
+  {
+    "id": "03-system-message-按顺序重放成当前-prompt",
+    "chapterId": "03",
+    "chapterSlug": "message-ir",
+    "chapterTitle": "保存一次完整的工具往返",
+    "title": "system message 按顺序重放成当前 prompt",
+    "href": "/learn/message-ir#system-message-按顺序重放成当前-prompt",
+    "partTitle": "第一部 · 建立可执行语言",
+    "terms": [
+      "canonical IR",
+      "content block",
+      "system message",
+      "AgentContext",
+      "StopReason",
+      "projection"
+    ],
+    "searchText": "保存一次完整的工具往返 system message 按顺序重放成当前 prompt canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-textof-只提供文本视图",
@@ -647,11 +671,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 textOf() 只提供文本视图 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 textOf() 只提供文本视图 canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-模型事件最终汇合成一条-assistant-message",
@@ -664,11 +689,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 模型事件最终汇合成一条 assistant message canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 模型事件最终汇合成一条 assistant message canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-用一次可观察的错误检查-textof",
@@ -681,11 +707,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 用一次可观察的错误检查 textOf() canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 用一次可观察的错误检查 textOf() canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-本章验收",
@@ -698,11 +725,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 本章验收 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 本章验收 canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "03-小结",
@@ -715,11 +743,12 @@ export const searchIndex: SearchEntry[] = [
     "terms": [
       "canonical IR",
       "content block",
+      "system message",
       "AgentContext",
       "StopReason",
       "projection"
     ],
-    "searchText": "保存一次完整的工具往返 小结 canonical IR content block AgentContext StopReason projection"
+    "searchText": "保存一次完整的工具往返 小结 canonical IR content block system message AgentContext StopReason projection"
   },
   {
     "id": "04",
@@ -944,7 +973,7 @@ export const searchIndex: SearchEntry[] = [
       "incremental JSON",
       "finish reason"
     ],
-    "searchText": "模型调用：在课程协议和 Provider API 之间转换 跟随一次模型调用，读懂消息如何写成 HTTP 请求，流式响应又如何变回统一事件。 第一部 · 建立可执行语言 provider adapter, transport, normalized chunk, incremental JSON, finish reason 你将得到什么 先建立全景 把消息写成 Provider 请求 从 ProviderChunk 读回模型回复 局部 fixture：只看文本 partial 诊断 fixture：用 index 4/2 分开两种顺序 从 SSE 字节流读出 ProviderChunk 发出 HTTP 请求 故意把它弄坏 本章验收 可选迁移练习 小结"
+    "searchText": "模型调用：在课程协议和 Provider API 之间转换 跟随一次模型调用，读懂消息如何写成 HTTP 请求，流式响应又如何变回统一事件。 第一部 · 建立可执行语言 provider adapter, transport, normalized chunk, incremental JSON, finish reason 你将得到什么 先建立全景 把消息写成 Provider 请求 多条 system message 在出线时折叠成一条 从 ProviderChunk 读回模型回复 局部 fixture：只看文本 partial 诊断 fixture：用 index 4/2 分开两种顺序 从 SSE 字节流读出 ProviderChunk 发出 HTTP 请求 故意把它弄坏 本章验收 可选迁移练习 小结"
   },
   {
     "id": "05-你将得到什么",
@@ -1318,7 +1347,7 @@ export const searchIndex: SearchEntry[] = [
       "tool result",
       "terminal state"
     ],
-    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 跟随同一条 read 调用，看模型消息、工具结果和最终回答怎样依次进入 transcript。 第二部 · 闭合 Agent 核心 agent loop, transcript, stop reason, tool result, terminal state 一次请求为什么需要两次模型调用 第一次 model.stream() 追加 assistant 消息 没有工具的 stop 直接结束 call-1 的结果进入第二次模型请求 LoopEvent 展示过程，messages 保存事实 length ：工具不启动，调用仍然闭合 多个工具同时运行，结果仍按工具调用顺序追加 取消与 maxSteps 阻止新的模型请求 完成正常实现后检查 length 分支 本章验收 小结"
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 跟随同一条 read 调用，看模型消息、工具结果和最终回答怎样依次进入 transcript。 第二部 · 闭合 Agent 核心 agent loop, transcript, stop reason, tool result, terminal state 一次请求为什么需要两次模型调用 第一次 model.stream() 追加 assistant 消息 没有工具的 stop 直接结束 call-1 的结果进入第二次模型请求 调用方给的 messages 是不变前缀 LoopEvent 展示过程，messages 保存事实 length ：工具不启动，调用仍然闭合 多个工具同时运行，结果仍按工具调用顺序追加 取消与 maxSteps 阻止新的模型请求 完成正常实现后检查 length 分支 本章验收 小结"
   },
   {
     "id": "07-一次请求为什么需要两次模型调用",
@@ -1370,6 +1399,23 @@ export const searchIndex: SearchEntry[] = [
       "terminal state"
     ],
     "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 call-1 的结果进入第二次模型请求 agent loop transcript stop reason tool result terminal state"
+  },
+  {
+    "id": "07-调用方给的-messages-是不变前缀",
+    "chapterId": "07",
+    "chapterSlug": "agent-loop",
+    "chapterTitle": "Agent Loop：一次 README 往返怎样调用模型两次",
+    "title": "调用方给的 messages 是不变前缀",
+    "href": "/learn/agent-loop#调用方给的-messages-是不变前缀",
+    "partTitle": "第二部 · 闭合 Agent 核心",
+    "terms": [
+      "agent loop",
+      "transcript",
+      "stop reason",
+      "tool result",
+      "terminal state"
+    ],
+    "searchText": "Agent Loop：一次 README 往返怎样调用模型两次 调用方给的 messages 是不变前缀 agent loop transcript stop reason tool result terminal state"
   },
   {
     "id": "07-loopevent-展示过程messages-保存事实",
@@ -1727,7 +1773,7 @@ export const searchIndex: SearchEntry[] = [
       "follow-up",
       "reentrancy"
     ],
-    "searchText": "从单次循环到有状态 Agent 让一个对象持有跨运行状态，并把重入、订阅、取消、steering 与 follow-up 的时序写成可执行契约。 第三部 · 让 Harness 可靠 stateful agent, lifecycle, abort, steering, follow-up, reentrancy 同一个 Agent 连续完成两次运行 Agent 保存状态，ActiveRun 保存临时所有权 run_start 把 run 1 投影成公开状态 prompt() 先结算 run 1，再开放 run 2 同一实例拒绝两个并行循环 三个公开出口各自得到一份副本 abort() 只向当前运行发出取消信号 队列消息只在完整协议边界进入 transcript 诊断旧运行误删新运行 这份 Agent 的边界是单实例、内存内生命周期 两次运行的时间线与验收 可选迁移练习 小结"
+    "searchText": "从单次循环到有状态 Agent 让一个对象持有跨运行状态，并把重入、订阅、取消、steering 与 follow-up 的时序写成可执行契约。 第三部 · 让 Harness 可靠 stateful agent, lifecycle, abort, steering, follow-up, reentrancy 同一个 Agent 连续完成两次运行 Agent 保存状态，ActiveRun 保存临时所有权 run_start 把 run 1 投影成公开状态 prompt() 先结算 run 1，再开放 run 2 同一实例拒绝两个并行循环 system prompt 写在 transcript 开头 三个公开出口各自得到一份副本 abort() 只向当前运行发出取消信号 队列消息只在完整协议边界进入 transcript 诊断旧运行误删新运行 这份 Agent 的边界是单实例、内存内生命周期 两次运行的时间线与验收 可选迁移练习 小结"
   },
   {
     "id": "09-同一个-agent-连续完成两次运行",
@@ -1961,7 +2007,7 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "从一棵会话树恢复当前对话 给完成消息加上稳定 id 与 parentId，追加到 JSONL；从选中的叶子恢复 active path，并明确副本、顺序和断尾边界。 第三部 · 让 Harness 可靠 append-only log, JSONL, parent pointer, active path, branch, recovery 先看这一棵树 从第 09 章进入第 10 章 1. id 和 parentId 如何组成路径 2. JSON 进入程序时仍然是 unknown 3. Store 在 append() 调用时取得快照 4. JSONL 用换行标记一条记录已经提交 5. JSONL writer 只在确定安全时继续追加 6. active path 最终投影为完整消息 用一次故障确认 writer 的边界 14 项测试证明到哪里 本章验收 小结"
+    "searchText": "从一棵会话树恢复当前对话 给完成消息加上稳定 id 与 parentId，追加到 JSONL；从选中的叶子恢复 active path，并明确副本、顺序和断尾边界。 第三部 · 让 Harness 可靠 append-only log, JSONL, parent pointer, active path, branch, recovery 先看这一棵树 从第 09 章进入第 10 章 1. id 和 parentId 如何组成路径 2. JSON 进入程序时仍然是 unknown 3. Store 在 append() 调用时取得快照 4. JSONL 用换行标记一条记录已经提交 5. JSONL writer 只在确定安全时继续追加 6. active path 最终投影为完整消息 用一次故障确认 writer 的边界 15 项测试证明到哪里 本章验收 小结"
   },
   {
     "id": "10-先看这一棵树",
@@ -2126,12 +2172,12 @@ export const searchIndex: SearchEntry[] = [
     "searchText": "从一棵会话树恢复当前对话 用一次故障确认 writer 的边界 append-only log JSONL parent pointer active path branch recovery"
   },
   {
-    "id": "10-14-项测试证明到哪里",
+    "id": "10-15-项测试证明到哪里",
     "chapterId": "10",
     "chapterSlug": "session-tree",
     "chapterTitle": "从一棵会话树恢复当前对话",
-    "title": "14 项测试证明到哪里",
-    "href": "/learn/session-tree#14-项测试证明到哪里",
+    "title": "15 项测试证明到哪里",
+    "href": "/learn/session-tree#15-项测试证明到哪里",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "append-only log",
@@ -2141,7 +2187,7 @@ export const searchIndex: SearchEntry[] = [
       "branch",
       "recovery"
     ],
-    "searchText": "从一棵会话树恢复当前对话 14 项测试证明到哪里 append-only log JSONL parent pointer active path branch recovery"
+    "searchText": "从一棵会话树恢复当前对话 15 项测试证明到哪里 append-only log JSONL parent pointer active path branch recovery"
   },
   {
     "id": "10-本章验收",
@@ -2194,7 +2240,7 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 把工具往返组成不可拆分的交互，在预算内选择完整后缀，并用追加的结构化摘要恢复更早事实。 第三部 · 让 Harness 可靠 history, context projection, token budget, interaction boundary, compaction 同一段历史会产生一份更短的模型输入 摘要先成为 session 中的一条普通事实 两个 tool result 仍属于 u3 开始的同一组 31 个 token 怎样留下第二、三组 compact-1 记录摘要与保留起点 恢复时把最新摘要接在保留后缀前面 损坏记录在进入预算前就会被拒绝 14 项测试固定到哪里 本章验收 可选迁移练习 小结"
+    "searchText": "历史不动，上下文按预算重建 把工具往返组成不可拆分的交互，在预算内选择完整后缀，并用追加的结构化摘要恢复更早事实。 第三部 · 让 Harness 可靠 history, context projection, token budget, interaction boundary, compaction 同一段历史会产生一份更短的模型输入 摘要先成为 session 中的一条普通事实 两个 tool result 仍属于 u3 开始的同一组 31 个 token 怎样留下第二、三组 compact-1 记录摘要与保留起点 恢复时把最新摘要接在保留后缀前面 system 状态跨过 compaction 边界 损坏记录在进入预算前就会被拒绝 15 项测试固定到哪里 本章验收 可选迁移练习 小结"
   },
   {
     "id": "11-同一段历史会产生一份更短的模型输入",
@@ -2316,12 +2362,12 @@ export const searchIndex: SearchEntry[] = [
     "searchText": "历史不动，上下文按预算重建 损坏记录在进入预算前就会被拒绝 history context projection token budget interaction boundary compaction"
   },
   {
-    "id": "11-14-项测试固定到哪里",
+    "id": "11-15-项测试固定到哪里",
     "chapterId": "11",
     "chapterSlug": "context-compaction",
     "chapterTitle": "历史不动，上下文按预算重建",
-    "title": "14 项测试固定到哪里",
-    "href": "/learn/context-compaction#14-项测试固定到哪里",
+    "title": "15 项测试固定到哪里",
+    "href": "/learn/context-compaction#15-项测试固定到哪里",
     "partTitle": "第三部 · 让 Harness 可靠",
     "terms": [
       "history",
@@ -2330,7 +2376,7 @@ export const searchIndex: SearchEntry[] = [
       "interaction boundary",
       "compaction"
     ],
-    "searchText": "历史不动，上下文按预算重建 14 项测试固定到哪里 history context projection token budget interaction boundary compaction"
+    "searchText": "历史不动，上下文按预算重建 15 项测试固定到哪里 history context projection token budget interaction boundary compaction"
   },
   {
     "id": "11-本章验收",
@@ -2669,7 +2715,7 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个能提交历史的 Runtime 显式选择活动分支，恢复 Agent，在每次模型请求前统一构造上下文，并让 prompt 只有在新消息被 Session Store 接受后才完成。 第四部 · 从核心到产品 composition root, runtime, active leaf, context projection, durability, poison state 一次 Runtime.prompt() 到底什么时候完成 从四个独立部件进入一个 Runtime 建立练习起点 Lab 13.1：从指定 leaf 恢复唯一 Agent Lab 13.2：每次模型请求都投影当前路径与临时 suffix Lab 13.3：把资源、Extension、Agent 与 Session Store 接成一次调用 新消息从哪个位置开始 每次 append 成功后推进 leaf 两个 prompt 共用一条 operation queue 部分提交后 Runtime 不能继续 flush() 与 dispose() 等待哪些工作 用现有测试破坏一次 poison 规则 Lab 13.4：Mode 只改变输出编码 十项测试固定了哪些边界 课程 Runtime 与真实 Pi 的关系 完整对象图与本章验收 小结"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 显式选择活动分支，恢复 Agent，在每次模型请求前统一构造上下文，并让 prompt 只有在新消息被 Session Store 接受后才完成。 第四部 · 从核心到产品 composition root, runtime, active leaf, context projection, durability, poison state 一次 Runtime.prompt() 到底什么时候完成 从四个独立部件进入一个 Runtime 建立练习起点 Lab 13.1：从指定 leaf 恢复唯一 Agent Lab 13.2：每次模型请求都投影当前路径与临时 suffix Lab 13.3：把资源、Extension、Agent 与 Session Store 接成一次调用 期望的 system 状态 只为变化生成补丁 唯一的工具执行入口 新消息从哪个位置开始 每次 append 成功后推进 leaf 恢复会话后只追加段落补丁 两个 prompt 共用一条 operation queue 部分提交后 Runtime 不能继续 flush() 与 dispose() 等待哪些工作 用现有测试破坏一次 poison 规则 Lab 13.4：Mode 只改变输出编码 十一项测试固定了哪些边界 课程 Runtime 与真实 Pi 的关系 完整对象图与本章验收 小结"
   },
   {
     "id": "13-一次-runtimeprompt-到底什么时候完成",
@@ -2816,12 +2862,12 @@ export const searchIndex: SearchEntry[] = [
     "searchText": "把已有能力接成一个能提交历史的 Runtime Lab 13.4：Mode 只改变输出编码 composition root runtime active leaf context projection durability poison state"
   },
   {
-    "id": "13-十项测试固定了哪些边界",
+    "id": "13-十一项测试固定了哪些边界",
     "chapterId": "13",
     "chapterSlug": "composition-root",
     "chapterTitle": "把已有能力接成一个能提交历史的 Runtime",
-    "title": "十项测试固定了哪些边界",
-    "href": "/learn/composition-root#十项测试固定了哪些边界",
+    "title": "十一项测试固定了哪些边界",
+    "href": "/learn/composition-root#十一项测试固定了哪些边界",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "composition root",
@@ -2831,7 +2877,7 @@ export const searchIndex: SearchEntry[] = [
       "durability",
       "poison state"
     ],
-    "searchText": "把已有能力接成一个能提交历史的 Runtime 十项测试固定了哪些边界 composition root runtime active leaf context projection durability poison state"
+    "searchText": "把已有能力接成一个能提交历史的 Runtime 十一项测试固定了哪些边界 composition root runtime active leaf context projection durability poison state"
   },
   {
     "id": "13-课程-runtime-与真实-pi-的关系",
@@ -2904,7 +2950,7 @@ export const searchIndex: SearchEntry[] = [
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 让 runner 每次重新调用 EvalCase.prepare，验证执行轨迹和任务结果，并输出只含固定分类与计数的报告。 第四部 · 从核心到产品 eval runner, fresh fixture, judge, active path, protocol failure, safe evidence, held-out write-answer 从任务对象走到通过报告 Runner 每次重新调用 prepare() Runtime 完成后，runner 只取活动路径 Observation 先复制，再递归冻结 Judge 先得到可信轨迹，再判断任务条件 Runner 捕获偏差时记录所在阶段 合法拒绝和坏 judge 是两种结果 工具协议按活动路径顺序扫描 SafeEvidence 从事实中计数，不转述事实 清理故障追加在最早结果之后 Suite 等一个 case 完整收口再开始下一个 移除 transcript 交叉验证会制造假通过 公开测试与真正的 held-out 检查 9 项公开测试固定到哪里 本章验收 小结"
+    "searchText": "给完整的 Pi 建一套独立评测 让 runner 每次重新调用 EvalCase.prepare，验证执行轨迹和任务结果，并输出只含固定分类与计数的报告。 第四部 · 从核心到产品 eval runner, fresh fixture, judge, active path, protocol failure, safe evidence, held-out write-answer 从任务对象走到通过报告 Runner 每次重新调用 prepare() Runtime 完成后，runner 只取活动路径 Observation 先复制，再递归冻结 Judge 先得到可信轨迹，再判断任务条件 Runner 捕获偏差时记录所在阶段 合法拒绝和坏 judge 是两种结果 工具协议按活动路径顺序扫描 system message 是合法成员，但不参与配对 SafeEvidence 从事实中计数，不转述事实 清理故障追加在最早结果之后 Suite 等一个 case 完整收口再开始下一个 移除 transcript 交叉验证会制造假通过 公开测试与真正的 held-out 检查 10 项公开测试固定到哪里 本章验收 小结"
   },
   {
     "id": "14-write-answer-从任务对象走到通过报告",
@@ -3116,12 +3162,12 @@ export const searchIndex: SearchEntry[] = [
     "searchText": "给完整的 Pi 建一套独立评测 公开测试与真正的 held-out 检查 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
-    "id": "14-9-项公开测试固定到哪里",
+    "id": "14-10-项公开测试固定到哪里",
     "chapterId": "14",
     "chapterSlug": "eval-capstone",
     "chapterTitle": "给完整的 Pi 建一套独立评测",
-    "title": "9 项公开测试固定到哪里",
-    "href": "/learn/eval-capstone#9-项公开测试固定到哪里",
+    "title": "10 项公开测试固定到哪里",
+    "href": "/learn/eval-capstone#10-项公开测试固定到哪里",
     "partTitle": "第四部 · 从核心到产品",
     "terms": [
       "eval runner",
@@ -3132,7 +3178,7 @@ export const searchIndex: SearchEntry[] = [
       "safe evidence",
       "held-out"
     ],
-    "searchText": "给完整的 Pi 建一套独立评测 9 项公开测试固定到哪里 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
+    "searchText": "给完整的 Pi 建一套独立评测 10 项公开测试固定到哪里 eval runner fresh fixture judge active path protocol failure safe evidence held-out"
   },
   {
     "id": "14-本章验收",

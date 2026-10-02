@@ -535,16 +535,22 @@ node --test packages/pi-course/dist/test/08-*.test.js
 重叠 edit、超大文件流式读取和更多字符编码可以作为这四个接口之上的扩展；它们不会
 改变本章已经建立的 call/result 配对与 workspace 边界。
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的上游 coding tools 处理了更多生产细节：read 支持文本和图片，
-并按行数与字节数截断；write 自动创建父目录；同文件修改会串行；bash 还会把被截断的
-完整输出保存到临时文件。上游 edit 支持一次提交多个彼此不重叠的替换；每项都匹配原始
-文件，并明确拒绝重叠或嵌套编辑。课程 target 则按数组顺序修改同一份内存副本，所以
-后一项可以匹配前一项刚生成的文本。
+:::pi title="与上游 Pi v1.0.0 对照"
+1.0 的上游 coding tools 仍处理更多生产细节。read 支持文本和图片，并按行数与字节数截断
+（`packages/coding-agent/src/core/tools/read.ts:76`）；write 自动创建父目录，同文件修改经
+`withFileMutationQueue` 串行（`write.ts:36,67,78`）；bash 还会把被截断的完整输出保存到
+临时文件（`output-accumulator.ts:4,28`）。上游 edit 支持一次提交多个彼此不重叠的替换
+（`edit.ts:37`）；每项都匹配原始文件，并在 `edit-diff.ts:347` 明确拒绝重叠或嵌套编辑。
+课程 target 则按数组顺序修改同一份内存副本，所以后一项可以匹配前一项刚生成的文本。
 
-路径边界不同。该提交的内建 coding tools 把相对路径解析到 cwd，也接受绝对路径和
-解析到 cwd 外的 `..`。上游没有课程 `containment: "workspace"` 的 cwd jail。课程的
-路径限制是保护练习环境的主动强化，不能表述成上游默认行为。
+文件布局与 8479bd8 时有一处不同：8479bd8 时各工具的终端渲染代码写在工具文件里，1.0 改为
+集中在 `core/tools/renderers/`。共享的 `file-mutation-queue.ts`、`path-utils.ts`、
+`output-accumulator.ts`、`edit-diff.ts` 仍在 `core/tools/`。
+
+路径边界没有变化。内建 coding tools 把相对路径解析到 cwd，也接受绝对路径和解析到 cwd
+外的 `..`（`packages/coding-agent/src/utils/paths.ts:103-106`，
+`core/tools/path-utils.ts:48`）。上游没有课程 `containment: "workspace"` 的 cwd jail。
+课程的路径限制是保护练习环境的主动强化，不能表述成上游默认行为。
 :::
 
 ## 去掉第二个非重叠匹配检查

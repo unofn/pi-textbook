@@ -21,7 +21,10 @@ import {
   runEvalCase,
   runEvalSuite,
 } from "../src/eval.js";
-import type { ResourceCatalog } from "../src/resources.js";
+import {
+  RESOURCE_SECTION,
+  type ResourceCatalog,
+} from "../src/resources.js";
 import { ScriptedModel } from "../src/scripted-model.js";
 import { InMemorySessionStore } from "../src/session.js";
 import {
@@ -31,7 +34,9 @@ import {
 } from "../src/tool.js";
 import {
   assistantMessage,
+  currentSystemPrompt,
   text,
+  type AgentMessage,
   type ToolCall,
 } from "../src/types.js";
 
@@ -277,7 +282,7 @@ test("composition 把 resource disclosure 与 extension hook 接入真实 loop",
     reason: "teaching policy",
   }));
 
-  const result = await runtime.agent.prompt("go");
+  const result = await runtime.prompt("go");
   await runtime.flush();
   const toolResult = result.messages.find(
     (message) => message.role === "toolResult",
@@ -289,8 +294,19 @@ test("composition 把 resource disclosure 与 extension hook 接入真实 loop",
       : "",
     /teaching policy/,
   );
-  assert.match(model.requests[0].systemPrompt ?? "", /Available resources/);
-  assert.match(model.requests[0].systemPrompt ?? "", /Activated skill: guard/);
+  const [head] = model.requests[0].messages;
+  assert.equal(head.role, "system");
+  assert.equal(head.role === "system" ? head.content : "", "base");
+  const section =
+    head.role === "system" ? head.sections?.[RESOURCE_SECTION] ?? "" : "";
+  assert.match(section, /Available resources/);
+  assert.match(section, /Activated skill: guard/);
+  assert.equal(
+    currentSystemPrompt(model.requests[0].messages),
+    `base\n\n${section}`,
+  );
+  assert.equal(runtime.config.systemPrompt, "base");
+  assert.equal(runtime.config.systemSections[RESOURCE_SECTION], section);
   assert.equal(runtime.activatedSkills[0].skill?.name, "guard");
 });
 
@@ -431,5 +447,189 @@ test("tool 抛错会成为配对 result，而不是 runner infra failure", async
   });
 
   assert.equal(result.status, "passed");
+  assert.equal(result.metrics.toolCalls, 1);
+});
+
+function catalogWith(templateNames: string[]): ResourceCatalog {
+  const templates = templateNames.map((name) => ({
+    kind: "template" as const,
+    name,
+    description: `${name} template`,
+    source: `/fixtures/${name}.md`,
+    scope: "project",
+    body: name,
+    content: name,
+  }));
+  return {
+    resources: [...templates],
+    templates,
+    skills: [],
+    diagnostics: [],
+    diagnosticMessages: [],
+  };
+}
+
+function systemMessages(messages: readonly AgentMessage[]) {
+  return messages.filter((message) => message.role === "system");
+}
+
+test("composition 只为变化的段落追加补丁，已持久化前缀从不改写", async () => {
+  const session = new InMemorySessionStore();
+  let sequence = 0;
+  const open = (
+    systemPrompt: string,
+    resources: ResourceCatalog,
+    replies: string[],
+  ) => {
+    const model = new ScriptedModel(
+      replies.map((reply) => assistantMessage([text(reply)])),
+    );
+    return createRuntime(
+      { cwd: os.tmpdir(), systemPrompt },
+      {
+        model,
+        tools: new ToolRegistry(),
+        session,
+        resources,
+        createId: () => `entry-${++sequence}`,
+        now: () => sequence,
+      },
+    ).then((runtime) => ({ runtime, model }));
+  };
+  const messagesOf = async () =>
+    (await session.entries()).flatMap((entry) =>
+      entry.type === "message" ? [entry.message] : [],
+    );
+
+  // 1. 新会话：开头一条 system message（基础 prompt + 资源段落），之后不再追加。
+  const first = await open("base", catalogWith(["alpha"]), ["one", "two"]);
+  await runPrint(first.runtime, "p1");
+  await runPrint(first.runtime, "p2");
+  await first.runtime.dispose();
+  const afterFirst = await session.entries();
+  const firstMessages = await messagesOf();
+  assert.deepEqual(
+    firstMessages.map((message) => message.role),
+    ["system", "user", "assistant", "user", "assistant"],
+  );
+  assert.equal(firstMessages[0].role === "system" && firstMessages[0].content, "base");
+  assert.match(
+    firstMessages[0].role === "system"
+      ? firstMessages[0].sections?.[RESOURCE_SECTION] ?? ""
+      : "",
+    /template alpha/,
+  );
+  assert.equal(currentSystemPrompt(first.model.requests[1].messages), first.runtime.agent.systemPrompt);
+
+  // 2. 恢复会话、资源变化、配置的基础 prompt 也变化：transcript 是事实，
+  //    只追加资源段落补丁，基础 prompt 保持第一次写入的值。
+  const second = await open("changed base", catalogWith(["beta"]), ["three"]);
+  assert.equal(second.runtime.agent.systemPrompt, first.runtime.agent.systemPrompt);
+  await runPrint(second.runtime, "p3");
+  await second.runtime.dispose();
+  const afterSecond = await session.entries();
+  assert.deepEqual(afterSecond.slice(0, afterFirst.length), afterFirst);
+  const added = afterSecond.slice(afterFirst.length);
+  assert.deepEqual(
+    added.map((entry) => entry.type === "message" && entry.message.role),
+    ["system", "user", "assistant"],
+  );
+  assert.equal(added[0].parentId, afterFirst.at(-1)?.id);
+  const patch = added[0].type === "message" ? added[0].message : undefined;
+  assert.equal(patch?.role === "system" && patch.content, "");
+  assert.deepEqual(
+    patch?.role === "system" ? Object.keys(patch.sections ?? {}) : [],
+    [RESOURCE_SECTION],
+  );
+  // 模型看到恢复出的完整 transcript，且基础 prompt 仍是 "base"。
+  const request = second.model.requests[0].messages;
+  assert.deepEqual(request.slice(0, firstMessages.length), firstMessages);
+  const prompt = currentSystemPrompt(request) ?? "";
+  assert.match(prompt, /^base\n\n/);
+  assert.match(prompt, /template beta/);
+  assert.equal(prompt.includes("alpha"), false);
+  assert.equal(prompt.includes("changed base"), false);
+
+  // 3. 资源相同：不追加 system message。
+  const third = await open("base", catalogWith(["beta"]), ["four"]);
+  await runPrint(third.runtime, "p4");
+  await third.runtime.dispose();
+  const afterThird = await session.entries();
+  assert.deepEqual(afterThird.slice(0, afterSecond.length), afterSecond);
+  assert.deepEqual(
+    afterThird
+      .slice(afterSecond.length)
+      .map((entry) => entry.type === "message" && entry.message.role),
+    ["user", "assistant"],
+  );
+
+  // 4. 资源清空：段落补丁为 null，删除后只剩基础 prompt。
+  const fourth = await open("base", catalogWith([]), ["five", "six"]);
+  await runPrint(fourth.runtime, "p5");
+  await runPrint(fourth.runtime, "p6");
+  await fourth.runtime.dispose();
+  const finalMessages = await messagesOf();
+  const finalSystems = systemMessages(finalMessages);
+  assert.equal(finalSystems.length, 3);
+  assert.deepEqual(
+    finalSystems[2].role === "system" ? finalSystems[2].sections : undefined,
+    { [RESOURCE_SECTION]: null },
+  );
+  assert.equal(currentSystemPrompt(finalMessages), "base");
+  assert.equal(fourth.runtime.agent.systemPrompt, "base");
+});
+
+test("没有基础 prompt 也没有资源时，composition 不写 system message", async () => {
+  const session = new InMemorySessionStore();
+  const model = new ScriptedModel([assistantMessage([text("ok")])]);
+  const runtime = await createRuntime(
+    { cwd: os.tmpdir() },
+    { model, tools: new ToolRegistry(), session },
+  );
+  await runPrint(runtime, "hi");
+  await runtime.dispose();
+  assert.deepEqual(
+    (await session.entries()).map(
+      (entry) => entry.type === "message" && entry.message.role,
+    ),
+    ["user", "assistant"],
+  );
+  assert.equal(currentSystemPrompt(model.requests[0].messages), undefined);
+});
+
+test("eval active path 接受 system message，不参与 call/result 配对", async () => {
+  const tools = new ToolRegistry();
+  tools.register({
+    name: "echo",
+    description: "echo",
+    schema: objectSchema({ value: stringValue }),
+    async execute({ value }) {
+      return { content: [text(value)] };
+    },
+  });
+  const result = await runEvalCase({
+    id: "with-system",
+    prompt: "go",
+    files: {},
+    tools,
+    systemPrompt: "be careful",
+    script: [
+      assistantMessage(
+        [call("echo-1", "echo", { value: "x" })],
+        "toolUse",
+      ),
+      assistantMessage([text("done")]),
+    ],
+    assert(value) {
+      assert.deepEqual(
+        value.transcript.map((message) => message.role),
+        ["system", "user", "assistant", "toolResult", "assistant"],
+      );
+      assert.equal(value.session.length, value.transcript.length);
+      assert.equal(currentSystemPrompt(value.transcript), "be careful");
+    },
+  });
+
+  assert.equal(result.status, "passed", result.error);
   assert.equal(result.metrics.toolCalls, 1);
 });

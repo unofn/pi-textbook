@@ -6,7 +6,7 @@ import {
 } from "./generated-course";
 import type { Chapter } from "./course-types";
 
-export const UPSTREAM_COMMIT = "8479bd84743e8889f728acb21a62794102db0529";
+export const UPSTREAM_COMMIT = "a13d35a742c6ef8462812a28fbe1d8c8b7431c32";
 
 export interface CourseNavChapter {
   id: string;

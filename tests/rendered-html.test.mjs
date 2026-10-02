@@ -56,19 +56,19 @@ test("章节页暴露真实 commit、parent、测试与陪学协议", async () =
   assert.match(html, /七个里程碑/);
   assert.match(html, /REAL CHECKPOINT/);
   assert.match(html, /course\/build-your-own-pi/);
-  assert.match(html, /f9798b7c/);
-  assert.match(html, /8479bd84/);
+  assert.match(html, /3a295225/);
+  assert.match(html, /a13d35a7/);
   assert.match(
     html,
-    /https:\/\/github\.com\/hahhforest\/pi\/tree\/course\/build-your-own-pi/,
+    /https:\/\/github\.com\/unofn\/pi\/tree\/course\/build-your-own-pi/,
   );
   assert.match(
     html,
-    /https:\/\/github\.com\/hahhforest\/pi\/commit\/f9798b7ce690abeca3539e3410e5f402bc65862d/,
+    /https:\/\/github\.com\/unofn\/pi\/commit\/3a295225a/,
   );
   assert.match(
     html,
-    /https:\/\/github\.com\/hahhforest\/pi\/compare\/8479bd84743e8889f728acb21a62794102db0529\.\.\.f9798b7ce690abeca3539e3410e5f402bc65862d/,
+    /https:\/\/github\.com\/unofn\/pi\/compare\/a13d35a742c6ef8462812a28fbe1d8c8b7431c32\.\.\.3a295225a/,
   );
   assert.match(html, /00-prologue\.test\.ts/);
   assert.match(html, /npm run checkpoint -w @pi\/course -- 00/);

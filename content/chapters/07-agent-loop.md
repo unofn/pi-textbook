@@ -94,7 +94,7 @@ assistant(stop, "项目名是 tiny-pi。")
 :::rebuild title="Checkpoint 07 · 闭合一次 README 工具往返"
 **模式：** 重建。
 
-**起终点：** `parent` 是第 06 章完成后的起点；`target` 是 9 项聚焦测试通过的终点。
+**起终点：** `parent` 是第 06 章完成后的起点；`target` 是 10 项聚焦测试通过的终点。
 
 **教学文件：** `packages/pi-course/src/agent-loop.ts`
 
@@ -120,8 +120,9 @@ assistant(stop, "项目名是 tiny-pi。")
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/07-*.test.js`
 
-**通过证据：** 9 项测试观察输入所有权、两次模型请求、单工具回填、非执行终态、并发
-顺序、注入 executor 的 rejection、预取消、工具后的取消与回合上限。
+**通过证据：** 10 项测试观察输入所有权、两次模型请求、system message 留在调用方前缀
+中、单工具回填、非执行终态、并发顺序、注入 executor 的 rejection、预取消、工具后的
+取消与回合上限。
 :::
 
 ## 第一次 model.stream() 追加 assistant 消息
@@ -142,12 +143,13 @@ messages                  [user]
 后续 assistant 和 tool result 只进入局部 `messages`。调用结束后，调用者传入的数组仍然
 只有原来的 user message。
 
-第一次请求使用这份局部消息，同时带上 system prompt 和本次 Registry 生成的工具定义：
+第一次请求只由两部分组成：这份局部消息，以及本次 Registry 生成的工具定义：
 
 ```ts
+// 请求只由 messages 与 tools 组成：system prompt 已经是 messages 里的
+// system message，loop 不单独传递，也从不写入新的 system message。
 const stream = options.model.stream(
   {
-    systemPrompt: options.context.systemPrompt,
     messages,
     tools: options.tools.definitions(),
   },
@@ -157,6 +159,12 @@ const stream = options.model.stream(
 
 `context.tools` 中可能有旧值，loop 不会转发它。当前请求允许模型调用什么，以
 `options.tools.definitions()` 为准；同一个 Registry 也会在本地找到真正的执行函数。
+
+请求里没有单独的 system prompt 字段。第 03 章起，指令就是 transcript 里的 system
+message。调用者若传入 `[system, user]`，局部副本和第一次请求的 messages 也是
+`[system, user]`；loop 不读取、不合并，也不新增 system message。transcript 里有多条
+system message 时，它们都按原位置进入请求，合并成一条是第 05 章 adapter 在请求出线
+那一刻的工作，合并结果不会写回 loop 的 messages。
 
 模型流中的事件先交给观察者，最终消息再从 `result()` 取得：
 
@@ -219,18 +227,24 @@ node --test --test-name-pattern="纯文本 stop" \
   packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** `1/1`。测试确认 context 不修改；模型请求包含 `systemPrompt`、局部 messages
-和 Registry 的 tool definitions；运行只发出一个 `turn_end`。
+**预期：** `1/1`。测试确认 context 不修改；开头的 system message 原样留在 messages
+里，请求没有单独的 `systemPrompt` 字段，只有局部 messages 和 Registry 的
+tool definitions；运行只发出一个 `turn_end`。
 :::
 
 ## call-1 的结果进入第二次模型请求
 
-第一轮的 `stopReason` 是 `toolUse`。loop 从 assistant content 中取出所有工具调用：
+第一轮的 `stopReason` 是 `toolUse`。loop 用文件内的 `toolCalls()` 从 assistant content 中
+取出所有工具调用：
 
 ```ts
-const calls = assistant.content.filter(
-  (block): block is ToolCall => block.type === "toolCall",
-);
+function toolCalls(message: AssistantMessage): ToolCall[] {
+  return message.content.filter(
+    (block): block is ToolCall => block.type === "toolCall",
+  );
+}
+
+const calls = toolCalls(assistant);
 ```
 
 当前数组只有 `readCall`。loop 先发出 `tool_start`，再把 call、signal 和进度回调交给
@@ -248,19 +262,21 @@ const executeToolCall: ToolExecutor =
 第二个参数才是 execution context。测试也可以通过
 `options.executeToolCall` 注入遵守同一签名的 probe。
 
-调用处因此只传 call 与 context：
+调用处因此只传 call 与 context。下面是每个 call 的调用片段；本例中 `call` 就是
+`readCall`：
 
 ```ts
-const result = await executeToolCall(readCall, {
+result = await executeToolCall(call, {
   signal: options.signal,
   reportProgress: (content) => {
     emit(options, {
       type: "tool_progress",
-      callId: readCall.id,
+      callId: call.id,
       content,
     });
   },
 });
+// ...
 emit(options, { type: "tool_end", result });
 ```
 
@@ -275,9 +291,9 @@ emit(options, { type: "tool_end", result });
 追加后  [user, assistant(call-1), toolResult(call-1)]
 ```
 
-循环继续，第二次 `model.stream()` 读取追加后的三条消息。它还会再次收到同一个
-system prompt 和 Registry definitions。模型现在能从 README 内容得出项目名，于是
-返回 `finalAnswer`。
+循环继续，第二次 `model.stream()` 读取追加后的三条消息，同时再次收到同一组
+Registry definitions。若调用者的 messages 带有 system message，它们仍在原来的位置。
+模型现在能从 README 内容得出项目名，于是返回 `finalAnswer`。
 
 第二轮结束后，运行结果可以直接观察到：
 
@@ -292,6 +308,29 @@ roles           user → assistant → toolResult → assistant
 这条 `user → assistant → toolResult → assistant` 就是完整反馈回路。第一次 assistant
 提出动作，tool result 补入环境事实，第二次 assistant 才完成回答。
 
+## 调用方给的 messages 是不变前缀
+
+工具往返让 transcript 变长了。loop 对这份增长有一条承诺：只在末尾追加，从不改写
+前面的消息。下面这份输入已经改过一次指令，第二条 system message 用 `sections`
+把 `rules` 换成了 v2：
+
+```text
+system     content="BASE"  sections={ rules: "RULE v1" }
+user       first
+assistant  ok
+system     content=""  sections={ rules: "RULE v2" }
+user       second
+```
+
+模型脚本先请求一次 `echo`，再以文本 `stop` 结束。运行结束后，前五条消息与输入逐项
+相同，loop 新增的只有 `assistant → toolResult → assistant`。两次模型请求的 messages
+都以这五条为前缀，其中仍有两条 system message；对请求重放，得到
+`"BASE\n\nRULE v2"`。
+
+loop 自己只写 assistant 和 toolResult 两种消息。system message 由调用者放进
+transcript，第 09 章的 `Agent` 会在用户消息之前追加 prompt 补丁；loop 只负责把它们
+原样交给模型。
+
 :::lab title="实践 7.2 · 闭合单工具往返"
 **目标：** 执行一个 tool call，把配对结果放进第二次模型请求，最后以纯文本 stop 结束。
 
@@ -303,7 +342,9 @@ roles           user → assistant → toolResult → assistant
    executor。
 3. executor 返回后发出 `tool_end`，再把 result 追加到 messages。
 4. 继续循环，让第二次模型请求看到 user、assistant 与 toolResult。
-5. 删除 Lab 7.2 的临时错误，只运行本段测试。
+5. 删除 Lab 7.2 的临时错误，先运行单工具往返测试。
+6. 再运行同属本段的 system message 前缀测试。它检查请求组成；脚本里有一次工具调用，
+   所以和单工具往返一起在这一步通过。
 
 **运行：**
 
@@ -311,11 +352,15 @@ roles           user → assistant → toolResult → assistant
 npm run build -w @pi/course
 node --test --test-name-pattern="单工具往返" \
   packages/pi-course/dist/test/07-*.test.js
+node --test --test-name-pattern="system message" \
+  packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** `1/1`。聚焦测试用 `probe` 代替内存 `read`，从而额外观察 signal 和 progress；
-控制顺序相同。第二次请求的 roles 是 `user → assistant → toolResult`，最终 transcript
-再增加一条 assistant。
+**预期：** 两次都是 `1/1`。聚焦测试用 `probe` 代替内存 `read`，从而额外观察 signal 和
+progress；控制顺序相同。第二次请求的 roles 是 `user → assistant → toolResult`，最终
+transcript 再增加一条 assistant。前缀测试确认输入的五条消息原样留在开头，loop 只追加
+`assistant → toolResult → assistant`，两次请求里都还有两条 system message。只完成实践
+7.1 时运行它，会停在 `Lab 7.2 one-tool roundtrip 尚未实现`。
 :::
 
 ## LoopEvent 展示过程，messages 保存事实
@@ -430,7 +475,13 @@ node --test --test-name-pattern="非执行终态" \
 ```ts
 const results = await Promise.all(
   calls.map(async (call) => {
-    const result = await executeOne(call);
+    let result: ToolResultMessage;
+    try {
+      result = await executeToolCall(call, { /* signal 与 reportProgress，同上 */ });
+    } catch (error) {
+      result = failedExecution(call, error);
+    }
+    // 观察事件反映真实完成顺序；Promise.all 返回值仍保持 call 顺序。
     emit(options, { type: "tool_end", result });
     return result;
   }),
@@ -545,7 +596,7 @@ node --test --test-name-pattern="取消与上限" \
 node --test packages/pi-course/dist/test/07-*.test.js
 ```
 
-**预期：** 局部测试 `3/3`，完整聚焦测试 `9/9`。三项分别观察预取消、工具后的取消和
+**预期：** 局部测试 `3/3`，完整聚焦测试 `10/10`。三项分别观察预取消、工具后的取消和
 `maxSteps`，并比较模型调用数、messages、steps、reason 与唯一 `turn_end`。
 :::
 
@@ -558,22 +609,32 @@ node --test packages/pi-course/dist/test/07-*.test.js
 `finish()` 集中产生 `turn_end`，让一次运行只有一个控制器终态。
 :::
 
-:::note title="9 项测试覆盖到哪里"
-聚焦测试证明 context 不修改、systemPrompt 与 tool definitions 进入请求、单工具执行与
-回填、非执行终态的配对、并发的两种顺序、单项 executor rejection、两处取消检查和
+:::note title="10 项测试覆盖到哪里"
+聚焦测试证明 context 不修改、请求只由 messages 与 Registry 的 tool definitions 组成、
+loop 不写入 system message 且以调用方 messages 为请求前缀、单工具执行与回填、非执行终态的配对、并发的两种顺序、单项 executor rejection、两处取消检查和
 `maxSteps`。这份 loop 管理一次进程内运行：signal 阻止新的模型请求，并传给已经启动的
 provider 与工具；正在执行的工作何时结束，取决于它们是否响应 signal。跨多次运行的
 subscriber、重试与状态生命周期由第 09 章的 `Agent` 接手。
 :::
 
-:::pi title="与当前上游 Pi 对照"
-固定提交 `8479bd8` 的 `packages/agent/src/agent-loop.ts` 同样不会执行 `length` 消息中的
-tool calls，并会为它们生成配对错误结果。上游工具可以并发完成；完成事件反映实际顺序，
-结果消息再按 assistant 中的声明顺序交给模型。
+:::pi title="与上游 Pi v1.0.0 对照"
+Pi v1.0.0 的 `packages/agent/src/agent-loop.ts` 同样不会执行 `length` 消息中的 tool
+calls，并为它们生成配对错误结果（`:264-270`）。上游工具可以并发完成；完成事件反映
+实际顺序，结果消息再按 assistant 中的声明顺序交给模型（`:646-657`）。
 
-上游还处理 hooks、steering、follow-up、动态模型切换和更多队列状态。课程在 Chapter 07
-只保留 README 往返所需的循环，并加入 `maxSteps` 作为教学保护；这项上限不是上游 Pi
-核心的同名保证。
+8479bd8 时 loop 把 `context.systemPrompt` 随每次请求传给模型（当时 `agent-loop.ts:299`）；
+1.0 的 `AgentContext` 只剩 `messages` 和 `tools`（`packages/agent/src/types.ts:500-505`），
+system prompt 和工具声明都由 transcript 里的 system message 承载（`types.ts:22-25`）。
+课程的请求形状与 1.0 一致。不同之处在于，上游 loop 会自己写 system message：
+`declareToolChanges`（`agent-loop.ts:333-363`，在 `:110`、`:211` 调用）比较
+`context.tools` 与重放出的工具集合，有差异时在待发送消息前插入一条带
+`toolsAdded` / `toolsRemoved` 的 system message。课程简化：不实现这两个字段，工具集合
+仍由每次请求的 `tools` 给出，loop 因而从不写入 system message。
+
+上游还处理 hooks（如 `prepareNextTurn` `:186`、`prepareRequest` `:219`、`finishTurn`
+`:286`）、steering、follow-up、动态模型切换和更多队列状态。课程在 Chapter 07 只保留
+README 往返所需的循环，并加入 `maxSteps` 作为教学保护；这项上限不是上游 Pi 核心的
+同名保证。
 :::
 
 ## 完成正常实现后检查 length 分支
@@ -600,7 +661,7 @@ npm run build -w @pi/course
 node --test packages/pi-course/dist/test/07-*.test.js
 ```
 
-结果应为 `9/9`。再沿开头的四条消息检查：
+结果应为 `10/10`。再沿开头的四条消息检查：
 
 1. 第一次 `model.stream()` 收到哪些 messages？
 2. `assistant(call-1)` 在什么时候追加，为什么只追加一次？
@@ -608,6 +669,7 @@ node --test packages/pi-course/dist/test/07-*.test.js
 4. 第二次 `model.stream()` 为什么能回答 `tiny-pi`？
 5. `model_event(done)` 与 `turn_end(stop)` 分别结束哪一层？
 6. `maxSteps: 1` 时，为什么结果停在 toolResult，而没有最终 assistant？
+7. 输入 messages 中有两条 system message 时，第二次请求里有几条？谁会把它们合并成一条？
 
 `npm run checkpoint -w @pi/course -- 07` 可以重新定位 parent 与 target；
 `npm run practice -w @pi/course -- 07 <新目录>` 会从同一 parent 创建新的隔离练习目录。
@@ -621,6 +683,7 @@ node --test packages/pi-course/dist/test/07-*.test.js
 工具结果使用同一个 id 进入 transcript；第二次模型请求读到这项环境事实，回答项目名是
 `tiny-pi`。
 
-`LoopEvent` 展示生成和执行过程，messages 保存可重放事实。正常工具批次按 call 顺序
+`LoopEvent` 展示生成和执行过程，messages 保存可重放事实。loop 只在末尾追加 assistant
+与 toolResult，调用者给的消息（包括 system message）始终是请求的前缀。正常工具批次按 call 顺序
 写回，非执行终态也为已有 calls 生成配对结果。取消与 `maxSteps` 只阻止新的模型请求，
 不会删除已经形成的 assistant 或 tool result。

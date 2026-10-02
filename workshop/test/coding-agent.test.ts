@@ -6,9 +6,11 @@ import test from "node:test";
 import { Agent } from "../src/agent.js";
 import { createCodingTools } from "../src/coding-tools.js";
 import { ScriptedModel } from "../src/scripted-model.js";
-import { executeToolCall } from "../src/tool.js";
+import { executeToolCall, ToolRegistry } from "../src/tool.js";
 import {
   assistantMessage,
+  currentSystemPrompt,
+  userMessage,
   type ToolCall,
 } from "../src/types.js";
 
@@ -89,4 +91,77 @@ test("subscriber 抛错不会破坏 Agent cleanup", async () => {
   assert.equal(result.reason, "stop");
   assert.equal(agent.getState().status, "idle");
   assert.match(agent.getState().diagnostics[0], /broken renderer/);
+});
+
+test("Agent 把 systemPrompt 放进 transcript 开头，systemPrompt 只读重放", async () => {
+  const model = new ScriptedModel([
+    assistantMessage([{ type: "text", text: "one" }]),
+    assistantMessage([{ type: "text", text: "two" }]),
+  ]);
+  const agent = new Agent({
+    model,
+    tools: new ToolRegistry(),
+    systemPrompt: "base",
+  });
+  assert.deepEqual(agent.getState().messages, [
+    { role: "system", content: "base", timestamp: 0 },
+  ]);
+  assert.equal(agent.systemPrompt, "base");
+
+  await agent.prompt("first");
+  const result = await agent.prompt("second", {
+    system: { content: "Cite files.", sections: { mode: "review" } },
+  });
+
+  assert.deepEqual(
+    result.messages.map((message) => message.role),
+    ["system", "user", "assistant", "system", "user", "assistant"],
+  );
+  const patch = result.messages[3];
+  assert.equal(patch.role, "system");
+  assert.deepEqual(
+    patch.role === "system" ? [patch.content, patch.sections] : [],
+    ["Cite files.", { mode: "review" }],
+  );
+  assert.equal(agent.systemPrompt, "base\n\nCite files.\n\nreview");
+  // 第一条请求只看到开头的 base；补丁属于第二次运行的新 suffix。
+  assert.equal(currentSystemPrompt(model.requests[0].messages), "base");
+  assert.equal(
+    currentSystemPrompt(model.requests[1].messages),
+    "base\n\nCite files.\n\nreview",
+  );
+});
+
+test("初始 transcript 已以 system message 开头时，Agent 不再放入 systemPrompt", () => {
+  const restored = [
+    { role: "system" as const, content: "persisted", timestamp: 5 },
+    userMessage("earlier"),
+  ];
+  const seeded = new Agent({
+    model: new ScriptedModel([]),
+    tools: new ToolRegistry(),
+    systemPrompt: "config",
+    messages: restored,
+  });
+  assert.deepEqual(seeded.getState().messages, restored);
+  assert.equal(seeded.systemPrompt, "persisted");
+
+  const withoutSystem = new Agent({
+    model: new ScriptedModel([]),
+    tools: new ToolRegistry(),
+    systemPrompt: "config",
+    messages: [userMessage("earlier")],
+  });
+  assert.deepEqual(
+    withoutSystem.getState().messages.map((message) => message.role),
+    ["system", "user"],
+  );
+
+  const empty = new Agent({
+    model: new ScriptedModel([]),
+    tools: new ToolRegistry(),
+    systemPrompt: "",
+  });
+  assert.deepEqual(empty.getState().messages, []);
+  assert.equal(empty.systemPrompt, undefined);
 });

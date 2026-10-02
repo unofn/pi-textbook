@@ -18,6 +18,8 @@ import {
   activateSkill,
   createExtensionHost,
   discoverResources,
+  formatResourceContext,
+  RESOURCE_SECTION,
   loadExtension,
   loadResources,
   resolveSkillResource,
@@ -81,7 +83,12 @@ function call(
 
 test("buildContext 报告分项预算，并只在完整 interaction 边界裁剪", () => {
   const activePath: SessionEntry[] = [
-    messageEntry("u1", null, userMessage("old")),
+    messageEntry("s0", null, {
+      role: "system",
+      content: "system",
+      timestamp: 0,
+    }),
+    messageEntry("u1", "s0", userMessage("old")),
     messageEntry(
       "a1",
       "u1",
@@ -104,7 +111,6 @@ test("buildContext 报告分项预算，并只在完整 interaction 边界裁剪
   ];
   const before = structuredClone(activePath);
   const projection = buildContext(activePath, {
-    systemPrompt: "system",
     tokenBudget: 6,
     estimateTokens: () => 1,
     estimateTextTokens: () => 1,
@@ -112,12 +118,18 @@ test("buildContext 报告分项预算，并只在完整 interaction 边界裁剪
 
   assert.deepEqual(activePath, before);
   assert.deepEqual(projection.sourceEntryIds, [
+    "s0",
     "u2",
     "a2",
     "r2",
     "r1",
     "a3",
   ]);
+  assert.deepEqual(projection.messages[0], {
+    role: "system",
+    content: "system",
+    timestamp: 0,
+  });
   assert.equal(projection.firstKeptEntryId, "u2");
   assert.equal(projection.safeCutEntryId, "u2");
   assert.equal(projection.selection.reason, "budget_tail");
@@ -239,7 +251,11 @@ test("compact 只追加结构化摘要，记录 safe cut、first kept 与 tokens
   ]);
   assert.equal(projection.tokensBefore, 1_700);
   assert.equal(projection.firstKeptEntryId, "e6");
-  const summaryBlock = projection.messages[0].content[0];
+  const summary = projection.messages[0];
+  if (summary.role === "system") {
+    assert.fail("no system message was recorded");
+  }
+  const summaryBlock = summary.content[0];
   if (summaryBlock.type !== "text") {
     assert.fail("summary projection must begin with text");
   }
@@ -552,5 +568,43 @@ test("before hook 抛错按 deny 处理，并返回同 call id 的结构化 tool
   assert.match(
     (denied.details as { reason: string }).reason,
     /hook_error:policy unavailable/,
+  );
+});
+
+test("资源文本是 RESOURCE_SECTION 段落，不与基础 prompt 拼接", async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "pi-resource-section-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  await writeSkill(temp, "review", {
+    name: "review",
+    description: "inspect a change",
+    body: "Read the diff first.",
+  });
+  await writeSkill(temp, "idle", {
+    name: "idle",
+    description: "never activated",
+    body: "Inactive body must stay out.",
+  });
+  const catalog = await discoverResources(temp);
+  const review = await activateSkill(catalog, "review");
+
+  assert.equal(RESOURCE_SECTION, "pi-resources");
+  const value = formatResourceContext(catalog, [review]);
+  assert.match(value, /## Available resources/);
+  assert.match(value, /- skill idle: never activated/);
+  assert.match(value, /## Activated skill: review/);
+  assert.match(value, /Read the diff first\./);
+  assert.equal(value.includes("Inactive body must stay out."), false);
+  assert.equal(
+    formatResourceContext(
+      {
+        resources: [],
+        templates: [],
+        skills: [],
+        diagnostics: [],
+        diagnosticMessages: [],
+      },
+      [],
+    ),
+    "",
   );
 });

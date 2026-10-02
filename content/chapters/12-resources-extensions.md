@@ -44,8 +44,9 @@ userRoot/
   → discoverResources：得到三类文本资源的稳定 catalog，project 的 review 胜出
   → activateSkill("review")：重新读取 canonical source，返回正文和 checklist
   → renderTemplate({ target, owner })：得到一条 UserMessage
-  → formatResourceContext：得到一份 systemPrompt
-  → Chapter 11 buildContext：把 systemPrompt 与活动历史一起计入预算
+  → formatResourceContext：得到一段资源文本
+  → system message 的 sections["pi-resources"]：资源文本成为一个具名段落
+  → Chapter 11 buildContext：重放 system message，与活动历史一起计入预算
 
 composition
   → ExtensionSource(review-extension)
@@ -59,9 +60,9 @@ composition
 
 | 对象 | 发现后 catalog 中有什么 | 何时真正使用 | 结果去向 |
 |---|---|---|---|
-| `AGENTS.md` | 正文 | 格式化资源上下文时 | `systemPrompt` |
+| `AGENTS.md` | 正文 | 格式化资源上下文时 | 资源段落 |
 | Template | metadata 和正文 | 用户给出模板参数时 | 一条 `UserMessage` |
-| Skill | metadata，不含正文 | 显式 `activateSkill()` 时 | `systemPrompt` |
+| Skill | metadata，不含正文 | 显式 `activateSkill()` 时 | 资源段落 |
 | Extension | 不进入资源 catalog | trust 通过并 import 后 | Tool Registry 与 hook 链 |
 
 前三种是数据。它们改变模型能看到什么，但不会仅因“被发现”就执行 Node 代码。
@@ -93,12 +94,21 @@ loadExtension(source, options)
 messages 或另一套 token 裁剪器，只负责准备两个输入：
 
 ```text
-renderTemplate(...)        ──→ UserMessage ──→ session 活动历史
-formatResourceContext(...) ──→ systemPrompt ─→ buildContext(...)
+renderTemplate(...)        ──→ UserMessage ──────────────────────→ session 活动历史
+formatResourceContext(...) ──→ 资源文本 ──→ SystemMessage.sections ──→ session 活动历史
+                                                                      ↓
+                                                               buildContext(...)
 ```
 
-模板生成的消息走既有消息与 session 协议；项目规则和 Skill 知识走同一个
-`systemPrompt` 字段。于是第 11 章仍能看到一次模型请求的完整预算。
+模板生成的消息走既有消息与 session 协议。项目规则和 Skill 知识也进入活动历史：第 03 章
+的 `SystemMessage` 有一个 `sections` 字段，资源文本放在名为 `RESOURCE_SECTION`
+（值为 `"pi-resources"`）的段落里。第 11 章的 `buildContext()` 从整条活动路径重放
+system message，把结果作为开头一条消息计入预算。于是第 11 章仍能看到一次模型请求的
+完整预算。
+
+资源文本单独成段，基础 prompt 留在 `content`。资源变化时，只需追加一条只含
+`pi-resources` 段落的 system 补丁，开头那条基础 prompt 保持原样。第 13 章会用这一点
+实现“只追加、不改写前缀”。
 
 Extension 接在另一边。它复用第 06 章的 `ToolRegistry` 与 `ToolExecutor`，而不是直接
 侵入 Agent loop：
@@ -132,12 +142,13 @@ packages/pi-course/src/resources.ts
 :::rebuild title="Checkpoint 12 · 沿一条发现链重建资源与扩展"
 **模式：** 重建。从第 11 章 target 开始，只增加 `resources.ts`。
 
-**起终点：** `parent` `5fb517c2012d8e6227c0e17ee65e530e18ac13e6` 是起点；`target` `03541892bcd533444af599d1813401f79807de3c` 是终点。
+**起终点：** `parent` `19d902b4e18abd42018f30eb01a47cf04a7119de` 是起点；`target` `eeeafcc13ab0d00bc55bfd4871f6b18a8f1af3f7` 是终点。
 
 **教学文件：** `packages/pi-course/src/resources.ts`
 
-**学习脚手架：** `starters/12-resources.ts` 已固定 Resource、Extension、hook 的公共类型和
-六个导出函数；函数体只有按 Lab 命名的施工位，没有本章答案。
+**学习脚手架：** `starters/12-resources.ts` 已固定 Resource、Extension、hook 的公共类型、
+六个导出函数和常量 `RESOURCE_SECTION = "pi-resources"`；函数体只有按 Lab 命名的
+施工位，没有本章答案。
 
 **动手前只需知道：** catalog 先回答“工作区里有什么”，activation 再回答“本轮读取哪份
 Skill”；Extension 只有通过 trust gate 后才有机会执行并注册 tool/hook。
@@ -367,28 +378,43 @@ const message = renderTemplate(template, {
 另一条输入来自已经发现和激活的资源：
 
 ```ts
-const systemPrompt = formatResourceContext(catalog, [review]);
+const resourceText = formatResourceContext(catalog, [review]);
 ```
 
-这份字符串包含 instructions 正文、所有 Skill 的 name/description、已激活 Skill 的正文
-与显式附加文件。未激活 Skill 的 description 可见，正文不可见。函数还要拒绝重复激活
-同名 Skill，以及不属于当前 catalog 的 ActivatedSkill。
+这份字符串以 `# Pi resources` 开头，包含 instructions 正文、所有 Skill 的
+name/description、已激活 Skill 的正文与显式附加文件。未激活 Skill 的 description 可见，
+正文不可见。函数还要拒绝重复激活同名 Skill，以及不属于当前 catalog 的 ActivatedSkill。
 
-现在把两条路径接回第 11 章：先把 `message` 追加为 session 事实，再把
-`systemPrompt` 作为已有入口交给 `buildContext()`。
+现在把两条路径接回第 11 章。资源文本先放进一条 system message 的具名段落，基础
+prompt 仍在 `content`：
+
+```ts
+const system: SystemMessage = {
+  role: "system",
+  content: "BASE PROMPT",
+  sections: { [RESOURCE_SECTION]: resourceText },
+  timestamp: 0,
+};
+```
+
+这条 system message 和 `message` 一样，都是活动路径上的普通 `message` entry。
+`buildContext()` 已经不接收 `systemPrompt` 参数，它自己从路径里重放 system message：
 
 ```ts
 const projection = buildContext(activePath, {
   maxTokens: 20,
-  systemPrompt,
   reservedOutput: 2,
   safetyMargin: 1,
   estimateTokens: () => 1,
 });
 ```
 
-`formatResourceContext()` 不裁剪 token，也不调用 `buildContext()`。它只返回一个字符串；
-预算与历史投影仍只有一个负责人。
+投影结果的 `messages[0]` 就是上面那条 system message，`tokens.system` 为 1。用
+`currentSystemPrompt(projection.messages)` 读出的文字里，`BASE PROMPT` 排在
+`# Pi resources` 之前：重放先写 `content`，再按顺序接上各段落。
+
+`formatResourceContext()` 不裁剪 token，不调用 `buildContext()`，也不碰基础 prompt。
+它只返回资源段落的文本；预算与历史投影仍只有一个负责人。
 
 :::lab title="实践 12.3 · 实现 renderTemplate 与 formatResourceContext"
 实现两个函数和必要的字符串 helper。先用固定模板手算完整输出，再写 replace 回调。
@@ -406,10 +432,18 @@ node --test --test-name-pattern="Lab 12.3" \
 ```
 
 `2/2` 要同时证明：重复占位符都被替换，缺少 `owner` 报错，结果 role 为 `user`；
-systemPrompt 有 instructions、active/inactive metadata 和 active body，没有 inactive body，
-并原样进入 `buildContext().systemPrompt`。
+资源文本有 instructions、active/inactive metadata 和 active body，没有 inactive body；
+放进 `sections[RESOURCE_SECTION]` 的 system message 原样成为 `buildContext()` 投影的
+第一条消息，重放出的 prompt 中基础 prompt 在资源段落之前。
 
-若你在这里创建第二套 resource messages 或第二个 token budget，说明职责边界已经偏离。
+第二项测试的完整名称是：
+
+```text
+Lab 12.3 · formatResourceContext 只生成资源段落，经 system message 接入唯一 buildContext
+```
+
+若你在这里创建第二套 resource messages、第二个 token budget，或把资源文本和基础 prompt
+拼成一个字符串，说明职责边界已经偏离。
 :::
 
 ## Lab 12.4：Extension 先获准，再一次性注册
@@ -605,7 +639,7 @@ after 失败后停止后续 observer，或把 core 原对象直接交给 Extensi
 2. catalog 公开 review metadata，不公开 Skill 正文
 3. activateSkill("review") 读取 project SKILL.md 与 checklist
 4. renderTemplate 生成检查 src/parser.ts 的 UserMessage
-5. formatResourceContext 生成 systemPrompt，Chapter 11 统一预算
+5. formatResourceContext 生成资源段落，经 system message 由 Chapter 11 统一预算
 6. review-extension 先 trust，后 import，factory 注册项一次 commit
 7. review_note 调用通过 before，core 一次，after 一次，返回配对结果
 ```
@@ -669,7 +703,7 @@ node --test packages/pi-course/dist/test/12-*.test.js
 |---|---:|---|
 | 12.1 | 2 | roots precedence、逻辑身份排序、inactive body 不在 catalog |
 | 12.2 | 3 | activation 公开正文、附加文件来源、traversal/absolute/symlink escape |
-| 12.3 | 2 | 唯一占位协议、canonical UserMessage、唯一 `buildContext` 接缝 |
+| 12.3 | 2 | 唯一占位协议、canonical UserMessage、资源段落经 system message 进入唯一 `buildContext` |
 | 12.4 | 2 | trust 先于 import、factory/重名失败零残留 |
 | 12.5 | 3 | before fail-closed、paired result、after 失败保留 core 事实 |
 
@@ -713,22 +747,37 @@ through Chapter 12: all pass
 
 ## 课程模型怎样迁移到真实 Pi
 
-:::pi title="Pi 对照 · 课程压缩的是顺序，不是生产接口"
+:::pi title="与上游 Pi v1.0.0 对照"
 课程用 `discoverResources()`、`activateSkill()`、`formatResourceContext()` 和一个小型
 Extension host，把最重要的输入输出压成 12 项黑盒测试。真实 Pi 的对象更丰富，不能按
 函数名逐行映射。
 
-在固定上游提交 `8479bd8` 中，`DefaultResourceLoader` 统一暴露
-`getExtensions()`、`getSkills()`、`getPrompts()`、`getAgentsFiles()` 与 system prompt
-相关读取，并在 `reload()` 中解析启用的资源路径。项目 trust 采用预加载流程：先把项目
-设置视为未信任；此时排除 project-local extension，只加载 user/global 与临时 CLI 来源；
-随后解析项目是否 trusted，并按最终 trust 状态重载设置与资源。这个实现比课程的单个
-`isTrusted(source)` 更完整。
+**ResourceLoader。** `DefaultResourceLoader` 统一暴露 `getExtensions()`、`getSkills()`、
+`getPrompts()`、`getThemes()`、`getAgentsFiles()` 与 system prompt 相关读取
+（`packages/coding-agent/src/core/resource-loader.ts:421-453`），`extendResources()`
+（`:457`）让 Extension 在加载后补充 skill、prompt 与 theme 路径，`reload()`（`:505`）
+解析启用的资源路径。8479bd8 时 system prompt 只有 `getSystemPrompt()` 与
+`getAppendSystemPrompt()` 两个读取；1.0 增加 `getSystemPromptSource()` 与
+`getAppendSystemPromptSources()`（`:445`、`:453`），报告这些文字来自哪个文件。
 
-真实 Extension API 也远不止两个 hook：factory 可以 `registerTool()`，并用 `on()` 订阅
-`tool_call`、`tool_result`、`resources_discover` 等事件。课程的
-`beforeToolCall/afterToolResult` 只保留了最适合练习“策略先于动作、观察晚于事实”的一小
-段执行语义。
+**项目 trust。** 预信任流程 `loadProjectTrustExtensions()`（`:497-503`）先把项目设置视为
+未信任，排除 project-local extension，只加载 user/global 与临时 CLI 来源。这一步只在
+调用方给 `reload()` 传入 `resolveProjectTrust` 时执行（`:513-517`）：拿到预加载结果后
+解析项目是否 trusted，再按最终状态重载设置与资源。没有传入时，`reload()` 直接按
+SettingsManager 已有的 trust 状态加载。这个流程比课程的单个 `isTrusted(source)` 更完整。
+
+**资源进入 prompt 的方式。** 上游同样把资源放进具名段落：`buildSystemPromptSections()`
+（`packages/coding-agent/src/core/system-prompt.ts:121`）把 AGENTS 文件写成
+`project_context` 段落（`:164`），把 Skill 列表写成 `skills` 段落（`:168`）。课程把这两部分
+合成一个 `pi-resources` 段落，是课程简化；“资源只占段落、按名字替换”的结构与上游一致。
+
+**Extension API。** factory 仍可 `registerTool()`（`core/extensions/types.ts:1619`），并用
+`on()` 订阅 `tool_call`、`tool_result`（`:1609-1610`）和 `resources_discover`（`:1547`）
+等事件。1.0 又加入 `registerMcpServer()`（`:1839`）、`registerVirtualModel()`（`:1856`）、
+`registerMarkdownTransformer()`（`:1666`），工具定义还能用 `exposure`（`ToolExposure`，
+`:509`）决定模型怎样接触这个工具。这些机制见[附录：Pi 1.0 的其他机制](/pi-1-0)。课程的
+`beforeToolCall/afterToolResult` 只保留最适合练习“策略先于动作、观察晚于事实”的一小段
+执行语义。
 
 迁移时保留三条不变量，不复制课程内部 helper：数据资源与可执行代码分开；项目代码在
 信任决策前不能被意外加载；扩展故障的处理取决于它发生在动作之前还是事实之后。
@@ -745,7 +794,7 @@ Extension host，把最重要的输入输出压成 12 项黑盒测试。真实 P
 checklist 和 `review-extension`：
 
 1. 断言 project 的 template 与 Skill metadata 胜出；
-2. 激活 review，渲染 `src/parser.ts/runtime`，再断言 systemPrompt 只有 project 的
+2. 激活 review，渲染 `src/parser.ts/runtime`，再断言资源段落文本只有 project 的
    active body；
 3. 加载一个注册 `review_note` 的 trusted Extension，before 只拒绝 text 中含
    `SECRET` 的调用；
@@ -756,7 +805,7 @@ checklist 和 `review-extension`：
 ```text
 project winners
   → activate project review + checklist
-  → render UserMessage + format systemPrompt
+  → render UserMessage + format resource section
   → trust → import → factory → commit review_note
   → ordinary note: before allow → core → after
   → secret note: before deny → paired error result
@@ -769,7 +818,8 @@ call id/name 配对。失败时只找 trace 中第一处偏差，不给核心实
 :::checkpoint title="Checkpoint 12 · 同一个工作区有一条可解释的发现链"
 **完成状态：** Roots 输入顺序决定 `kind+name` winner；inactive Skill 只公开 metadata；
 显式 activation 才返回正文与 root 内附加文件；template 生成 canonical UserMessage；资源
-文字从唯一 `systemPrompt` 接口进入 Chapter 11 的预算。
+文字作为 system message 的 `pi-resources` 段落进入活动历史，由 Chapter 11 的
+`buildContext()` 重放并计入预算。
 
 **执行状态：** Trusted Extension 按 `trust → import → factory → commit` 生效；staging
 失败零残留；before 决定 core 能否运行；after 故障只产生 diagnostic，不改写 core 事实。
@@ -787,9 +837,10 @@ call id/name 配对。失败时只找 trace 中第一处偏差，不给核心实
 
 - Catalog 先回答“有什么”，activation 再回答“本轮读什么”。
 - Roots 顺序选择 winner；最终排序只稳定输出，不能反过来决定权限。
-- Template 生成 `UserMessage`，资源文字生成 `systemPrompt`，两者都回到既有上下文链。
+- Template 生成 `UserMessage`，资源文字生成 system message 的 `pi-resources` 段落，两者
+  都回到既有上下文链。
 - Extension 是代码：先 trust，再 import；factory 注册先 staging，检查完成后一次 commit。
 - Before hook 位于动作之前，拒绝或故障时 fail-closed；after hook 位于事实之后，故障不能
   重写结果。
-- 第 13 章会接入 catalog 的静态 metadata 与 ExtensionHost；Skill activation 和 template
-  rendering 仍由调用者显式完成。
+- 第 13 章会接入 catalog 的静态 metadata 与 ExtensionHost，并在资源段落变化时追加
+  system 补丁；Skill activation 和 template rendering 仍由调用者显式完成。

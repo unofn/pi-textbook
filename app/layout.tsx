@@ -92,6 +92,7 @@ export default function RootLayout({
               <Link href="/map">课程路线</Link>
               <Link href="/about">学习方法</Link>
               <Link href="/glossary">术语表</Link>
+              <Link href="/pi-1-0">Pi 1.0 附录</Link>
               <a
                 href={COURSE_REPOSITORY_URL}
                 target="_blank"
