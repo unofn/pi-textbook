@@ -168,8 +168,8 @@ packages/pi-course/src/durable.ts
 **模式：** 重建。从第 18 章 target 开始，在 Runtime 旁边新建一个最小 durable harness，
 不修改第 13 章的 Runtime。
 
-**起终点：** `parent` `13eee77ea7a808fe86e1112e51cb0a39d96d97b1` 是第 18 章虚拟模型完成后的
-起点；`target` `10e1c65320ee249b6132d773329dd9e1df38f843` 是本章 10 项测试通过的终点。
+**起终点：** `parent` `842d35ec4e60943a94d8df5389e728c7b75823eb` 是第 18 章虚拟模型完成后的
+起点；`target` `8d54ddb44957f886be77c302c0becc3b8d2b6848` 是本章 10 项测试通过的终点。
 
 **教学文件：** `packages/pi-course/src/durable.ts`
 
@@ -720,7 +720,7 @@ chapter total: 10/10
 
 **公开证据：** `3/3 → 2/2 → 3/3 → 2/2`，共 `10/10`。
 
-**恢复：** 回到 parent `13eee77ea7a808fe86e1112e51cb0a39d96d97b1` 后，第 13 章的 Runtime 与
+**恢复：** 回到 parent `842d35ec4e60943a94d8df5389e728c7b75823eb` 后，第 13 章的 Runtime 与
 第 15–18 章的机制照常运行，只是没有一个能在进程中途退出后接着干的 harness。
 :::
 

@@ -80,6 +80,13 @@ export function isHostToWorkerMessage(
  * 读取不存在的 `tools.<name>` 会立刻抛出带近似名的 TypeError，而不是稍后的
  * “not a function”（上游 1.0 的 Proxy 行为）。
  */
+/**
+ * 一次执行最多保留的输出：`console.*` 文本的总字符数与调用次数。宿主要把全部输出
+ * 留到脚本结束，没有上限时循环打印会把宿主内存耗尽；次数上限覆盖打印空串的循环。
+ */
+export const MAX_OUTPUT_CHARS = 16 * 1024 * 1024;
+export const MAX_OUTPUT_ITEMS = 100_000;
+
 export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson) {
   "use strict";
   const stringify = JSON.stringify;
@@ -87,6 +94,7 @@ export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson) {
   const promiseThen = Promise.prototype.then;
   const ErrorCtor = Error;
   const TypeErrorCtor = TypeError;
+  const RangeErrorCtor = RangeError;
   const pending = new Map();
   let nextId = 1;
   let finished = false;
@@ -181,11 +189,28 @@ export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson) {
     },
   });
 
+  let outputChars = 0;
+  let outputItems = 0;
+
+  // 超过输出上限时脚本失败：先由 done() 报告错误，脚本即使 catch 住也不能继续输出。
+  function output(text) {
+    if (finished) return;
+    outputChars += text.length;
+    outputItems += 1;
+    if (outputChars > ${MAX_OUTPUT_CHARS} || outputItems > ${MAX_OUTPUT_ITEMS}) {
+      const error = new RangeErrorCtor(
+        "script output exceeded the limit of ${MAX_OUTPUT_CHARS} characters or ${MAX_OUTPUT_ITEMS} console calls. " +
+          "Print a summary instead.",
+      );
+      done(false, describeError(error));
+      throw error;
+    }
+    bridge("output", text);
+  }
+
   const console = {};
   for (const level of ["log", "info", "warn", "error", "debug"]) {
-    console[level] = (...args) => {
-      if (!finished) bridge("output", args.map(format).join(" "));
-    };
+    console[level] = (...args) => output(args.map(format).join(" "));
   }
   Object.freeze(console);
 

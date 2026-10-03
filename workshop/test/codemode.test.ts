@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runAgentLoop } from "../src/agent-loop.js";
+import { MAX_OUTPUT_CHARS, MAX_OUTPUT_ITEMS } from "../src/codemode-protocol.js";
 import {
   CODEMODE_TOOL_NAME,
   createCodemodeTool,
@@ -191,6 +192,26 @@ test("没有计时器与 I/O：等待永不结算的 promise 立刻以 stalled �
     assert.match(result.error.message, /can never settle/);
   }
   assert.ok(Date.now() - started < 5_000);
+});
+
+test("循环打印超过输出上限时脚本以 RangeError 失败，catch 住也不能继续输出，宿主只保留上限内的输出", SLOW, async () => {
+  const large = await runCodemodeScript(
+    `const s = "x".repeat(1 << 20); for (;;) { try { console.log(s); } catch {} }`,
+  );
+  assert.equal(large.ok, false);
+  if (!large.ok) {
+    assert.equal(large.error.kind, "script");
+    assert.equal(large.error.name, "RangeError");
+    assert.match(large.error.message, /script output exceeded/);
+  }
+  const chars = large.output.reduce((sum, text) => sum + text.length, 0);
+  assert.ok(chars <= MAX_OUTPUT_CHARS);
+  assert.ok(chars > MAX_OUTPUT_CHARS - (2 << 20));
+
+  const empty = await runCodemodeScript(`for (;;) console.log("");`);
+  assert.equal(empty.ok, false);
+  if (!empty.ok) assert.equal(empty.error.name, "RangeError");
+  assert.equal(empty.output.length, MAX_OUTPUT_ITEMS);
 });
 
 test("嵌套调用走注册表执行路径：id 为 <parent>/<n>，表里只有可调用集合，不存在的成员抛出带近似名的 TypeError", SLOW, async () => {
