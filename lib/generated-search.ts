@@ -3450,7 +3450,7 @@ export const searchIndex: SearchEntry[] = [
       "nested tool call",
       "deadline"
     ],
-    "searchText": "Codemode：让模型写脚本调用工具 为每次执行新建 worker 与 QuickJS 虚拟机，让脚本里的 tools.<name>(args) 经消息桥回到宿主，以 script 作用域走既有执行路径，并由宿主持有 deadline 与取消。 第五部 · Pi 1.0 进阶 codemode, worker thread, QuickJS, message bridge, nested tool call, deadline 第 15 章的可调用集合还没有调用者 三个参与者与两种消息 建立练习起点 Lab 16.1：一个 worker、一个 VM、一条消息桥 宿主收到 call 宿主启动 worker worker 创建 VM 并接上桥 四项测试观察什么 Lab 16.2：嵌套调用走第 06/15 章的执行路径 表里只有可调用集合 一个失败只影响自己 记录有上限 Lab 16.3：deadline 与取消由宿主持有 两个入口 收口只有一处 两项测试观察什么 Lab 16.4：codemode 工具接进 loop 直接调用这个工具 回到开篇的那次运行 十二项测试固定了哪些边界 课程 codemode 与真实 Pi 的关系 本章验收 小结"
+    "searchText": "Codemode：让模型写脚本调用工具 为每次执行新建 worker 与 QuickJS 虚拟机，让脚本里的 tools.<name>(args) 经消息桥回到宿主，以 script 作用域走既有执行路径，并由宿主持有 deadline 与取消。 第五部 · Pi 1.0 进阶 codemode, worker thread, QuickJS, message bridge, nested tool call, deadline 第 15 章的可调用集合还没有调用者 三个参与者与两种消息 建立练习起点 Lab 16.1：一个 worker、一个 VM、一条消息桥 宿主收到 call 宿主启动 worker worker 创建 VM 并接上桥 四项测试观察什么 Lab 16.2：嵌套调用走第 06/15 章的执行路径 表里只有可调用集合 一个失败只影响自己 记录有上限 Lab 16.3：deadline 与取消由宿主持有 两个入口 收口只有一处 两项测试观察什么 Lab 16.4：codemode 工具接进 loop 直接调用这个工具 回到开篇的那次运行 十三项测试固定了哪些边界 课程 codemode 与真实 Pi 的关系 本章验收 小结"
   },
   {
     "id": "16-第-15-章的可调用集合还没有调用者",
@@ -3579,12 +3579,12 @@ export const searchIndex: SearchEntry[] = [
     "searchText": "Codemode：让模型写脚本调用工具 Lab 16.4：codemode 工具接进 loop codemode worker thread QuickJS message bridge nested tool call deadline"
   },
   {
-    "id": "16-十二项测试固定了哪些边界",
+    "id": "16-十三项测试固定了哪些边界",
     "chapterId": "16",
     "chapterSlug": "codemode",
     "chapterTitle": "Codemode：让模型写脚本调用工具",
-    "title": "十二项测试固定了哪些边界",
-    "href": "/learn/codemode#十二项测试固定了哪些边界",
+    "title": "十三项测试固定了哪些边界",
+    "href": "/learn/codemode#十三项测试固定了哪些边界",
     "partTitle": "第五部 · Pi 1.0 进阶",
     "terms": [
       "codemode",
@@ -3594,7 +3594,7 @@ export const searchIndex: SearchEntry[] = [
       "nested tool call",
       "deadline"
     ],
-    "searchText": "Codemode：让模型写脚本调用工具 十二项测试固定了哪些边界 codemode worker thread QuickJS message bridge nested tool call deadline"
+    "searchText": "Codemode：让模型写脚本调用工具 十三项测试固定了哪些边界 codemode worker thread QuickJS message bridge nested tool call deadline"
   },
   {
     "id": "16-课程-codemode-与真实-pi-的关系",
