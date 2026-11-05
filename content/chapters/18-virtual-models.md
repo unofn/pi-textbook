@@ -104,7 +104,7 @@ export interface ModelStreamOptions {
 :::rebuild title="Checkpoint 18 · 从红测试把选择和派发分开"
 **模式：** 重建。从第 17 章 target 开始，增加模型目录、请求前钩子和分支上的路由状态。
 
-**起终点：** `parent` `f83287a6d3c97dc187ec2d7a1fde1172018ff3f5` 是起点；`target` `13eee77ea7a808fe86e1112e51cb0a39d96d97b1` 是终点。
+**起终点：** `parent` `476c3b12cff507850d6fe88cd3122306845bebf9` 是起点；`target` `842d35ec4e60943a94d8df5389e728c7b75823eb` 是终点。
 
 **教学文件：** `packages/pi-course/src/virtual-models.ts`、
 `packages/pi-course/src/agent-loop.ts`、`packages/pi-course/src/composition.ts`
@@ -629,7 +629,7 @@ error 回复结束运行；钩子改不了 transcript；没有钩子时不多一
 
 **公开证据：** `3/3 → 3/3 → 4/4`，共 `10/10`。
 
-**恢复：** 回到 parent `f83287a6d3c97dc187ec2d7a1fde1172018ff3f5` 后，Runtime 仍能接入 MCP
+**恢复：** 回到 parent `476c3b12cff507850d6fe88cd3122306845bebf9` 后，Runtime 仍能接入 MCP
 工具和段落，但每次请求都发给 `RuntimeDeps.model`，分支上没有选择与路由状态。
 :::
 

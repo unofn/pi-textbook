@@ -78,7 +78,7 @@ send，以及 client 的请求登记 `requestInternal()` 和响应分发 `handle
 :::rebuild title="Checkpoint 17 · 从红测试接入一个 MCP 服务器"
 **模式：** 重建。从第 16 章 target 开始，增加一个最小 MCP 客户端和它与 Runtime 的接线。
 
-**起终点：** `parent` `ff14a103b53fe07b304e73d82364d69bdcb60cf8` 是起点；`target` `f83287a6d3c97dc187ec2d7a1fde1172018ff3f5` 是终点。
+**起终点：** `parent` `c058cde4d2e2dcaef679eeca6b2f642e1a664b8f` 是起点；`target` `476c3b12cff507850d6fe88cd3122306845bebf9` 是终点。
 
 **教学文件：** `packages/pi-course/src/mcp.ts`、
 `packages/pi-course/src/mcp-runtime.ts`、`packages/pi-course/src/composition.ts`
@@ -736,7 +736,7 @@ chapter total: 13/13
 
 **公开证据：** `3/3 → 3/3 → 2/2 → 2/2 → 3/3`，共 `13/13`。
 
-**恢复：** 回到 parent `ff14a103b53fe07b304e73d82364d69bdcb60cf8` 后，注册表、`tool_search`
+**恢复：** 回到 parent `c058cde4d2e2dcaef679eeca6b2f642e1a664b8f` 后，注册表、`tool_search`
 与 codemode 仍然可用，但所有工具都来自进程内，Runtime 的期望 system 状态只有配置与资源。
 :::
 

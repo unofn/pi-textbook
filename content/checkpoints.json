@@ -341,7 +341,7 @@
   },
   {
     "id": "16",
-    "commit": "ff14a103b53fe07b304e73d82364d69bdcb60cf8",
+    "commit": "c058cde4d2e2dcaef679eeca6b2f642e1a664b8f",
     "parentCommit": "6a8eff4e26ed662861fe0199ddca582dcc4ea4ca",
     "subject": "course(16): run model scripts in a QuickJS codemode sandbox",
     "sourceDelta": [
@@ -355,6 +355,7 @@
       "Lab 16.1 · 脚本抛错、语法错误与工具拒绝都变成 ok:false 的结果，不会让宿主抛异常",
       "Lab 16.1 · 每次执行都是新的 VM：全局变量不跨执行泄漏；内存上限下的失控分配以 out of memory 失败",
       "Lab 16.1 · 没有计时器与 I/O：等待永不结算的 promise 立刻以 stalled 失败，而不是挂到超时",
+      "Lab 16.1 · 循环打印超过输出上限时脚本以 RangeError 失败，catch 住也不能继续输出，宿主只保留上限内的输出",
       "Lab 16.2 · 嵌套调用走第 06/15 章执行路径：id 为 <parent>/<n>，表里只有可调用集合，不存在的成员抛出带近似名的 TypeError",
       "Lab 16.2 · 一个嵌套调用失败不会让同批其他调用丢失：参数校验失败与工具抛错都只影响自己",
       "Lab 16.2 · nestedCalls 记录有界：超过条数上限的调用照样执行但不记录，超大参数只记字节数，结果从不记录",
@@ -367,8 +368,8 @@
   },
   {
     "id": "17",
-    "commit": "f83287a6d3c97dc187ec2d7a1fde1172018ff3f5",
-    "parentCommit": "ff14a103b53fe07b304e73d82364d69bdcb60cf8",
+    "commit": "476c3b12cff507850d6fe88cd3122306845bebf9",
+    "parentCommit": "c058cde4d2e2dcaef679eeca6b2f642e1a664b8f",
     "subject": "course(17): connect MCP servers through a minimal client",
     "sourceDelta": [
       "packages/pi-course/src/composition.ts",
@@ -394,8 +395,8 @@
   },
   {
     "id": "18",
-    "commit": "13eee77ea7a808fe86e1112e51cb0a39d96d97b1",
-    "parentCommit": "f83287a6d3c97dc187ec2d7a1fde1172018ff3f5",
+    "commit": "842d35ec4e60943a94d8df5389e728c7b75823eb",
+    "parentCommit": "476c3b12cff507850d6fe88cd3122306845bebf9",
     "subject": "course(18): route virtual models to physical models per request",
     "sourceDelta": [
       "packages/pi-course/src/agent-loop.ts",
@@ -420,8 +421,8 @@
   },
   {
     "id": "19",
-    "commit": "10e1c65320ee249b6132d773329dd9e1df38f843",
-    "parentCommit": "13eee77ea7a808fe86e1112e51cb0a39d96d97b1",
+    "commit": "8d54ddb44957f886be77c302c0becc3b8d2b6848",
+    "parentCommit": "842d35ec4e60943a94d8df5389e728c7b75823eb",
     "subject": "course(19): commit durable progress before it becomes visible",
     "sourceDelta": [
       "packages/pi-course/src/durable.ts"

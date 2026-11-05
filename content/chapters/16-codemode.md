@@ -112,6 +112,12 @@ interface HostToWorkerMessage {
 `run(fn)` 运行脚本，`settle(id, ok, payload)` 结算一次工具调用，`stalled()` 在“没有调用在途、
 脚本却还没结束”时报告失败。它还在 VM 里搭出 `tools`、`ALL_TOOLS` 和 `console`。
 
+`console.*` 的每次调用都经过 prelude 里的 `output()`。宿主要把全部输出留到脚本结束才交出结果，
+所以 `output()` 累计字符数和调用次数：总字符超过 `MAX_OUTPUT_CHARS`（16 Mi）或次数超过
+`MAX_OUTPUT_ITEMS`（10 万）时，它先用 `done(false, …)` 报告一个 `RangeError`，再把错误抛给脚本。
+脚本即使 catch 住，`finished` 已经为真，后面的输出全部丢弃，宿主只保留上限内的部分。没有这道
+上限，`for (;;) console.log(s)` 会在 deadline 之前先把宿主内存耗尽。
+
 一次 `await tools.add({ a: 2, b: 3 })` 的往返是：
 
 ```text
@@ -159,7 +165,7 @@ packages/pi-course/src/codemode-protocol.ts   消息类型与 prelude（给定�
 **模式：** 重建。从第 15 章的可调用集合开始，只增加一个能运行脚本的沙箱和一个 `model-only`
 的 `codemode` 工具。
 
-**起终点：** `parent` `6a8eff4e26ed662861fe0199ddca582dcc4ea4ca` 是起点；`target` `ff14a103b53fe07b304e73d82364d69bdcb60cf8` 是终点。
+**起终点：** `parent` `6a8eff4e26ed662861fe0199ddca582dcc4ea4ca` 是起点；`target` `c058cde4d2e2dcaef679eeca6b2f642e1a664b8f` 是终点。
 
 **教学文件：** `packages/pi-course/src/codemode-worker.ts`、
 `packages/pi-course/src/codemode.ts`；`packages/pi-course/src/codemode-protocol.ts` 是给定协议。
@@ -189,10 +195,10 @@ packages/pi-course/src/codemode-protocol.ts   消息类型与 prelude（给定�
 **聚焦运行：** `npm run build -w @pi/course`，然后运行
 `node --test packages/pi-course/dist/test/16-*.test.js`。
 
-**施工顺序：** 沙箱与消息桥 `4/4` → 嵌套调用与有界记录 `3/3` → deadline 与取消 `2/2` →
+**施工顺序：** 沙箱与消息桥 `5/5` → 嵌套调用与有界记录 `3/3` → deadline 与取消 `2/2` →
 `codemode` 工具与 loop 接入 `3/3`。
 
-**通过证据：** 四个 Lab 依次变绿，最后本章 `12/12`；第 15 章的 `12/12` 保持不变。
+**通过证据：** 四个 Lab 依次变绿，最后本章 `13/13`；第 15 章的 `12/12` 保持不变。
 
 第一次尝试先不看 target diff。卡住时先判断偏差出在宿主、worker 还是 VM。
 :::
@@ -360,9 +366,10 @@ I/O 能唤醒它。`run` 之后的那次 `drain()` 里，`stalled()` 发现这�
 **运行：** `npm run build -w @pi/course`，然后运行
 `node --test --test-name-pattern="Lab 16.1" packages/pi-course/dist/test/16-*.test.js`。
 
-**预期：** `4/4`。四项分别证明：工具调用经桥往返且返回值按 JSON 回到宿主；脚本抛错、语法
+**预期：** `5/5`。五项分别证明：工具调用经桥往返且返回值按 JSON 回到宿主；脚本抛错、语法
 错误、工具拒绝都变成 `ok:false` 或被脚本捕获；全局变量不跨执行泄漏，内存上限下的失控分配以
-out of memory 失败；等待永不结算的 promise 立刻以 stalled 失败。
+out of memory 失败；等待永不结算的 promise 立刻以 stalled 失败；循环打印超过输出上限时以
+`RangeError` 失败，宿主只保留上限内的输出。最后一项只依赖给定的 prelude，worker 跑通后就会变绿。
 :::
 
 ## Lab 16.2：嵌套调用走第 06/15 章的执行路径
@@ -692,11 +699,11 @@ loop 第一次请求前，注册表用上了非 direct 的 exposure，第 15 章
 loop 的 abort 让脚本以 `aborted` 结束。
 :::
 
-## 十二项测试固定了哪些边界
+## 十三项测试固定了哪些边界
 
 | Lab | 数量 | 可观察事实 |
 |---|---:|---|
-| 16.1 | 4 | 消息桥往返、失败变成结果、每次新 VM 与内存上限、stalled 立即失败 |
+| 16.1 | 5 | 消息桥往返、失败变成结果、每次新 VM 与内存上限、stalled 立即失败、输出上限 |
 | 16.2 | 3 | `<parent>/<n>` 与 script 作用域、失败互不影响、有界记录 |
 | 16.3 | 2 | deadline 中断与 terminate、调用方 abort 与 cancelled |
 | 16.4 | 3 | `model-only` 工具形状、经 loop 不声明 deferred、超时与 abort 收口 |
@@ -731,8 +738,13 @@ node --test packages/pi-course/dist/test/*.test.js
 `(bridge, toolsJson, globalsJson, storeJson)`（`packages/codemode/src/runtime/prelude-source.ts:34`），
 另外提供 `text()`、`image()`、`exit()`、`store()` / `load()`、`searchTools()` 与 `models.*`。
 不存在的成员同样由 Proxy 立即报错并给出近似名（`:116-141`），`stalled()` 在 `:370`。课程简化：
-只保留 `tools`、`ALL_TOOLS` 与 `console.*`，不做输出截断（上游见
+只保留 `tools`、`ALL_TOOLS` 与 `console.*`，不做按 token 的输出截断（上游见
 `packages/coding-agent/src/extensions/codemode/execute.ts:423`）。
+
+**输出上限。** v1.0.0 的 prelude 对输出没有上限，宿主会一直累积。v1.0.0 之后、尚未发布的提交
+`319fecb89` 在 prelude 里加了 `output()`：`text()`、`image()`、`console.*` 共用 16 Mi 字符与
+10 万次的上限，超过时以 `RangeError` 结束脚本（`packages/codemode/src/runtime/prelude-source.ts`，
+`MAX_OUTPUT_CHARS` / `MAX_OUTPUT_ITEMS`）。课程沿用同样的数值与失败方式，只统计 `console.*`。
 
 **deadline。** 上游 `CodemodeSandbox` 的缺省 deadline 是 300 秒（`host.ts:22`），codemode 工具
 不指定时传入 `Infinity`（`execute.ts:385`），脚本可以在第一行的 `// @options:` 里设置。课程
@@ -777,13 +789,13 @@ node --test packages/pi-course/dist/test/*.test.js
 验收记录可写成：
 
 ```text
-Lab 16.1: 4/4
+Lab 16.1: 5/5
 Lab 16.2: 3/3
 Lab 16.3: 2/2
 Lab 16.4: 3/3
 fault injection: script scope removed → Lab 16.2 red
 fault restored: Lab 16.2 green
-chapter total: 12/12
+chapter total: 13/13
 ```
 
 :::checkpoint title="Checkpoint 16 · 脚本在沙箱里调用工具，只有返回值回到模型"
@@ -802,14 +814,14 @@ ToolCall，以 `script` 作用域走 `executeToolCall`；失败只影响自己�
 `details.error.kind` 给出 `script` / `timeout` / `aborted` / `sandbox`。嵌套调用只出现在
 `details.nestedCalls`，声明集合不因脚本调用而改变。
 
-**公开证据：** `4/4 → 3/3 → 2/2 → 3/3`，共 `12/12`。
+**公开证据：** `5/5 → 3/3 → 2/2 → 3/3`，共 `13/13`。
 
 **恢复：** 回到 parent `6a8eff4e26ed662861fe0199ddca582dcc4ea4ca` 后，第 15 章的两个集合与
 `tool_search` 仍然可用，只是没有以 `script` 作用域调用工具的入口。
 :::
 
 :::transfer title="迁移练习 · 让脚本看到工具的调用次数"
-完成 `12/12` 后，在独立练习文件里写一个 `createCountingExecutor(registry)`：它返回一个
+完成 `13/13` 后，在独立练习文件里写一个 `createCountingExecutor(registry)`：它返回一个
 `ToolExecutor`，内部仍调用 `executeToolCall(call, registry, context, "script")`，同时按工具名
 统计调用次数。
 
